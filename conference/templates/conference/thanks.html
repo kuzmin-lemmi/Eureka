@@ -1,0 +1,22 @@
+{% extends "conference/base.html" %}
+
+{% block title %}Работа отправлена — {{ conf.title }}{% endblock %}
+
+{% block content %}
+<section class="page">
+  <div class="container container--narrow">
+    <div class="card success">
+      <div class="success__icon" aria-hidden="true">✓</div>
+      {% if application %}
+        <h1>Работа отправлена</h1>
+        <p class="lead">Номер заявки: <strong>{{ application.number }}</strong></p>
+        <p>Сохраните номер — он понадобится при обращении в оргкомитет. Мы свяжемся с вами по адресу <strong>{{ application.email }}</strong>.</p>
+      {% else %}
+        <h1>Спасибо!</h1>
+        <p>Ваша заявка получена.</p>
+      {% endif %}
+      <a class="btn btn--primary" href="{% url 'conference:home' %}">На главную</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

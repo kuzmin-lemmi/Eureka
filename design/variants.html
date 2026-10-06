@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Эврика — варианты дизайна</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=PT+Sans:wght@400;700&family=PT+Serif:wght@700&family=Nunito:wght@400;600;800;900&family=Caveat:wght@600;700&family=Unbounded:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #fff; }
+  img { max-width: 100%; display: block; }
+  a { text-decoration: none; color: inherit; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
+
+  /* Переключатель вариантов */
+  .switcher {
+    position: sticky; top: 0; z-index: 100;
+    display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap;
+    padding: 10px 16px; background: #111827; color: #fff; font: 14px/1.3 system-ui, sans-serif;
+  }
+  .switcher span { opacity: .7; margin-right: 4px; }
+  .switcher button {
+    padding: 8px 14px; border: 1px solid #374151; border-radius: 999px;
+    background: transparent; color: #fff; font: inherit; cursor: pointer;
+  }
+  .switcher button[aria-pressed="true"] { background: #fff; color: #111827; border-color: #fff; font-weight: 600; }
+  .variant { display: none; }
+  .variant.is-active { display: block; }
+
+  .field-mock { display: flex; flex-direction: column; gap: 6px; }
+  .field-mock label { font-size: .9rem; font-weight: 600; }
+  .field-mock .input { height: 42px; border-radius: 8px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr 120px; gap: 14px; }
+  @media (max-width: 640px) { .form-grid { grid-template-columns: 1fr; } }
+
+  /* ============ ВАРИАНТ 1: ОФИЦИАЛЬНЫЙ ============ */
+  .v1 { --blue: #0b5596; --blue-dark: #083f70; --ink: #1c2733; --muted: #5a6878; --line: #dbe3ec; --soft: #eef4fa;
+        font: 17px/1.6 "PT Sans", system-ui, sans-serif; color: var(--ink); background: #f6f8fb; }
+  .v1 h1, .v1 h2, .v1 h3 { font-family: "PT Serif", Georgia, serif; line-height: 1.15; margin: 0 0 .5em; }
+  .v1-header { background: #fff; border-bottom: 1px solid var(--line); }
+  .v1-header__in { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 20px; flex-wrap: wrap; }
+  .v1-brand { display: flex; align-items: center; gap: 12px; }
+  .v1-brand img { width: 74px; }
+  .v1-brand b { display: block; font: 700 1.2rem "PT Serif", serif; color: var(--blue-dark); }
+  .v1-brand small { color: var(--muted); font-size: .85rem; }
+  .v1-nav { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; font-weight: 700; color: var(--muted); }
+  .v1-btn { display: inline-block; padding: 12px 24px; border-radius: 6px; background: var(--blue); color: #fff; font-weight: 700; }
+  .v1-btn--sm { padding: 8px 16px; }
+  .v1-hero { background: #fff; border-bottom: 1px solid var(--line); }
+  .v1-hero__in { display: grid; grid-template-columns: 1.1fr 1fr; gap: 40px; align-items: center; padding: 56px 20px 64px; }
+  .v1-eyebrow { margin: 0 0 8px; color: var(--blue); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; font-size: .85rem; }
+  .v1 h1 { font-size: clamp(2.6rem, 6vw, 4.2rem); color: var(--blue-dark); }
+  .v1-lead { font-size: 1.2rem; color: var(--muted); margin: 0 0 24px; max-width: 520px; }
+  .v1-deadline { display: inline-flex; gap: 10px; align-items: baseline; padding: 10px 16px; margin-bottom: 24px;
+                 background: var(--soft); border-left: 4px solid var(--blue); }
+  .v1-deadline span { color: var(--muted); }
+  .v1-actions { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+  .v1-link { color: var(--blue); font-weight: 700; }
+  .v1-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line);
+              border: 1px solid var(--line); margin-top: -32px; position: relative; }
+  .v1-stat { background: #fff; padding: 20px; }
+  .v1-stat b { display: block; font: 700 2rem "PT Serif", serif; color: var(--blue); }
+  .v1-stat span { color: var(--muted); font-size: .95rem; }
+  .v1-caption { margin: 8px 0 0; color: var(--muted); font-size: .85rem; }
+  .v1-section { padding: 56px 0 0; }
+  .v1-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .v1-step { background: #fff; border: 1px solid var(--line); padding: 24px; border-top: 4px solid var(--blue); }
+  .v1-step i { font: 700 1.6rem "PT Serif", serif; color: var(--blue); font-style: normal; }
+  .v1-step h3 { margin-top: 6px; font-size: 1.2rem; }
+  .v1-step p { margin: 0; color: var(--muted); }
+  .v1-chips { display: flex; flex-wrap: wrap; gap: 10px; }
+  .v1-chips span { padding: 8px 14px; background: #fff; border: 1px solid var(--line); border-radius: 4px; }
+  .v1-form { max-width: 760px; margin: 0 auto; background: #fff; border: 1px solid var(--line); padding: 32px; }
+  .v1-form .input { border: 1px solid var(--line); background: #fff; }
+  .v1-drop { border: 2px dashed #b8c8da; background: var(--soft); padding: 22px; text-align: center; color: var(--muted); border-radius: 6px; }
+  .v1-footer { margin-top: 56px; padding: 28px 0; background: var(--blue-dark); color: #cfe0f1; font-size: .95rem; }
+  .v1-footer b { color: #fff; }
+  @media (max-width: 800px) {
+    .v1-hero__in { grid-template-columns: 1fr; padding-top: 32px; }
+    .v1-hero__in img { order: -1; max-width: 360px; }
+    .v1-stats { grid-template-columns: repeat(2, 1fr); margin-top: 24px; }
+    .v1-steps { grid-template-columns: 1fr; }
+    .v1-nav a:not(.v1-btn) { display: none; }
+  }
+
+  /* ============ ВАРИАНТ 2: ТЕТРАДЬ В КЛЕТКУ ============ */
+  .v2 { --ink: #1d2b4f; --blue: #0b5596; --yellow: #ffd84d; --coral: #ff6b5b; --green: #2bb673; --paper: #fffdf6;
+        font: 17px/1.6 "Nunito", system-ui, sans-serif; color: var(--ink);
+        background-color: var(--paper);
+        background-image: linear-gradient(#dce8f5 1px, transparent 1px), linear-gradient(90deg, #dce8f5 1px, transparent 1px);
+        background-size: 26px 26px; }
+  .v2 h1, .v2 h2, .v2 h3 { font-weight: 900; line-height: 1.1; margin: 0 0 .5em; }
+  .v2-hand { font-family: "Caveat", cursive; font-weight: 700; }
+  .v2-box { background: #fff; border: 2.5px solid var(--ink); border-radius: 16px; box-shadow: 5px 5px 0 var(--ink); }
+  .v2-header { padding: 16px 0; }
+  .v2-header__in { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 18px; flex-wrap: wrap; }
+  .v2-brand { display: flex; align-items: center; gap: 10px; font-weight: 900; font-size: 1.2rem; }
+  .v2-brand img { width: 64px; }
+  .v2-nav { display: flex; gap: 8px; flex-wrap: wrap; font-weight: 800; }
+  .v2-nav a { padding: 6px 12px; border-radius: 999px; }
+  .v2-btn { display: inline-block; padding: 14px 28px; border: 2.5px solid var(--ink); border-radius: 14px;
+            background: var(--yellow); color: var(--ink); font-weight: 900; font-size: 1.1rem; box-shadow: 4px 4px 0 var(--ink); }
+  .v2-btn--sm { padding: 6px 14px; font-size: 1rem; box-shadow: 3px 3px 0 var(--ink); }
+  .v2-hero { text-align: center; padding: 28px 0 40px; position: relative; }
+  .v2-hero__emblem { width: min(520px, 90%); margin: 0 auto; transform: rotate(-3deg); filter: drop-shadow(6px 8px 0 rgba(29,43,79,.15)); }
+  .v2-note { font-size: 2rem; color: var(--coral); margin: 8px 0 4px; transform: rotate(-2deg); display: inline-block; }
+  .v2 h1 { font-size: clamp(2rem, 5vw, 3.2rem); }
+  .v2 h1 mark { background: linear-gradient(transparent 55%, var(--yellow) 55%); color: inherit; padding: 0 4px; }
+  .v2-lead { max-width: 640px; margin: 0 auto 26px; font-size: 1.15rem; }
+  .v2-sticker { display: inline-block; margin-left: 18px; padding: 8px 14px; background: var(--coral); color: #fff;
+                border: 2.5px solid var(--ink); border-radius: 10px; transform: rotate(3deg); font-weight: 800; vertical-align: middle; }
+  .v2-section { padding: 36px 0 0; }
+  .v2-section h2 { font-size: 2rem; }
+  .v2-section h2 .v2-hand { color: var(--blue); font-size: 2.4rem; }
+  .v2-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  .v2-step { padding: 22px; border: 2.5px solid var(--ink); border-radius: 6px; box-shadow: 4px 4px 0 var(--ink); }
+  .v2-step:nth-child(1) { background: #fff3b0; transform: rotate(-1.5deg); }
+  .v2-step:nth-child(2) { background: #d6ebff; transform: rotate(1deg); }
+  .v2-step:nth-child(3) { background: #d4f5e2; transform: rotate(-.8deg); }
+  .v2-step i { font: 700 2.6rem "Caveat", cursive; font-style: normal; line-height: 1; }
+  .v2-step h3 { font-size: 1.25rem; margin-top: 4px; }
+  .v2-step p { margin: 0; }
+  .v2-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .v2-stat { padding: 16px; text-align: center; }
+  .v2-stat b { display: block; font-size: 2.2rem; font-weight: 900; color: var(--blue); line-height: 1.1; }
+  .v2-chips { display: flex; flex-wrap: wrap; gap: 10px; }
+  .v2-chips span { padding: 8px 16px; border: 2px solid var(--ink); border-radius: 999px; font-weight: 800; background: #fff; }
+  .v2-chips span:nth-child(4n+1) { background: #fff3b0; }
+  .v2-chips span:nth-child(4n+2) { background: #d6ebff; }
+  .v2-chips span:nth-child(4n+3) { background: #ffd9d4; }
+  .v2-chips span:nth-child(4n+4) { background: #d4f5e2; }
+  .v2-form { max-width: 760px; margin: 0 auto; padding: 30px; }
+  .v2-form .input { border: 2px solid var(--ink); background: #fff; border-radius: 10px; }
+  .v2-drop { border: 2.5px dashed var(--ink); border-radius: 14px; padding: 22px; text-align: center; background: #fffbe6; font-weight: 700; }
+  .v2-footer { margin-top: 48px; padding: 26px 0; border-top: 2.5px solid var(--ink); background: #fff; }
+  @media (max-width: 800px) {
+    .v2-steps { grid-template-columns: 1fr; }
+    .v2-stats { grid-template-columns: repeat(2, 1fr); }
+    .v2-sticker { margin: 16px 0 0; }
+    .v2-nav a:not(.v2-btn) { display: none; }
+  }
+
+  /* ============ ВАРИАНТ 3: ГАЛАКТИКА ============ */
+  .v3 { --night: #061a33; --night-2: #0b2e5c; --cyan: #4fd1ff; --violet: #7b61ff; --ink: #0f1d33; --muted: #5d6b85; --line: #e1e7f2;
+        font: 16px/1.6 "Inter", system-ui, sans-serif; color: var(--ink); background: #f4f7fd; }
+  .v3 h1, .v3 h2, .v3 h3 { font-family: "Unbounded", system-ui, sans-serif; line-height: 1.15; margin: 0 0 .5em; }
+  .v3-hero {
+    position: relative; overflow: hidden; color: #fff;
+    background:
+      radial-gradient(1.5px 1.5px at 12% 22%, #fff 50%, transparent 51%),
+      radial-gradient(1px 1px at 28% 68%, #fff 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 44% 14%, #cfe9ff 50%, transparent 51%),
+      radial-gradient(1px 1px at 61% 82%, #fff 50%, transparent 51%),
+      radial-gradient(2px 2px at 78% 30%, #fff 50%, transparent 51%),
+      radial-gradient(1px 1px at 90% 72%, #cfe9ff 50%, transparent 51%),
+      radial-gradient(1px 1px at 6% 86%, #fff 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 52% 48%, #fff 50%, transparent 51%),
+      radial-gradient(700px 400px at 75% 40%, rgba(79, 209, 255, .22), transparent 70%),
+      radial-gradient(600px 400px at 10% 100%, rgba(123, 97, 255, .3), transparent 70%),
+      linear-gradient(160deg, var(--night) 0%, var(--night-2) 100%);
+  }
+  .v3-header__in { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 20px; flex-wrap: wrap; }
+  .v3-brand { font: 700 1.1rem "Unbounded", sans-serif; letter-spacing: .08em; }
+  .v3-nav { display: flex; gap: 22px; align-items: center; flex-wrap: wrap; color: #b9cbe6; font-weight: 500; }
+  .v3-btn { display: inline-block; padding: 14px 28px; border-radius: 999px; color: #061a33; font-weight: 700;
+            background: linear-gradient(90deg, var(--cyan), #a8e8ff); box-shadow: 0 8px 30px rgba(79, 209, 255, .35); }
+  .v3-btn--ghost { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.35); box-shadow: none; }
+  .v3-btn--sm { padding: 8px 18px; }
+  .v3-hero__in { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: center; padding: 40px 20px 30px; }
+  .v3-eyebrow { color: var(--cyan); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; font-size: .8rem; margin: 0 0 14px; }
+  .v3 h1 { font-size: clamp(2.6rem, 7vw, 4.8rem); font-weight: 800; letter-spacing: .02em;
+           background: linear-gradient(90deg, #fff 30%, var(--cyan)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .v3-lead { color: #c4d4ec; font-size: 1.15rem; max-width: 500px; margin: 0 0 28px; }
+  .v3-actions { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+  .v3-deadline { margin-top: 22px; color: #9fb4d4; font-size: .95rem; }
+  .v3-deadline b { color: #fff; }
+  .v3-orbit { position: relative; aspect-ratio: 1.4; display: grid; place-items: center; }
+  .v3-orbit::before, .v3-orbit::after { content: ""; position: absolute; border-radius: 50%; border: 1px solid rgba(79, 209, 255, .25); }
+  .v3-orbit::before { inset: -2% 4%; transform: rotate(-12deg); }
+  .v3-orbit::after { inset: 14% 18%; border-color: rgba(123, 97, 255, .35); transform: rotate(20deg); }
+  .v3-orbit img { position: relative; width: 92%; filter: drop-shadow(0 0 36px rgba(79, 209, 255, .45)); }
+  .v3-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; padding: 10px 20px 48px; }
+  .v3-stat { padding: 18px; border-radius: 16px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); backdrop-filter: blur(6px); }
+  .v3-stat b { display: block; font: 700 1.8rem "Unbounded", sans-serif; color: #fff; }
+  .v3-stat span { color: #9fb4d4; font-size: .9rem; }
+  .v3-section { padding: 56px 0 0; }
+  .v3-section h2 { font-size: 1.7rem; }
+  .v3-timeline { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; position: relative; }
+  .v3-timeline::before { content: ""; position: absolute; top: 22px; left: 8%; right: 8%; height: 2px;
+                         background: linear-gradient(90deg, var(--cyan), var(--violet)); }
+  .v3-step { position: relative; text-align: center; padding: 0 10px; }
+  .v3-step i { display: grid; place-items: center; width: 46px; height: 46px; margin: 0 auto 14px; border-radius: 50%;
+               font: 700 1.1rem "Unbounded", sans-serif; font-style: normal; color: #fff;
+               background: linear-gradient(135deg, var(--cyan), var(--violet)); box-shadow: 0 0 0 6px #f4f7fd; }
+  .v3-step h3 { font-size: 1rem; }
+  .v3-step p { color: var(--muted); margin: 0; }
+  .v3-chips { display: flex; flex-wrap: wrap; gap: 10px; }
+  .v3-chips span { padding: 8px 16px; border-radius: 999px; background: #fff; border: 1px solid var(--line); font-weight: 500; }
+  .v3-form { max-width: 760px; margin: 0 auto; padding: 32px; background: #fff; border-radius: 22px;
+             box-shadow: 0 20px 60px rgba(11, 46, 92, .12); }
+  .v3-form .input { border: 1px solid var(--line); background: #f8faff; border-radius: 12px; }
+  .v3-drop { border: 2px dashed #b9c7e6; border-radius: 16px; padding: 22px; text-align: center; color: var(--muted); background: #f8faff; }
+  .v3-footer { margin-top: 56px; padding: 28px 0; background: var(--night); color: #9fb4d4; font-size: .95rem; }
+  .v3-footer b { color: #fff; }
+  @media (max-width: 800px) {
+    .v3-hero__in { grid-template-columns: 1fr; padding-top: 16px; }
+    .v3-orbit { order: -1; max-width: 420px; margin: 0 auto; }
+    .v3-stats { grid-template-columns: repeat(2, 1fr); }
+    .v3-timeline { grid-template-columns: 1fr; gap: 28px; }
+    .v3-timeline::before { display: none; }
+    .v3-nav a:not(.v3-btn) { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="switcher" role="toolbar" aria-label="Варианты дизайна">
+  <span>Вариант дизайна:</span>
+  <button data-v="v1">1 · Официальный</button>
+  <button data-v="v2">2 · Тетрадь в клетку</button>
+  <button data-v="v3">3 · Галактика</button>
+</div>
+
+<!-- ================= ВАРИАНТ 1 ================= -->
+<div class="variant v1" id="v1">
+  <header class="v1-header">
+    <div class="wrap v1-header__in">
+      <a class="v1-brand" href="#v1">
+        <img src="../conference/static/conference/emblem.png" alt="">
+        <span><b>«Эврика»</b><small>Межрегиональная НПК школьников</small></span>
+      </a>
+      <nav class="v1-nav">
+        <a href="#v1">О конференции</a><a href="#v1">Секции</a><a href="#v1">Как участвовать</a>
+        <a class="v1-btn v1-btn--sm" href="#v1">Подать работу</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="v1-hero">
+    <div class="wrap v1-hero__in">
+      <div>
+        <p class="v1-eyebrow">Межрегиональная научно-практическая конференция</p>
+        <h1>«Эврика»</h1>
+        <p class="v1-lead">Конференция исследовательских работ школьников Саратовской области и регионов России</p>
+        <div class="v1-deadline"><span>Приём работ</span><b>до 15 февраля 2027</b></div>
+        <div class="v1-actions">
+          <a class="v1-btn" href="#v1">Подать работу</a>
+          <a class="v1-link" href="#v1">Как принять участие →</a>
+        </div>
+      </div>
+      <img src="../conference/static/conference/emblem.png" alt="Эмблема конференции «Эврика»">
+    </div>
+  </section>
+
+  <div class="wrap">
+    <div class="v1-stats">
+      <div class="v1-stat"><b>382</b><span>участника</span></div>
+      <div class="v1-stat"><b>242</b><span>работы допущены к защите</span></div>
+      <div class="v1-stat"><b>20</b><span>секций</span></div>
+      <div class="v1-stat"><b>5 + 18</b><span>регионов и районов области</span></div>
+    </div>
+    <p class="v1-caption">«Эврика-2026» в цифрах</p>
+  </div>
+
+  <section class="v1-section">
+    <div class="wrap">
+      <h2>Как принять участие</h2>
+      <div class="v1-steps">
+        <div class="v1-step"><i>01</i><h3>Анкета и работа</h3><p>Заполните анкету и прикрепите текст исследовательской работы в PDF или Word.</p></div>
+        <div class="v1-step"><i>02</i><h3>Заочный этап</h3><p>Эксперты рассмотрят работу. Ссылка на тестирование придёт на указанную почту.</p></div>
+        <div class="v1-step"><i>03</i><h3>Очная защита</h3><p>Авторы отобранных работ выступают на секциях конференции.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="v1-section">
+    <div class="wrap">
+      <h2>Секции</h2>
+      <div class="v1-chips">
+        <span>Математика</span><span>Информатика</span><span>Физика</span><span>Химия</span><span>Биология</span><span>Экология</span>
+        <span>География</span><span>История</span><span>Обществознание</span><span>Литература</span><span>Русский язык</span><span>Иностранные языки</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="v1-section">
+    <div class="wrap">
+      <div class="v1-form">
+        <h2>Анкета участника</h2>
+        <div class="form-grid">
+          <div class="field-mock"><label>Фамилия *</label><div class="input"></div></div>
+          <div class="field-mock"><label>Имя *</label><div class="input"></div></div>
+          <div class="field-mock"><label>Класс *</label><div class="input"></div></div>
+        </div>
+        <div class="field-mock" style="margin:14px 0"><label>Название научно-исследовательской работы *</label><div class="input"></div></div>
+        <div class="v1-drop">Перетащите файл работы сюда или <b style="color:var(--blue)">выберите на компьютере</b><br><small>PDF, DOC, DOCX · до 20 МБ</small></div>
+        <div style="margin-top:20px"><a class="v1-btn" href="#v1">Отправить работу</a></div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="v1-footer">
+    <div class="wrap"><b>Организаторы:</b> Министерство образования Саратовской области · Региональный центр «Галактика 64» · МАОУ «Гимназия № 87», г. Саратов</div>
+  </footer>
+</div>
+
+<!-- ================= ВАРИАНТ 2 ================= -->
+<div class="variant v2" id="v2">
+  <header class="v2-header">
+    <div class="wrap">
+      <div class="v2-box v2-header__in">
+        <a class="v2-brand" href="#v2"><img src="../conference/static/conference/emblem.png" alt="">Эврика</a>
+        <nav class="v2-nav">
+          <a href="#v2">О конференции</a><a href="#v2">Секции</a><a href="#v2">Как участвовать</a>
+          <a class="v2-btn v2-btn--sm" href="#v2">Подать работу</a>
+        </nav>
+      </div>
+    </div>
+  </header>
+
+  <section class="v2-hero">
+    <div class="wrap">
+      <img class="v2-hero__emblem" src="../conference/static/conference/emblem.png" alt="Эмблема конференции «Эврика»">
+      <p class="v2-note v2-hand">Твоё открытие начинается здесь!</p>
+      <h1>Межрегиональная конференция <mark>«Эврика»</mark></h1>
+      <p class="v2-lead">Расскажи о своём исследовании: заполни анкету, прикрепи работу — и до встречи на защите!</p>
+      <a class="v2-btn" href="#v2">Подать работу</a>
+      <span class="v2-sticker">Приём до 15 февраля!</span>
+    </div>
+  </section>
+
+  <section class="v2-section">
+    <div class="wrap">
+      <h2><span class="v2-hand">Три шага</span> до конференции</h2>
+      <div class="v2-steps">
+        <div class="v2-step"><i>1.</i><h3>Анкета и работа</h3><p>Заполни анкету и прикрепи текст работы в PDF или Word.</p></div>
+        <div class="v2-step"><i>2.</i><h3>Заочный этап</h3><p>Эксперты прочитают работу, а ссылка на тестирование придёт на почту.</p></div>
+        <div class="v2-step"><i>3.</i><h3>Защита</h3><p>Выступи на секции и расскажи о своём открытии!</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="v2-section">
+    <div class="wrap">
+      <h2><span class="v2-hand">«Эврика-2026»</span> в цифрах</h2>
+      <div class="v2-stats">
+        <div class="v2-box v2-stat"><b>382</b>участника</div>
+        <div class="v2-box v2-stat"><b>242</b>работы</div>
+        <div class="v2-box v2-stat"><b>20</b>секций</div>
+        <div class="v2-box v2-stat"><b>5</b>регионов</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="v2-section">
+    <div class="wrap">
+      <h2><span class="v2-hand">Выбери</span> свою секцию</h2>
+      <div class="v2-chips">
+        <span>Математика</span><span>Информатика</span><span>Физика</span><span>Химия</span><span>Биология</span><span>Экология</span>
+        <span>География</span><span>История</span><span>Обществознание</span><span>Литература</span><span>Русский язык</span><span>Иностранные языки</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="v2-section">
+    <div class="wrap">
+      <div class="v2-box v2-form">
+        <h2>Анкета участника</h2>
+        <div class="form-grid">
+          <div class="field-mock"><label>Фамилия *</label><div class="input"></div></div>
+          <div class="field-mock"><label>Имя *</label><div class="input"></div></div>
+          <div class="field-mock"><label>Класс *</label><div class="input"></div></div>
+        </div>
+        <div class="field-mock" style="margin:14px 0"><label>Название научно-исследовательской работы *</label><div class="input"></div></div>
+        <div class="v2-drop">📄 Перетащи сюда файл работы<br><small>PDF, DOC, DOCX · до 20 МБ</small></div>
+        <div style="margin-top:22px"><a class="v2-btn" href="#v2">Отправить работу</a></div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="v2-footer">
+    <div class="wrap"><b>Организаторы:</b> Министерство образования Саратовской области · Региональный центр «Галактика 64» · МАОУ «Гимназия № 87», г. Саратов</div>
+  </footer>
+</div>
+
+<!-- ================= ВАРИАНТ 3 ================= -->
+<div class="variant v3" id="v3">
+  <section class="v3-hero">
+    <div class="wrap v3-header__in">
+      <a class="v3-brand" href="#v3">ЭВРИКА</a>
+      <nav class="v3-nav">
+        <a href="#v3">О конференции</a><a href="#v3">Секции</a><a href="#v3">Как участвовать</a>
+        <a class="v3-btn v3-btn--sm" href="#v3">Подать работу</a>
+      </nav>
+    </div>
+    <div class="wrap v3-hero__in">
+      <div>
+        <p class="v3-eyebrow">Межрегиональная научно-практическая конференция школьников</p>
+        <h1>ЭВРИКА</h1>
+        <p class="v3-lead">Исследовательские работы школьников Саратовской области и регионов России</p>
+        <div class="v3-actions">
+          <a class="v3-btn" href="#v3">Подать работу</a>
+          <a class="v3-btn v3-btn--ghost" href="#v3">Как участвовать</a>
+        </div>
+        <p class="v3-deadline">Приём работ до <b>15 февраля 2027</b></p>
+      </div>
+      <div class="v3-orbit"><img src="../conference/static/conference/emblem.png" alt="Эмблема конференции «Эврика»"></div>
+    </div>
+    <div class="wrap v3-stats">
+      <div class="v3-stat"><b>382</b><span>участника в 2026</span></div>
+      <div class="v3-stat"><b>242</b><span>работы на защите</span></div>
+      <div class="v3-stat"><b>20</b><span>секций</span></div>
+      <div class="v3-stat"><b>5</b><span>регионов России</span></div>
+    </div>
+  </section>
+
+  <section class="v3-section">
+    <div class="wrap">
+      <h2>Как принять участие</h2>
+      <div class="v3-timeline">
+        <div class="v3-step"><i>1</i><h3>Анкета и работа</h3><p>Заполните анкету и прикрепите текст работы в PDF или Word.</p></div>
+        <div class="v3-step"><i>2</i><h3>Заочный этап</h3><p>Экспертиза работы и тестирование — ссылка придёт на почту.</p></div>
+        <div class="v3-step"><i>3</i><h3>Очная защита</h3><p>Выступление на секции перед экспертами.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="v3-section">
+    <div class="wrap">
+      <h2>Секции</h2>
+      <div class="v3-chips">
+        <span>Математика</span><span>Информатика</span><span>Физика</span><span>Химия</span><span>Биология</span><span>Экология</span>
+        <span>География</span><span>История</span><span>Обществознание</span><span>Литература</span><span>Русский язык</span><span>Иностранные языки</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="v3-section">
+    <div class="wrap">
+      <div class="v3-form">
+        <h2>Анкета участника</h2>
+        <div class="form-grid">
+          <div class="field-mock"><label>Фамилия *</label><div class="input"></div></div>
+          <div class="field-mock"><label>Имя *</label><div class="input"></div></div>
+          <div class="field-mock"><label>Класс *</label><div class="input"></div></div>
+        </div>
+        <div class="field-mock" style="margin:14px 0"><label>Название научно-исследовательской работы *</label><div class="input"></div></div>
+        <div class="v3-drop">Перетащите файл работы или <b style="color:#0b5596">выберите на компьютере</b><br><small>PDF, DOC, DOCX · до 20 МБ</small></div>
+        <div style="margin-top:22px"><a class="v3-btn" href="#v3">Отправить работу</a></div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="v3-footer">
+    <div class="wrap"><b>Организаторы:</b> Министерство образования Саратовской области · Региональный центр «Галактика 64» · МАОУ «Гимназия № 87», г. Саратов</div>
+  </footer>
+</div>
+
+<script>
+  const buttons = document.querySelectorAll(".switcher button");
+  function show(id) {
+    document.querySelectorAll(".variant").forEach((v) => v.classList.toggle("is-active", v.id === id));
+    buttons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v === id)));
+  }
+  buttons.forEach((b) => b.addEventListener("click", () => { history.replaceState(null, "", "#" + b.dataset.v); show(b.dataset.v); scrollTo(0, 0); }));
+  // Ссылки внутри макета не уводят со страницы.
+  document.querySelectorAll(".variant a").forEach((a) => a.addEventListener("click", (e) => e.preventDefault()));
+  const fromHash = () => show(["v1", "v2", "v3"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "v1");
+  addEventListener("hashchange", fromHash);
+  fromHash();
+</script>
+</body>
+</html>

@@ -1,0 +1,61 @@
+{% extends "conference/base.html" %}
+{% load static %}
+
+{% block content %}
+<section class="hero">
+  <div class="container">
+    <img class="hero__emblem" src="{% static 'conference/emblem.png' %}" alt="Эмблема конференции «Эврика»">
+    <p class="hero__note hand">Твоё открытие начинается здесь!</p>
+    {% if conf.event_dates or conf.venue %}
+      <p class="hero__meta">
+        {% if conf.event_dates %}<span>{{ conf.event_dates }}</span>{% endif %}
+        {% if conf.venue %}<span>{{ conf.venue }}</span>{% endif %}
+      </p>
+    {% endif %}
+    <h1>{{ conf.title }}</h1>
+    {% if conf.tagline %}<p class="hero__lead">{{ conf.tagline }}</p>{% endif %}
+
+    {% if conf.is_submission_open %}
+      <a class="btn btn--lg" href="{% url 'conference:submit' %}">Подать работу</a>
+      {% if conf.submissions_deadline %}
+        <span class="sticker">Приём до {{ conf.submissions_deadline|date:"j E" }}!</span>
+      {% endif %}
+    {% else %}
+      <p class="hero__closed">Приём работ закрыт</p>
+    {% endif %}
+  </div>
+</section>
+
+<section class="section" id="how">
+  <div class="container">
+    <h2><span class="hand">Три шага</span> до конференции</h2>
+    <div class="steps">
+      <div class="step"><i>1.</i><h3>Анкета и работа</h3><p>Заполни анкету и прикрепи текст работы в PDF или Word.</p></div>
+      <div class="step"><i>2.</i><h3>Заочный этап</h3><p>Эксперты прочитают работу, а ссылка на тестирование придёт на почту.</p></div>
+      <div class="step"><i>3.</i><h3>Защита</h3><p>Выступи на секции и расскажи о своём открытии!</p></div>
+    </div>
+  </div>
+</section>
+
+{% if conf.description %}
+<section class="section">
+  <div class="container">
+    <div class="prose">
+      <h2>О конференции</h2>
+      {{ conf.description|linebreaks }}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{% if sections %}
+<section class="section">
+  <div class="container">
+    <h2><span class="hand">Выбери</span> свою секцию</h2>
+    <ul class="chips">
+      {% for section in sections %}<li>{{ section.name }}</li>{% endfor %}
+    </ul>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

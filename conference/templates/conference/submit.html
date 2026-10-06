@@ -1,0 +1,81 @@
+{% extends "conference/base.html" %}
+
+{% block title %}Подать работу — {{ conf.title }}{% endblock %}
+
+{% block content %}
+<section class="page">
+  <div class="container container--narrow">
+    <h1>Анкета участника</h1>
+
+    {% if closed %}
+      <div class="alert">Приём работ закрыт. По вопросам участия напишите оргкомитету{% if conf.contact_email %}: <a href="mailto:{{ conf.contact_email }}">{{ conf.contact_email }}</a>{% endif %}.</div>
+    {% elif not form.fields.section.queryset.exists %}
+      <div class="alert">Секции конференции ещё не опубликованы. Загляните позже.</div>
+    {% else %}
+      {% if conf.submissions_deadline %}
+        <p class="lead">Приём работ до {{ conf.submissions_deadline|date:"j E Y, H:i" }}.</p>
+      {% endif %}
+      <p class="muted">Поля, отмеченные <span class="req">*</span>, обязательны.</p>
+
+      {% include "conference/_form_errors.html" %}
+
+      <form method="post" enctype="multipart/form-data" class="form" novalidate data-once>
+        {% csrf_token %}
+        <div class="hp" aria-hidden="true">{{ form.website }}</div>
+
+        <fieldset class="card">
+          <legend>Участник</legend>
+          <div class="grid grid--name">
+            {% include "conference/_field.html" with field=form.last_name %}
+            {% include "conference/_field.html" with field=form.first_name %}
+            {% include "conference/_field.html" with field=form.grade %}
+          </div>
+          <div class="grid grid--2">
+            {% include "conference/_field.html" with field=form.school %}
+            {% include "conference/_field.html" with field=form.district %}
+          </div>
+          {% include "conference/_field.html" with field=form.email %}
+        </fieldset>
+
+        <fieldset class="card">
+          <legend>Работа</legend>
+          {% include "conference/_field.html" with field=form.title %}
+          {% include "conference/_field.html" with field=form.section %}
+          {% include "conference/_field.html" with field=form.file %}
+        </fieldset>
+
+        <fieldset class="card">
+          <legend>Соавтор <span class="legend-note">— если есть</span></legend>
+          <div class="grid grid--name">
+            {% include "conference/_field.html" with field=form.coauthor_last_name %}
+            {% include "conference/_field.html" with field=form.coauthor_first_name %}
+            {% include "conference/_field.html" with field=form.coauthor_grade %}
+          </div>
+        </fieldset>
+
+        <fieldset class="card">
+          <legend>Руководитель работы</legend>
+          <div class="grid grid--3">
+            {% include "conference/_field.html" with field=form.supervisor_last_name %}
+            {% include "conference/_field.html" with field=form.supervisor_first_name %}
+            {% include "conference/_field.html" with field=form.supervisor_middle_name %}
+          </div>
+          <div class="grid grid--2">
+            {% include "conference/_field.html" with field=form.supervisor_position %}
+            {% include "conference/_field.html" with field=form.supervisor_phone %}
+          </div>
+        </fieldset>
+
+        <fieldset class="card">
+          <legend>Связь на втором этапе</legend>
+          {% include "conference/_field.html" with field=form.links_email %}
+        </fieldset>
+
+        {% include "conference/_field.html" with field=form.consent %}
+
+        <button type="submit" class="btn btn--primary btn--lg">Отправить работу</button>
+      </form>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

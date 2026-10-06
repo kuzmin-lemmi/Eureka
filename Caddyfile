@@ -1,0 +1,10 @@
+{$DOMAIN} {
+	encode gzip
+
+	# Верхняя граница запроса с запасом; точный лимит на файл проверяет Django (MAX_UPLOAD_MB).
+	request_body {
+		max_size 60MB
+	}
+
+	reverse_proxy web:8000
+}

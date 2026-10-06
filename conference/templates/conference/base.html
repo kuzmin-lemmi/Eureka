@@ -1,0 +1,47 @@
+{% load static %}<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ conf.title }}{% endblock %}</title>
+  {% if conf.tagline %}<meta name="description" content="{{ conf.tagline }}">{% endif %}
+  <link rel="icon" href="{% static 'conference/emblem.png' %}" type="image/png">
+  <link rel="preload" href="{% static 'conference/fonts/nunito-cyrillic.woff2' %}" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="{% static 'conference/style.css' %}">
+  <script src="{% static 'conference/app.js' %}" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <div class="box site-header__inner">
+      <a class="logo" href="{% url 'conference:home' %}">
+        <img src="{% static 'conference/emblem.png' %}" alt="">
+        <span>Эврика</span>
+      </a>
+      <nav class="nav" aria-label="Основное меню">
+        <a href="{% url 'conference:home' %}#how"{% if request.resolver_match.url_name == 'home' %} aria-current="page"{% endif %}>Как участвовать</a>
+        <a href="{% url 'conference:submit' %}"{% if request.resolver_match.url_name == 'submit' %} aria-current="page"{% endif %}>Подать работу</a>
+      </nav>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <div class="container site-footer__inner">
+      <div>
+        <strong>{{ conf.title }}</strong>
+        {% if conf.organizer %}<div>{{ conf.organizer }}</div>{% endif %}
+      </div>
+      <div class="site-footer__contacts">
+        {% if conf.contact_email %}<a href="mailto:{{ conf.contact_email }}">{{ conf.contact_email }}</a>{% endif %}
+        {% if conf.contact_phone %}<span>{{ conf.contact_phone }}</span>{% endif %}
+        <a href="{% url 'conference:privacy' %}">Обработка персональных данных</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
