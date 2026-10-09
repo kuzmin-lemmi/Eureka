@@ -23,6 +23,9 @@ cd "$SITE_DIR"
 
 say "uv и Python $PYTHON_VERSION"
 export PATH="$HOME/.local/bin:$PATH"
+# Сайт работает от отдельного пользователя Beget, которому доступен только каталог сайта,
+# поэтому Python ставится туда, а не в ~/.local.
+export UV_PYTHON_INSTALL_DIR="$SITE_DIR/python"
 if ! command -v uv >/dev/null; then
   curl -LsSf https://astral.sh/uv/install.sh | env UV_NO_MODIFY_PATH=1 sh
 fi
@@ -36,7 +39,10 @@ else
 fi
 
 say "Виртуальное окружение и зависимости"
-[ -x venv/bin/python ] || uv venv --python "$PYTHON_VERSION" venv
+case "$(readlink -f venv/bin/python 2>/dev/null)" in
+  "$SITE_DIR"/python/*) ;;
+  *) rm -rf venv; uv venv --python "$PYTHON_VERSION" --managed-python venv ;;
+esac
 uv pip install --python venv/bin/python -r app/requirements.txt
 
 say "Настройки (.env)"
