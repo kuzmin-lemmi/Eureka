@@ -31,16 +31,20 @@ class ConferenceSettingsAdmin(admin.ModelAdmin):
 
 @admin.register(Section)
 class SectionAdmin(admin.ModelAdmin):
-    list_display = ("name", "order", "is_active", "submissions_count")
-    list_editable = ("order", "is_active")
+    list_display = ("name", "groups", "capacity", "places_display", "order", "is_active")
+    list_editable = ("groups", "capacity", "order", "is_active")
     search_fields = ("name",)
+    fields = ("name", "description", ("groups", "capacity"), ("order", "is_active"), "places_display")
+    readonly_fields = ("places_display",)
 
-    def get_queryset(self, request):
-        return super().get_queryset(request).annotate(_submissions_count=Count("submissions"))
-
-    @admin.display(description="заявок", ordering="_submissions_count")
-    def submissions_count(self, obj):
-        return obj._submissions_count
+    @admin.display(description="занято мест по секциям")
+    def places_display(self, obj):
+        if not obj.pk:
+            return "—"
+        taken = obj.occupied()
+        return " · ".join(
+            f"{obj.group_label(n)}: {taken[n]}/{obj.capacity}" for n in range(1, obj.groups + 1)
+        )
 
 
 @admin.register(Submission)
@@ -51,13 +55,13 @@ class SubmissionAdmin(admin.ModelAdmin):
         "full_name_display",
         "grade",
         "school",
-        "section",
+        "section_display",
         "title",
         "status",
         "files_display",
     )
     list_display_links = ("number_display", "full_name_display")
-    list_filter = ("status", "section", "grade", "created_at")
+    list_filter = ("status", "section", "section_number", "grade", "created_at")
     list_editable = ("status",)
     list_select_related = ("section",)
     search_fields = (
@@ -75,7 +79,7 @@ class SubmissionAdmin(admin.ModelAdmin):
     readonly_fields = ("number_display", "created_at", "updated_at", "file_link", "application_link", "consent_link")
     fieldsets = (
         ("Оргкомитет", {"fields": ("number_display", "status", "admin_comment", ("created_at", "updated_at"))}),
-        ("Работа", {"fields": ("title", "section", "file_link")}),
+        ("Работа", {"fields": ("title", ("section", "section_number"), "file_link")}),
         ("Документы", {"fields": ("application_link", "consent_link")}),
         ("Участник", {"fields": (("last_name", "first_name", "grade"), "school", "district", "email")}),
         ("Соавтор", {"fields": (("coauthor_last_name", "coauthor_first_name", "coauthor_grade"),)}),
@@ -98,6 +102,10 @@ class SubmissionAdmin(admin.ModelAdmin):
     @admin.display(description="№", ordering="pk")
     def number_display(self, obj):
         return obj.number
+
+    @admin.display(description="секция", ordering="section")
+    def section_display(self, obj):
+        return obj.section_label
 
     @admin.display(description="участник", ordering="last_name")
     def full_name_display(self, obj):

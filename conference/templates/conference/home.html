@@ -92,7 +92,7 @@
     <h2><span class="hand">Секции</span> конференции</h2>
     <ol class="rows">
       {% for section in sections %}
-        <li><b class="rows__num">{{ forloop.counter }}</b><div>{{ section.name }}{% if section.description %}<small>{{ section.description }}</small>{% endif %}</div></li>
+        <li><b class="rows__num">{{ forloop.counter }}</b><div>{{ section.name }}{% if section.description %}<small>{{ section.description }}</small>{% endif %}<small class="rows__meta">{% if section.groups > 1 %}Секций: {{ section.groups }} · {% endif %}{% if section.free_total %}свободно мест: {{ section.free_total }}{% else %}мест нет{% endif %}</small></div></li>
       {% endfor %}
     </ol>
   </div>

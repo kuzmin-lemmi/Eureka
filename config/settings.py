@@ -82,6 +82,9 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": DATA_DIR / "db.sqlite3",
+        # Транзакции сразу берут блокировку записи: проверка свободных мест в секции
+        # и сохранение заявки не перемешиваются между одновременными отправками.
+        "OPTIONS": {"transaction_mode": "IMMEDIATE"},
     }
 }
 

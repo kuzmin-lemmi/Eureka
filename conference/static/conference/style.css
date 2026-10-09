@@ -186,6 +186,7 @@ p { text-wrap: pretty; }
 .rows li { display: flex; gap: 14px; align-items: baseline; padding: 14px 20px; border-bottom: 2px solid var(--grid); break-inside: avoid; font-weight: 800; }
 .rows__num { flex: none; min-width: 1.2em; color: var(--blue); font-family: var(--hand); font-size: 1.5rem; line-height: 1; }
 .rows small { display: block; color: var(--muted); font-weight: 600; font-size: .92rem; }
+.rows small.rows__meta { margin-top: 2px; color: var(--blue); font-weight: 700; font-size: .85rem; }
 
 .faq { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
 .faq .card { margin: 0; padding: 0; box-shadow: 3px 3px 0 var(--ink); }

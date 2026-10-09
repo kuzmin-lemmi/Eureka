@@ -7,7 +7,7 @@
   <div class="container">
     <div class="page-head">
       <h1>Анкета участника</h1>
-      {% if not closed and form.fields.section.queryset.exists %}
+      {% if not closed and form.has_sections %}
         <p class="lead">
           {% if conf.submissions_deadline %}Приём работ до <b>{{ conf.submissions_deadline|date:"j E Y, H:i" }}</b>. {% endif %}
           Займёт около 10 минут.
@@ -18,7 +18,7 @@
 
     {% if closed %}
       <div class="alert">Приём работ закрыт. По вопросам участия напишите оргкомитету{% if conf.contact_email %}: <a href="mailto:{{ conf.contact_email }}">{{ conf.contact_email }}</a>{% endif %}.</div>
-    {% elif not form.fields.section.queryset.exists %}
+    {% elif not form.has_sections %}
       <div class="alert">Секции конференции ещё не опубликованы. Загляните позже.</div>
     {% else %}
       <div class="form-layout">
@@ -40,6 +40,10 @@
           <div class="hp" aria-hidden="true">{{ form.website }}</div>
 
           {% include "conference/_form_errors.html" %}
+
+          {% if not form.has_free %}
+            <div class="alert">Все секции сейчас заполнены. Если место освободится, оно снова появится в списке. По вопросам участия напишите оргкомитету{% if conf.contact_email %}: <a href="mailto:{{ conf.contact_email }}">{{ conf.contact_email }}</a>{% endif %}.</div>
+          {% endif %}
 
           {% if repeat %}
             <div class="alert alert--info">Школа и руководитель подставлены из прошлой заявки. Проверьте их и заполните данные нового участника.</div>
@@ -66,7 +70,7 @@
           <fieldset class="card" id="step-work" data-step="work">
             <legend><span class="legend-num">2</span>Работа</legend>
             {% include "conference/_field.html" with field=form.title %}
-            {% include "conference/_field.html" with field=form.section %}
+            {% include "conference/_field.html" with field=form.section_slot %}
             {% include "conference/_field.html" with field=form.file %}
           </fieldset>
 

@@ -79,18 +79,52 @@ class ConferenceSettings(models.Model):
 
 
 class Section(models.Model):
+    """Межпредметное направление. Если участников много, оно делится на несколько
+    секций с одинаковым названием и номером: «Краеведение 1», «Краеведение 2»…"""
+
     name = models.CharField("название", max_length=200)
     description = models.TextField("описание", blank=True)
+    groups = models.PositiveSmallIntegerField(
+        "количество секций",
+        default=1,
+        validators=[MinValueValidator(1), MaxValueValidator(20)],
+        help_text="Если больше одной, в анкете появятся «Название 1», «Название 2» и т. д.",
+    )
+    capacity = models.PositiveSmallIntegerField(
+        "мест в секции",
+        default=15,
+        validators=[MinValueValidator(1)],
+        help_text="Участник и соавтор занимают по месту. Отклонённые заявки места не занимают.",
+    )
     order = models.PositiveSmallIntegerField("порядок", default=0)
     is_active = models.BooleanField("показывать в анкете", default=True)
 
     class Meta:
-        verbose_name = "секция"
-        verbose_name_plural = "секции"
+        verbose_name = "направление"
+        verbose_name_plural = "направления (секции)"
         ordering = ["order", "name"]
 
     def __str__(self):
         return self.name
+
+    def group_label(self, number):
+        return f"{self.name} {number}" if self.groups > 1 else self.name
+
+    def occupied(self):
+        """Занятые места по номерам секций: {1: 12, 2: 3, …}."""
+        taken = dict.fromkeys(range(1, self.groups + 1), 0)
+        rows = (
+            self.submissions.exclude(status=Submission.Status.REJECTED)
+            .values_list("section_number", "coauthor_last_name")
+        )
+        for number, coauthor in rows:
+            taken[number] = taken.get(number, 0) + (2 if coauthor else 1)
+        return taken
+
+    def free_places(self):
+        """Свободные места по номерам секций (только существующие секции)."""
+        taken = self.occupied()
+        return {n: max(self.capacity - taken[n], 0) for n in range(1, self.groups + 1)}
 
 
 def submission_upload_to(instance, filename):
@@ -123,6 +157,10 @@ class Submission(models.Model):
     title = models.CharField("название научно-исследовательской работы", max_length=500)
     section = models.ForeignKey(
         Section, on_delete=models.PROTECT, related_name="submissions", verbose_name="межпредметное направление"
+    )
+    section_number = models.PositiveSmallIntegerField(
+        "номер секции", default=1, validators=[MinValueValidator(1)],
+        help_text="Для направлений из нескольких секций: 1, 2, 3…",
     )
     file = models.FileField("файл работы", upload_to=submission_upload_to)
     original_filename = models.CharField("исходное имя файла", max_length=255, blank=True)
@@ -170,6 +208,14 @@ class Submission(models.Model):
     @property
     def number(self):
         return f"№ {self.pk:04d}" if self.pk else "новая"
+
+    @property
+    def section_label(self):
+        return self.section.group_label(self.section_number)
+
+    @property
+    def people(self):
+        return 2 if self.coauthor_last_name else 1
 
     @property
     def full_name(self):

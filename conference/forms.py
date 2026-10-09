@@ -4,6 +4,7 @@ from pathlib import Path
 from django import forms
 from django.conf import settings
 from django.urls import reverse
+from django.db import transaction
 from django.utils.html import format_html
 
 from .models import ConferenceSettings, Section, Submission
@@ -26,14 +27,52 @@ REPEAT_FIELDS = (
 )
 
 
+def places(n):
+    if n % 10 == 1 and n % 100 != 11:
+        return f"{n} место"
+    if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
+        return f"{n} места"
+    return f"{n} мест"
+
+
+class SlotSelect(forms.Select):
+    """Список секций, где заполненные видны, но недоступны для выбора."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.disabled_values = set()
+
+    def create_option(self, name, value, *args, **kwargs):
+        option = super().create_option(name, value, *args, **kwargs)
+        if str(value) in self.disabled_values:
+            option["attrs"]["disabled"] = True
+        return option
+
+
+def section_slots():
+    """[(значение «pk:номер», подпись, свободно мест, направление, номер)] для активных направлений."""
+    slots = []
+    for section in Section.objects.filter(is_active=True):
+        for number, free in section.free_places().items():
+            label = section.group_label(number)
+            label += f" — свободно {places(free)}" if free else " — мест нет"
+            slots.append((f"{section.pk}:{number}", label, free, section, number))
+    return slots
+
+
 def formats(extensions):
     return ", ".join(dict.fromkeys(ext.lstrip(".").upper().replace("JPEG", "JPG") for ext in extensions))
+
+
+class SectionFull(Exception):
+    """Секцию заняли, пока участник заполнял анкету."""
 
 
 class SubmissionForm(forms.ModelForm):
     # Поле скрыто от людей через CSS; боты его заполняют, и такие заявки не сохраняются.
     website = forms.CharField(required=False, label="Не заполняйте это поле")
     consent = forms.BooleanField(required=True)
+    section_slot = forms.ChoiceField(label="Секция", widget=SlotSelect)
 
     class Meta:
         model = Submission
@@ -45,7 +84,6 @@ class SubmissionForm(forms.ModelForm):
             "first_name",
             "grade",
             "title",
-            "section",
             "coauthor_last_name",
             "coauthor_first_name",
             "coauthor_grade",
@@ -64,7 +102,6 @@ class SubmissionForm(forms.ModelForm):
             "district": "Муниципальный район",
             "school": "Образовательная организация",
             "title": "Название научно-исследовательской работы",
-            "section": "Межпредметное направление (секция)",
             "file": "Текст работы",
             "application_file": "Заявка на участие",
             "consent_file": "Согласие на обработку персональных данных",
@@ -95,8 +132,12 @@ class SubmissionForm(forms.ModelForm):
         conf = ConferenceSettings.load()
         max_mb = settings.MAX_UPLOAD_MB
 
-        self.fields["section"].queryset = Section.objects.filter(is_active=True)
-        self.fields["section"].empty_label = "— выберите направление —"
+        slots = section_slots()
+        self.slots = {value: (free, section, number) for value, _, free, section, number in slots}
+        slot_field = self.fields["section_slot"]
+        slot_field.choices = [("", "— выберите секцию —")] + [(value, label) for value, label, *_ in slots]
+        slot_field.widget.disabled_values = {v for v, (free, *_) in self.slots.items() if not free}
+        slot_field.help_text = "Число мест в секции ограничено. Заполненные секции выбрать нельзя."
 
         self.fields["file"].help_text = (
             f"{formats(ALLOWED_EXTENSIONS)}, до {max_mb} МБ. Презентации и видео не принимаются."
@@ -156,8 +197,29 @@ class SubmissionForm(forms.ModelForm):
     def clean_consent_file(self):
         return self._check_file("consent_file", DOCUMENT_EXTENSIONS, "согласие")
 
+    @property
+    def has_sections(self):
+        return bool(self.slots)
+
+    @property
+    def has_free(self):
+        return any(free for free, *_ in self.slots.values())
+
     def clean(self):
         cleaned = super().clean()
+        slot = cleaned.get("section_slot")
+        if slot:
+            free, section, number = self.slots[slot]
+            need = 2 if cleaned.get("coauthor_last_name") else 1
+            if need > free:
+                self.add_error(
+                    "section_slot",
+                    "Эта секция уже заполнена — выберите другую."
+                    if not free
+                    else f"В секции осталось {places(free)}, а с соавтором нужно два. Выберите другую секцию.",
+                )
+            else:
+                self.instance.section, self.instance.section_number = section, number
         # Соавтор необязателен, но если он указан — нужны все три поля.
         coauthor_fields = ("coauthor_last_name", "coauthor_first_name", "coauthor_grade")
         if any(cleaned.get(name) for name in coauthor_fields):
@@ -167,6 +229,19 @@ class SubmissionForm(forms.ModelForm):
         return cleaned
 
     def save(self, commit=True):
+        if commit:
+            with transaction.atomic():
+                # Повторная проверка мест прямо перед записью: пока заполняли анкету,
+                # секцию могли занять другие.
+                section = Section.objects.select_for_update().get(pk=self.instance.section_id)
+                if section.free_places().get(self.instance.section_number, 0) < (
+                    2 if self.cleaned_data.get("coauthor_last_name") else 1
+                ):
+                    raise SectionFull
+                return self._save()
+        return self._save(commit=False)
+
+    def _save(self, commit=True):
         submission = super().save(commit=False)
         submission.original_filename = Path(self.cleaned_data["file"].name).name[:255]
         submission.application_original_filename = Path(self.cleaned_data["application_file"].name).name[:255]

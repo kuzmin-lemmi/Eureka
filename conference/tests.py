@@ -1,3 +1,4 @@
+import os
 import shutil
 import tempfile
 from datetime import timedelta
@@ -33,7 +34,7 @@ class SubmissionTests(TestCase):
             "first_name": "Мария",
             "grade": "7",
             "title": "Маятник Фуко в домашних условиях",
-            "section": self.section.pk,
+            "section_slot": f"{self.section.pk}:1",
             "supervisor_last_name": "Петрова",
             "supervisor_first_name": "Анна",
             "supervisor_position": "учитель физики",
@@ -95,6 +96,54 @@ class SubmissionTests(TestCase):
         # Без ?more анкета пустая.
         self.assertNotContains(self.client.get(reverse("conference:submit")), 'value="Петрова"')
 
+    def test_section_groups_are_numbered(self):
+        self.section.groups = 3
+        self.section.save()
+        response = self.client.get(reverse("conference:submit"))
+        self.assertContains(response, "Естественные науки 2 — свободно 15 мест")
+        self.post(section_slot=f"{self.section.pk}:3")
+        submission = Submission.objects.get()
+        self.assertEqual(submission.section_number, 3)
+        self.assertEqual(submission.section_label, "Естественные науки 3")
+
+    def test_group_number_out_of_range_rejected(self):
+        self.post(section_slot=f"{self.section.pk}:2")
+        self.assertFalse(Submission.objects.exists())
+
+    def test_full_section_is_disabled_and_rejected(self):
+        self.section.capacity = 1
+        self.section.save()
+        self.post()
+        self.assertEqual(Submission.objects.count(), 1)
+
+        response = self.client.get(reverse("conference:submit"))
+        self.assertContains(response, "Естественные науки — мест нет")
+        self.assertContains(response, "disabled")
+
+        response = self.post(last_name="Петров")
+        self.assertContains(response, "Эта секция уже заполнена")
+        self.assertEqual(Submission.objects.count(), 1)
+
+    def test_coauthor_takes_a_place(self):
+        self.section.capacity = 2
+        self.section.save()
+        self.post(coauthor_last_name="Сидоров", coauthor_first_name="Пётр", coauthor_grade="8")
+        self.assertEqual(self.section.free_places(), {1: 0})
+
+        self.section.capacity = 3
+        self.section.save()
+        response = self.post(coauthor_last_name="Орлов", coauthor_first_name="Иван", coauthor_grade="8")
+        self.assertContains(response, "осталось 1 место")
+        self.assertEqual(Submission.objects.count(), 1)
+
+    def test_rejected_submission_frees_place(self):
+        self.section.capacity = 1
+        self.section.save()
+        self.post()
+        Submission.objects.update(status=Submission.Status.REJECTED)
+        self.post(last_name="Петров")
+        self.assertEqual(Submission.objects.count(), 2)
+
     def test_grade_out_of_range_rejected(self):
         self.post(grade="12")
         self.assertFalse(Submission.objects.exists())
@@ -122,7 +171,7 @@ class SubmissionTests(TestCase):
 
     def test_inactive_section_not_allowed(self):
         hidden = Section.objects.create(name="Скрытая", is_active=False)
-        self.post(section=hidden.pk)
+        self.post(section_slot=f"{hidden.pk}:1")
         self.assertFalse(Submission.objects.exists())
 
     def test_closed_after_deadline(self):
@@ -180,6 +229,17 @@ class OrganizersTests(TestCase):
         self.assertEqual(self.client.get(reverse("admin:conference_submission_changelist")).status_code, 200)
         self.assertEqual(self.client.get(reverse("admin:conference_section_add")).status_code, 200)
         self.assertEqual(self.client.get(reverse("admin:auth_user_changelist")).status_code, 403)
+
+
+class LoadSectionsTests(TestCase):
+    def test_load_sections_creates_list_and_replaces_demo(self):
+        from django.core.management import call_command
+
+        Section.objects.create(name="Демо")
+        call_command("load_sections", "--replace", stdout=open(os.devnull, "w"))
+        self.assertFalse(Section.objects.filter(name="Демо").exists())
+        self.assertEqual(Section.objects.get(name="Региональное краеведение").groups, 3)
+        self.assertEqual(Section.objects.count(), 13)
 
 
 class PagesTests(TestCase):

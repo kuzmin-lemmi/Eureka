@@ -5,7 +5,7 @@ from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods
 
-from .forms import REPEAT_FIELDS, SubmissionForm
+from .forms import REPEAT_FIELDS, SectionFull, SubmissionForm
 from .models import ConferenceSettings, Section, Submission
 
 THANKS_SESSION_KEY = "conference_thanks"
@@ -24,7 +24,10 @@ BLANKS = {
 
 
 def home(request):
-    return render(request, "conference/home.html", {"sections": Section.objects.filter(is_active=True)})
+    sections = list(Section.objects.filter(is_active=True))
+    for section in sections:
+        section.free_total = sum(section.free_places().values())
+    return render(request, "conference/home.html", {"sections": sections})
 
 
 @require_http_methods(["GET", "POST"])
@@ -38,7 +41,14 @@ def submit(request):
     if request.method == "POST" and form.is_valid():
         if form.is_spam:
             return redirect("conference:thanks")
-        submission = form.save()
+        try:
+            submission = form.save()
+        except SectionFull:
+            # Пересчитываем свободные места: проверка формы сама отметит занятую секцию.
+            form = SubmissionForm(request.POST, request.FILES)
+            if form.is_valid() or "section_slot" not in form.errors:
+                form.add_error("section_slot", "Пока вы заполняли анкету, эту секцию заняли. Выберите другую.")
+            return render(request, "conference/submit.html", {"form": form})
         request.session[THANKS_SESSION_KEY] = {
             "number": submission.number,
             "email": submission.email,
