@@ -6,6 +6,7 @@ set -euo pipefail
 SITE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "$SITE_DIR"
 export PATH="$HOME/.local/bin:$PATH"
+export UV_PYTHON_INSTALL_DIR="$SITE_DIR/python" UV_CACHE_DIR="$SITE_DIR/.uv-cache" UV_LINK_MODE=copy
 
 git -C app pull --ff-only
 uv pip install --python venv/bin/python -r app/requirements.txt

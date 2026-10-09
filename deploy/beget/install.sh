@@ -26,6 +26,8 @@ export PATH="$HOME/.local/bin:$PATH"
 # Сайт работает от отдельного пользователя Beget, которому доступен только каталог сайта,
 # поэтому Python ставится туда, а не в ~/.local.
 export UV_PYTHON_INSTALL_DIR="$SITE_DIR/python"
+# Файлы должны получить права каталога сайта: копируем, а не ссылаемся на кэш в ~/.cache.
+export UV_CACHE_DIR="$SITE_DIR/.uv-cache" UV_LINK_MODE=copy
 if ! command -v uv >/dev/null; then
   curl -LsSf https://astral.sh/uv/install.sh | env UV_NO_MODIFY_PATH=1 sh
 fi
@@ -43,7 +45,7 @@ case "$(readlink -f venv/bin/python 2>/dev/null)" in
   "$SITE_DIR"/python/*) ;;
   *) rm -rf venv; uv venv --python "$PYTHON_VERSION" --managed-python venv ;;
 esac
-uv pip install --python venv/bin/python -r app/requirements.txt
+uv pip install --python venv/bin/python --reinstall -r app/requirements.txt
 
 say "Настройки (.env)"
 if [ ! -f app/.env ]; then
