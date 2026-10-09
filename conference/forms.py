@@ -6,11 +6,28 @@ from django.conf import settings
 from django.urls import reverse
 from django.utils.html import format_html
 
-from .models import Section, Submission
+from .models import ConferenceSettings, Section, Submission
 
-# Только текстовые документы: без презентаций и видео.
+# Текст работы — только документы: без презентаций и видео.
 ALLOWED_EXTENSIONS = (".pdf", ".doc", ".docx", ".odt", ".rtf")
+# Подписанные заявка и согласие — скан или фото.
+DOCUMENT_EXTENSIONS = (".pdf", ".jpg", ".jpeg", ".png")
 GRADE_CHOICES = [("", "—")] + [(n, str(n)) for n in range(1, 12)]
+
+# Поля, которые переносятся в анкету следующей работы того же руководителя.
+REPEAT_FIELDS = (
+    "school",
+    "district",
+    "supervisor_last_name",
+    "supervisor_first_name",
+    "supervisor_middle_name",
+    "supervisor_position",
+    "supervisor_phone",
+)
+
+
+def formats(extensions):
+    return ", ".join(dict.fromkeys(ext.lstrip(".").upper().replace("JPEG", "JPG") for ext in extensions))
 
 
 class SubmissionForm(forms.ModelForm):
@@ -39,6 +56,8 @@ class SubmissionForm(forms.ModelForm):
             "supervisor_phone",
             "links_email",
             "file",
+            "application_file",
+            "consent_file",
         ]
         labels = {
             "email": "Электронная почта участника",
@@ -46,6 +65,9 @@ class SubmissionForm(forms.ModelForm):
             "school": "Образовательная организация",
             "title": "Название научно-исследовательской работы",
             "section": "Межпредметное направление (секция)",
+            "file": "Текст работы",
+            "application_file": "Заявка на участие",
+            "consent_file": "Согласие на обработку персональных данных",
             "coauthor_last_name": "Фамилия соавтора",
             "coauthor_first_name": "Имя соавтора",
             "coauthor_grade": "Класс соавтора",
@@ -63,23 +85,44 @@ class SubmissionForm(forms.ModelForm):
         widgets = {
             "grade": forms.Select(choices=GRADE_CHOICES),
             "coauthor_grade": forms.Select(choices=GRADE_CHOICES),
+            "file": forms.FileInput,
+            "application_file": forms.FileInput,
+            "consent_file": forms.FileInput,
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        conf = ConferenceSettings.load()
+        max_mb = settings.MAX_UPLOAD_MB
+
         self.fields["section"].queryset = Section.objects.filter(is_active=True)
         self.fields["section"].empty_label = "— выберите направление —"
+
         self.fields["file"].help_text = (
-            f"Текст работы в формате {', '.join(ext.lstrip('.').upper() for ext in ALLOWED_EXTENSIONS)}, "
-            f"до {settings.MAX_UPLOAD_MB} МБ. Презентации и видео не принимаются."
+            f"{formats(ALLOWED_EXTENSIONS)}, до {max_mb} МБ. Презентации и видео не принимаются."
         )
-        self.fields["file"].widget.attrs.update(
-            {"accept": ",".join(ALLOWED_EXTENSIONS), "data-max-mb": settings.MAX_UPLOAD_MB}
-        )
+        self.fields["file"].widget.attrs.update({"accept": ",".join(ALLOWED_EXTENSIONS), "data-max-mb": max_mb})
+
+        scan_help = f"Скан или фото с подписью: {formats(DOCUMENT_EXTENSIONS)}, до {max_mb} МБ. Несколько страниц — соберите в один PDF."
+        for name, kind, blank in (
+            ("application_file", "application", conf.application_template),
+            ("consent_file", "consent", conf.consent_template),
+        ):
+            field = self.fields[name]
+            field.required = True
+            field.widget.attrs.update({"accept": ",".join(DOCUMENT_EXTENSIONS), "data-max-mb": max_mb})
+            field.help_text = scan_help
+            if blank:
+                field.help_text = format_html(
+                    '<a href="{}" class="blank-link">Скачать бланк</a> · {}', reverse("conference:blank", args=[kind]), scan_help
+                )
+
         self.fields["website"].widget.attrs.update({"tabindex": "-1", "autocomplete": "off"})
         for name in ("email", "links_email"):
-            self.fields[name].widget.attrs["placeholder"] = "name@example.ru"
-        self.fields["supervisor_phone"].widget.attrs.update({"type": "tel", "placeholder": "+7 900 000-00-00"})
+            self.fields[name].widget.attrs.update({"placeholder": "name@example.ru", "autocomplete": "off"})
+        self.fields["supervisor_phone"].widget.attrs.update(
+            {"type": "tel", "inputmode": "tel", "placeholder": "+7 (900) 000-00-00", "data-phone": ""}
+        )
         self.fields["consent"].label = format_html(
             "Подтверждаю согласие родителя (законного представителя) участника на обработку персональных данных "
             'в соответствии с <a href="{}" target="_blank">политикой</a>',
@@ -96,15 +139,22 @@ class SubmissionForm(forms.ModelForm):
             raise forms.ValidationError("Укажите телефон полностью, например +7 900 000-00-00.")
         return phone
 
-    def clean_file(self):
-        file = self.cleaned_data["file"]
-        if Path(file.name).suffix.lower() not in ALLOWED_EXTENSIONS:
-            raise forms.ValidationError(
-                "Недопустимый формат. Загрузите текст работы в PDF, DOC, DOCX, ODT или RTF."
-            )
+    def _check_file(self, name, extensions, what):
+        file = self.cleaned_data[name]
+        if Path(file.name).suffix.lower() not in extensions:
+            raise forms.ValidationError(f"Недопустимый формат. Загрузите {what} в {formats(extensions)}.")
         if file.size > settings.MAX_UPLOAD_MB * 1024 * 1024:
             raise forms.ValidationError(f"Файл больше {settings.MAX_UPLOAD_MB} МБ.")
         return file
+
+    def clean_file(self):
+        return self._check_file("file", ALLOWED_EXTENSIONS, "текст работы")
+
+    def clean_application_file(self):
+        return self._check_file("application_file", DOCUMENT_EXTENSIONS, "заявку")
+
+    def clean_consent_file(self):
+        return self._check_file("consent_file", DOCUMENT_EXTENSIONS, "согласие")
 
     def clean(self):
         cleaned = super().clean()
@@ -119,6 +169,13 @@ class SubmissionForm(forms.ModelForm):
     def save(self, commit=True):
         submission = super().save(commit=False)
         submission.original_filename = Path(self.cleaned_data["file"].name).name[:255]
+        submission.application_original_filename = Path(self.cleaned_data["application_file"].name).name[:255]
+        submission.consent_original_filename = Path(self.cleaned_data["consent_file"].name).name[:255]
         if commit:
             submission.save()
         return submission
+
+    @property
+    def has_coauthor(self):
+        names = ("coauthor_last_name", "coauthor_first_name", "coauthor_grade")
+        return any(self[name].value() or self[name].errors for name in names)

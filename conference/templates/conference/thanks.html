@@ -5,18 +5,38 @@
 {% block content %}
 <section class="page">
   <div class="container container--narrow">
-    <div class="card success">
+    <div class="card success" data-clear-draft>
       <div class="success__icon" aria-hidden="true">✓</div>
       {% if application %}
-        <h1>Работа отправлена</h1>
-        <p class="lead">Номер заявки: <strong>{{ application.number }}</strong></p>
-        <p>Сохраните номер — он понадобится при обращении в оргкомитет. Мы свяжемся с вами по адресу <strong>{{ application.email }}</strong>.</p>
+        <h1>Работа отправлена!</h1>
+        <p class="success__number">Номер заявки <strong>{{ application.number }}</strong></p>
+        <p>Сохраните номер — он понадобится при обращении в оргкомитет.</p>
       {% else %}
         <h1>Спасибо!</h1>
         <p>Ваша заявка получена.</p>
       {% endif %}
-      <a class="btn btn--primary" href="{% url 'conference:home' %}">На главную</a>
     </div>
+
+    {% if application %}
+      <div class="card">
+        <h2 class="h3">Что дальше</h2>
+        <ol class="next-steps">
+          <li>Оргкомитет проверит работу и документы. Если понадобится что-то поправить, свяжемся по адресу <strong>{{ application.email }}</strong>.</li>
+          <li>Ссылка на тестирование и второй этап придёт на <strong>{{ application.links_email|default:application.email }}</strong>.</li>
+          <li>Защита работ на секциях{% if conf.event_dates %} — {{ conf.event_dates }}{% endif %}.</li>
+        </ol>
+      </div>
+    {% endif %}
+
+    <div class="actions">
+      {% if conf.is_submission_open %}
+        <a class="btn" href="{% url 'conference:submit' %}?more=1">Подать ещё одну работу</a>
+      {% endif %}
+      <a class="btn btn--ghost" href="{% url 'conference:home' %}">На главную</a>
+    </div>
+    {% if conf.is_submission_open %}
+      <p class="help actions__help">Для следующей работы школа и руководитель подставятся автоматически.</p>
+    {% endif %}
   </div>
 </section>
 {% endblock %}

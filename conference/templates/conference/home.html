@@ -3,44 +3,106 @@
 
 {% block content %}
 <section class="hero">
-  <div class="container">
-    <img class="hero__emblem" src="{% static 'conference/emblem.png' %}" alt="Эмблема конференции «Эврика»">
-    <p class="hero__note hand">Твоё открытие начинается здесь!</p>
-    {% if conf.event_dates or conf.venue %}
-      <p class="hero__meta">
-        {% if conf.event_dates %}<span>{{ conf.event_dates }}</span>{% endif %}
-        {% if conf.venue %}<span>{{ conf.venue }}</span>{% endif %}
-      </p>
-    {% endif %}
-    <h1>{{ conf.title }}</h1>
-    {% if conf.tagline %}<p class="hero__lead">{{ conf.tagline }}</p>{% endif %}
-
-    {% if conf.is_submission_open %}
-      <a class="btn btn--lg" href="{% url 'conference:submit' %}">Подать работу</a>
-      {% if conf.submissions_deadline %}
-        <span class="sticker">Приём до {{ conf.submissions_deadline|date:"j E" }}!</span>
+  <div class="container hero__grid">
+    <div class="hero__text">
+      {% if conf.is_submission_open %}
+        <p class="status"><span class="status__dot" aria-hidden="true"></span>
+          {% if conf.submissions_deadline %}Приём работ открыт до {{ conf.submissions_deadline|date:"j E" }}{% else %}Приём работ открыт{% endif %}
+        </p>
+      {% else %}
+        <p class="status status--closed"><span class="status__dot" aria-hidden="true"></span>Приём работ закрыт</p>
       {% endif %}
-    {% else %}
-      <p class="hero__closed">Приём работ закрыт</p>
-    {% endif %}
+      <h1>{{ conf.title }}</h1>
+      {% if conf.tagline %}<p class="hero__lead">{{ conf.tagline }}</p>{% endif %}
+      <div class="hero__actions">
+        {% if conf.is_submission_open %}<a class="btn btn--lg" href="{% url 'conference:submit' %}">Подать работу</a>{% endif %}
+        <a class="btn btn--lg btn--ghost" href="#how">Как участвовать</a>
+      </div>
+    </div>
+    <figure class="polaroid">
+      <img src="{% static 'conference/emblem.png' %}" alt="Эмблема конференции «Эврика»">
+      <figcaption class="hand">Твоё открытие начинается здесь!</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section class="section section--tight">
+  <div class="container">
+    <dl class="tiles">
+      {% if conf.is_submission_open and conf.submissions_deadline %}
+        <div class="card tile tile--accent"><dt>Приём работ</dt><dd><b>до {{ conf.submissions_deadline|date:"j E" }}</b>осталось {{ conf.submissions_deadline|timeuntil }}</dd></div>
+      {% endif %}
+      {% if conf.event_dates %}
+        <div class="card tile"><dt>Конференция</dt><dd><b>{{ conf.event_dates }}</b></dd></div>
+      {% endif %}
+      {% if conf.venue %}
+        <div class="card tile"><dt>Место</dt><dd><b>{{ conf.venue }}</b></dd></div>
+      {% endif %}
+      <div class="card tile"><dt>Участники</dt><dd><b>1–11 класс</b>школьники</dd></div>
+    </dl>
   </div>
 </section>
 
 <section class="section" id="how">
-  <div class="container">
-    <h2><span class="hand">Три шага</span> до конференции</h2>
-    <div class="steps">
-      <div class="step"><i>1.</i><h3>Анкета и работа</h3><p>Заполни анкету и прикрепи текст работы в PDF или Word.</p></div>
-      <div class="step"><i>2.</i><h3>Заочный этап</h3><p>Эксперты прочитают работу, а ссылка на тестирование придёт на почту.</p></div>
-      <div class="step"><i>3.</i><h3>Защита</h3><p>Выступи на секции и расскажи о своём открытии!</p></div>
+  <div class="container how">
+    <div>
+      <h2><span class="hand">Как</span> принять участие</h2>
+      <ol class="timeline">
+        <li>
+          <span class="step__num hand">1</span>
+          <div>
+            {% if conf.submissions_deadline %}<p class="timeline__when">до {{ conf.submissions_deadline|date:"j E" }}</p>{% endif %}
+            <h3>Анкета и документы</h3>
+            <p>Заполни анкету на сайте, прикрепи текст работы, подписанную заявку и согласие родителя на обработку данных.</p>
+          </div>
+        </li>
+        <li>
+          <span class="step__num hand">2</span>
+          <div>
+            <h3>Заочный этап</h3>
+            <p>Эксперты прочитают работу, а ссылка на тестирование придёт на почту, указанную в анкете.</p>
+          </div>
+        </li>
+        <li>
+          <span class="step__num hand">3</span>
+          <div>
+            {% if conf.event_dates %}<p class="timeline__when">{{ conf.event_dates }}</p>{% endif %}
+            <h3>Защита</h3>
+            <p>Выступи на секции и расскажи о своём открытии!</p>
+          </div>
+        </li>
+      </ol>
     </div>
+
+    <aside class="card prepare">
+      <h3>Что подготовить</h3>
+      <ul>
+        <li><span class="prepare__num">1</span><div>Текст работы<small>PDF, DOC, DOCX, ODT или RTF, до {{ max_upload_mb }} МБ. Презентации и видео не принимаются.</small></div></li>
+        <li><span class="prepare__num">2</span><div>Заявка с подписью<small>Скан или фото{% if conf.application_template %} · <a href="{% url 'conference:blank' 'application' %}">скачать бланк</a>{% endif %}</small></div></li>
+        <li><span class="prepare__num">3</span><div>Согласие на обработку данных<small>Подписывает родитель или законный представитель{% if conf.consent_template %} · <a href="{% url 'conference:blank' 'consent' %}">скачать бланк</a>{% endif %}</small></div></li>
+      </ul>
+      {% if conf.is_submission_open %}<a class="btn prepare__btn" href="{% url 'conference:submit' %}">Подать работу</a>{% endif %}
+    </aside>
   </div>
 </section>
+
+{% if sections %}
+<section class="section" id="sections">
+  <div class="container">
+    <h2><span class="hand">Секции</span> конференции</h2>
+    <ol class="rows">
+      {% for section in sections %}
+        <li><b class="rows__num">{{ forloop.counter }}</b><div>{{ section.name }}{% if section.description %}<small>{{ section.description }}</small>{% endif %}</div></li>
+      {% endfor %}
+    </ol>
+  </div>
+</section>
+{% endif %}
 
 {% if conf.description %}
 <section class="section">
   <div class="container">
-    <div class="prose">
+    <div class="card prose">
       <h2>О конференции</h2>
       {{ conf.description|linebreaks }}
     </div>
@@ -48,13 +110,47 @@
 </section>
 {% endif %}
 
-{% if sections %}
+<section class="section">
+  <div class="container container--narrow">
+    <h2><span class="hand">Частые</span> вопросы</h2>
+    <div class="faq">
+      <details class="card">
+        <summary>Можно ли подать работу вдвоём?</summary>
+        <p>Да. В анкете есть необязательный блок «Соавтор»: укажите его фамилию, имя и класс.</p>
+      </details>
+      <details class="card">
+        <summary>Где взять бланки заявки и согласия?</summary>
+        <p>{% if conf.application_template or conf.consent_template %}Ссылки на бланки есть в блоке «Что подготовить» и прямо в анкете рядом с полями загрузки.{% else %}Бланки появятся на этой странице и в анкете. По вопросам о документах напишите в оргкомитет.{% endif %}</p>
+      </details>
+      <details class="card">
+        <summary>Учитель подаёт несколько работ — заполнять всё заново?</summary>
+        <p>Нет. После отправки нажмите «Подать ещё одну работу»: школа и данные руководителя подставятся автоматически.</p>
+      </details>
+      <details class="card">
+        <summary>Можно ли прислать презентацию или видео?</summary>
+        <p>Нет, принимается только текст работы: PDF, DOC, DOCX, ODT или RTF размером до {{ max_upload_mb }} МБ.</p>
+      </details>
+      <details class="card">
+        <summary>Как понять, что работа дошла?</summary>
+        <p>После отправки анкеты сайт покажет номер заявки, например № 0001. Сохраните его — он понадобится при обращении в оргкомитет.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+{% if conf.contact_email or conf.contact_phone %}
 <section class="section">
   <div class="container">
-    <h2><span class="hand">Выбери</span> свою секцию</h2>
-    <ul class="chips">
-      {% for section in sections %}<li>{{ section.name }}</li>{% endfor %}
-    </ul>
+    <div class="cta">
+      <div>
+        <h2>Остались вопросы?</h2>
+        <p>Напишите или позвоните в оргкомитет — поможем с анкетой и документами.</p>
+      </div>
+      <div class="cta__contacts">
+        {% if conf.contact_email %}<a href="mailto:{{ conf.contact_email }}">{{ conf.contact_email }}</a>{% endif %}
+        {% if conf.contact_phone %}<a href="tel:{{ conf.contact_phone|cut:' ' }}">{{ conf.contact_phone }}</a>{% endif %}
+      </div>
+    </div>
   </div>
 </section>
 {% endif %}

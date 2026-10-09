@@ -5,28 +5,33 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{{ conf.title }}{% endblock %}</title>
   {% if conf.tagline %}<meta name="description" content="{{ conf.tagline }}">{% endif %}
+  <meta name="theme-color" content="#fffdf6">
   <link rel="icon" href="{% static 'conference/emblem.png' %}" type="image/png">
   <link rel="preload" href="{% static 'conference/fonts/nunito-cyrillic.woff2' %}" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="{% static 'conference/style.css' %}">
   <script src="{% static 'conference/app.js' %}" defer></script>
 </head>
 <body>
+  <a class="skip-link" href="#main">К содержимому</a>
   <header class="site-header">
     <div class="container">
       <div class="box site-header__inner">
-      <a class="logo" href="{% url 'conference:home' %}">
-        <img src="{% static 'conference/emblem.png' %}" alt="">
-        <span>Эврика</span>
-      </a>
-      <nav class="nav" aria-label="Основное меню">
-        <a href="{% url 'conference:home' %}#how"{% if request.resolver_match.url_name == 'home' %} aria-current="page"{% endif %}>Как участвовать</a>
-        <a href="{% url 'conference:submit' %}"{% if request.resolver_match.url_name == 'submit' %} aria-current="page"{% endif %}>Подать работу</a>
-      </nav>
+        <a class="logo" href="{% url 'conference:home' %}">
+          <img src="{% static 'conference/emblem.png' %}" alt="" width="56" height="40">
+          <span class="logo__text"><b>Эврика</b><small>конференция школьников</small></span>
+        </a>
+        <nav class="nav" aria-label="Основное меню">
+          <a class="nav__link" href="{% url 'conference:home' %}#how">Как участвовать</a>
+          <a class="nav__link" href="{% url 'conference:home' %}#sections">Секции</a>
+          {% if request.resolver_match.url_name != "submit" %}
+            <a class="btn btn--sm" href="{% url 'conference:submit' %}">Подать работу</a>
+          {% endif %}
+        </nav>
       </div>
     </div>
   </header>
 
-  <main>
+  <main id="main">
     {% block content %}{% endblock %}
   </main>
 
@@ -34,11 +39,11 @@
     <div class="container site-footer__inner">
       <div>
         <strong>{{ conf.title }}</strong>
-        {% if conf.organizer %}<div>{{ conf.organizer }}</div>{% endif %}
+        {% if conf.organizer %}<div class="muted">{{ conf.organizer }}</div>{% endif %}
       </div>
       <div class="site-footer__contacts">
         {% if conf.contact_email %}<a href="mailto:{{ conf.contact_email }}">{{ conf.contact_email }}</a>{% endif %}
-        {% if conf.contact_phone %}<span>{{ conf.contact_phone }}</span>{% endif %}
+        {% if conf.contact_phone %}<a href="tel:{{ conf.contact_phone|cut:' ' }}">{{ conf.contact_phone }}</a>{% endif %}
         <a href="{% url 'conference:privacy' %}">Обработка персональных данных</a>
       </div>
     </div>

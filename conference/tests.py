@@ -40,6 +40,8 @@ class SubmissionTests(TestCase):
             "supervisor_phone": "+7 900 123-45-67",
             "links_email": "parent@example.ru",
             "file": SimpleUploadedFile("работа.docx", b"PK test", content_type="application/octet-stream"),
+            "application_file": SimpleUploadedFile("заявка.pdf", b"%PDF-1.4"),
+            "consent_file": SimpleUploadedFile("IMG_0001.JPG", b"JPEG test"),
             "consent": "on",
             **overrides,
         }
@@ -54,6 +56,9 @@ class SubmissionTests(TestCase):
         self.assertEqual(submission.original_filename, "работа.docx")
         self.assertNotIn("работа", submission.file.name)
         self.assertEqual(submission.coauthor, "")
+        self.assertEqual(submission.application_original_filename, "заявка.pdf")
+        self.assertEqual(submission.consent_original_filename, "IMG_0001.JPG")
+        self.assertTrue(submission.consent_file.name.startswith("documents/"))
 
         thanks = self.client.get(reverse("conference:thanks"))
         self.assertContains(thanks, submission.number)
@@ -71,6 +76,24 @@ class SubmissionTests(TestCase):
         response = self.post(file=SimpleUploadedFile("big.pdf", b"0" * (1024 * 1024 + 1)))
         self.assertFalse(Submission.objects.exists())
         self.assertContains(response, "Файл больше 1 МБ")
+
+    def test_documents_required(self):
+        self.post(application_file="", consent_file="")
+        self.assertFalse(Submission.objects.exists())
+
+    def test_document_must_be_scan(self):
+        response = self.post(consent_file=SimpleUploadedFile("согласие.docx", b"PK"))
+        self.assertFalse(Submission.objects.exists())
+        self.assertContains(response, "Загрузите согласие в PDF, JPG, PNG")
+
+    def test_more_prefills_school_and_supervisor(self):
+        self.post()
+        response = self.client.get(reverse("conference:submit") + "?more=1")
+        self.assertContains(response, 'value="Гимназия № 87"')
+        self.assertContains(response, 'value="Петрова"')
+        self.assertNotContains(response, 'value="Иванова"')
+        # Без ?more анкета пустая.
+        self.assertNotContains(self.client.get(reverse("conference:submit")), 'value="Петрова"')
 
     def test_grade_out_of_range_rejected(self):
         self.post(grade="12")
@@ -126,6 +149,26 @@ class SubmissionTests(TestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertIn("attachment", response["Content-Disposition"])
+
+        pk = Submission.objects.get().pk
+        consent_url = reverse("conference:download_submission_file", args=[pk, "consent"])
+        response = self.client.get(consent_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(f"{pk:04d}", response["Content-Disposition"])
+        self.assertEqual(self.client.get(reverse("conference:download_submission_file", args=[pk, "x"])).status_code, 404)
+
+        self.client.logout()
+        self.assertEqual(self.client.get(consent_url).status_code, 302)
+
+    def test_blank_is_public(self):
+        self.assertEqual(self.client.get(reverse("conference:blank", args=["consent"])).status_code, 404)
+        conf = ConferenceSettings.load()
+        conf.consent_template = SimpleUploadedFile("согласие.docx", b"PK blank")
+        conf.save()
+        response = self.client.get(reverse("conference:blank", args=["consent"]))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("attachment", response["Content-Disposition"])
+        self.assertContains(self.client.get(reverse("conference:submit")), reverse("conference:blank", args=["consent"]))
 
 
 class OrganizersTests(TestCase):

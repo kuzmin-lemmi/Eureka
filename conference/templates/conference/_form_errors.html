@@ -1,6 +1,6 @@
 {% if form.errors %}
   <div class="alert alert--error" role="alert">
-    <strong>Анкета не отправлена.</strong> Проверьте поля, отмеченные красным, и прикрепите файл работы заново.
+    <strong>Анкета не отправлена.</strong> Проверьте поля, отмеченные красным, и прикрепите файлы заново — браузер не сохраняет их после отправки.
     {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
   </div>
 {% endif %}

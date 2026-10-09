@@ -13,6 +13,7 @@ class ConferenceSettingsAdmin(admin.ModelAdmin):
         (None, {"fields": ("title", "tagline", "description", "event_dates", "venue", "organizer")}),
         ("Контакты", {"fields": ("contact_email", "contact_phone")}),
         ("Приём работ", {"fields": ("submissions_open", "submissions_deadline")}),
+        ("Бланки документов", {"fields": ("application_template", "consent_template")}),
         ("Персональные данные", {"fields": ("privacy_policy",), "classes": ("collapse",)}),
     )
 
@@ -53,7 +54,7 @@ class SubmissionAdmin(admin.ModelAdmin):
         "section",
         "title",
         "status",
-        "file_link",
+        "files_display",
     )
     list_display_links = ("number_display", "full_name_display")
     list_filter = ("status", "section", "grade", "created_at")
@@ -71,10 +72,11 @@ class SubmissionAdmin(admin.ModelAdmin):
         "coauthor_last_name",
     )
     date_hierarchy = "created_at"
-    readonly_fields = ("number_display", "created_at", "updated_at", "file_link")
+    readonly_fields = ("number_display", "created_at", "updated_at", "file_link", "application_link", "consent_link")
     fieldsets = (
         ("Оргкомитет", {"fields": ("number_display", "status", "admin_comment", ("created_at", "updated_at"))}),
         ("Работа", {"fields": ("title", "section", "file_link")}),
+        ("Документы", {"fields": ("application_link", "consent_link")}),
         ("Участник", {"fields": (("last_name", "first_name", "grade"), "school", "district", "email")}),
         ("Соавтор", {"fields": (("coauthor_last_name", "coauthor_first_name", "coauthor_grade"),)}),
         (
@@ -101,9 +103,29 @@ class SubmissionAdmin(admin.ModelAdmin):
     def full_name_display(self, obj):
         return obj.full_name
 
-    @admin.display(description="файл")
-    def file_link(self, obj):
-        if not obj.pk or not obj.file:
+    def _link(self, obj, kind, file, text):
+        if not obj.pk or not file:
             return "—"
-        url = reverse("conference:download_submission", args=[obj.pk])
-        return format_html('<a href="{}">{}</a>', url, obj.original_filename or "скачать")
+        url = reverse("conference:download_submission_file", args=[obj.pk, kind])
+        return format_html('<a href="{}">{}</a>', url, text)
+
+    @admin.display(description="файл работы")
+    def file_link(self, obj):
+        return self._link(obj, "work", obj.file, obj.original_filename or "скачать")
+
+    @admin.display(description="заявка")
+    def application_link(self, obj):
+        return self._link(obj, "application", obj.application_file, obj.application_original_filename or "скачать")
+
+    @admin.display(description="согласие")
+    def consent_link(self, obj):
+        return self._link(obj, "consent", obj.consent_file, obj.consent_original_filename or "скачать")
+
+    @admin.display(description="файлы")
+    def files_display(self, obj):
+        return format_html(
+            "{} · {} · {}",
+            self._link(obj, "work", obj.file, "работа"),
+            self._link(obj, "application", obj.application_file, "заявка"),
+            self._link(obj, "consent", obj.consent_file, "согласие"),
+        )

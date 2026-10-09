@@ -4,77 +4,118 @@
 
 {% block content %}
 <section class="page">
-  <div class="container container--narrow">
-    <h1>Анкета участника</h1>
+  <div class="container">
+    <div class="page-head">
+      <h1>Анкета участника</h1>
+      {% if not closed and form.fields.section.queryset.exists %}
+        <p class="lead">
+          {% if conf.submissions_deadline %}Приём работ до <b>{{ conf.submissions_deadline|date:"j E Y, H:i" }}</b>. {% endif %}
+          Займёт около 10 минут.
+        </p>
+        <p class="muted">Подготовьте заранее: текст работы, подписанную заявку и согласие на обработку данных. Поля со звёздочкой <span class="req">*</span> обязательны.</p>
+      {% endif %}
+    </div>
 
     {% if closed %}
       <div class="alert">Приём работ закрыт. По вопросам участия напишите оргкомитету{% if conf.contact_email %}: <a href="mailto:{{ conf.contact_email }}">{{ conf.contact_email }}</a>{% endif %}.</div>
     {% elif not form.fields.section.queryset.exists %}
       <div class="alert">Секции конференции ещё не опубликованы. Загляните позже.</div>
     {% else %}
-      {% if conf.submissions_deadline %}
-        <p class="lead">Приём работ до {{ conf.submissions_deadline|date:"j E Y, H:i" }}.</p>
-      {% endif %}
-      <p class="muted">Поля, отмеченные <span class="req">*</span>, обязательны.</p>
+      <div class="form-layout">
+        <aside class="progress" aria-label="Разделы анкеты" data-progress hidden>
+          <p class="progress__title">Заполнено <b data-progress-count>0</b> из <span data-progress-total>5</span></p>
+          <div class="progress__bar"><span data-progress-bar></span></div>
+          <ol class="progress__list">
+            <li><a href="#step-participant" data-step-link="participant">Участник</a></li>
+            <li><a href="#step-work" data-step-link="work">Работа</a></li>
+            <li><a href="#step-documents" data-step-link="documents">Документы</a></li>
+            <li class="progress__optional"><a href="#step-coauthor">Соавтор</a></li>
+            <li><a href="#step-supervisor" data-step-link="supervisor">Руководитель</a></li>
+            <li><a href="#step-contact" data-step-link="contact">Связь</a></li>
+          </ol>
+        </aside>
 
-      {% include "conference/_form_errors.html" %}
+        <form method="post" enctype="multipart/form-data" class="form" novalidate data-once data-draft>
+          {% csrf_token %}
+          <div class="hp" aria-hidden="true">{{ form.website }}</div>
 
-      <form method="post" enctype="multipart/form-data" class="form" novalidate data-once>
-        {% csrf_token %}
-        <div class="hp" aria-hidden="true">{{ form.website }}</div>
+          {% include "conference/_form_errors.html" %}
 
-        <fieldset class="card">
-          <legend>Участник</legend>
-          <div class="grid grid--name">
-            {% include "conference/_field.html" with field=form.last_name %}
-            {% include "conference/_field.html" with field=form.first_name %}
-            {% include "conference/_field.html" with field=form.grade %}
+          {% if repeat %}
+            <div class="alert alert--info">Школа и руководитель подставлены из прошлой заявки. Проверьте их и заполните данные нового участника.</div>
+          {% endif %}
+          <div class="alert alert--info" data-draft-notice hidden>
+            Мы восстановили незаконченную анкету. Файлы нужно прикрепить заново.
+            <button type="button" class="link-button" data-draft-reset>Начать заново</button>
           </div>
-          <div class="grid grid--2">
-            {% include "conference/_field.html" with field=form.school %}
-            {% include "conference/_field.html" with field=form.district %}
+
+          <fieldset class="card" id="step-participant" data-step="participant">
+            <legend><span class="legend-num">1</span>Участник</legend>
+            <div class="grid grid--name">
+              {% include "conference/_field.html" with field=form.last_name %}
+              {% include "conference/_field.html" with field=form.first_name %}
+              {% include "conference/_field.html" with field=form.grade %}
+            </div>
+            <div class="grid grid--2">
+              {% include "conference/_field.html" with field=form.school %}
+              {% include "conference/_field.html" with field=form.district %}
+            </div>
+            {% include "conference/_field.html" with field=form.email %}
+          </fieldset>
+
+          <fieldset class="card" id="step-work" data-step="work">
+            <legend><span class="legend-num">2</span>Работа</legend>
+            {% include "conference/_field.html" with field=form.title %}
+            {% include "conference/_field.html" with field=form.section %}
+            {% include "conference/_field.html" with field=form.file %}
+          </fieldset>
+
+          <fieldset class="card" id="step-documents" data-step="documents">
+            <legend><span class="legend-num">3</span>Документы</legend>
+            <p class="legend-help">Распечатайте бланки, подпишите и загрузите скан или фото. Согласие подписывает родитель или законный представитель участника.</p>
+            <div class="grid grid--2">
+              {% include "conference/_field.html" with field=form.application_file %}
+              {% include "conference/_field.html" with field=form.consent_file %}
+            </div>
+          </fieldset>
+
+          <details class="card card--details" id="step-coauthor"{% if form.has_coauthor %} open{% endif %}>
+            <summary><span class="legend-num legend-num--muted">+</span>Соавтор <span class="legend-note">— если работа написана вдвоём</span></summary>
+            <div class="grid grid--name">
+              {% include "conference/_field.html" with field=form.coauthor_last_name %}
+              {% include "conference/_field.html" with field=form.coauthor_first_name %}
+              {% include "conference/_field.html" with field=form.coauthor_grade %}
+            </div>
+          </details>
+
+          <fieldset class="card" id="step-supervisor" data-step="supervisor">
+            <legend><span class="legend-num">4</span>Руководитель работы</legend>
+            <div class="grid grid--3">
+              {% include "conference/_field.html" with field=form.supervisor_last_name %}
+              {% include "conference/_field.html" with field=form.supervisor_first_name %}
+              {% include "conference/_field.html" with field=form.supervisor_middle_name %}
+            </div>
+            <div class="grid grid--2">
+              {% include "conference/_field.html" with field=form.supervisor_position %}
+              {% include "conference/_field.html" with field=form.supervisor_phone %}
+            </div>
+          </fieldset>
+
+          <fieldset class="card" id="step-contact" data-step="contact">
+            <legend><span class="legend-num">5</span>Связь на втором этапе</legend>
+            <label class="check check--small" data-same-email hidden>
+              <input type="checkbox"> <span>Совпадает с почтой участника</span>
+            </label>
+            {% include "conference/_field.html" with field=form.links_email %}
+          </fieldset>
+
+          <div class="card submit-card">
+            {% include "conference/_field.html" with field=form.consent %}
+            <button type="submit" class="btn btn--lg">Отправить работу</button>
+            <p class="help">После отправки вы получите номер заявки. Черновик анкеты хранится только в этом браузере.</p>
           </div>
-          {% include "conference/_field.html" with field=form.email %}
-        </fieldset>
-
-        <fieldset class="card">
-          <legend>Работа</legend>
-          {% include "conference/_field.html" with field=form.title %}
-          {% include "conference/_field.html" with field=form.section %}
-          {% include "conference/_field.html" with field=form.file %}
-        </fieldset>
-
-        <fieldset class="card">
-          <legend>Соавтор <span class="legend-note">— если есть</span></legend>
-          <div class="grid grid--name">
-            {% include "conference/_field.html" with field=form.coauthor_last_name %}
-            {% include "conference/_field.html" with field=form.coauthor_first_name %}
-            {% include "conference/_field.html" with field=form.coauthor_grade %}
-          </div>
-        </fieldset>
-
-        <fieldset class="card">
-          <legend>Руководитель работы</legend>
-          <div class="grid grid--3">
-            {% include "conference/_field.html" with field=form.supervisor_last_name %}
-            {% include "conference/_field.html" with field=form.supervisor_first_name %}
-            {% include "conference/_field.html" with field=form.supervisor_middle_name %}
-          </div>
-          <div class="grid grid--2">
-            {% include "conference/_field.html" with field=form.supervisor_position %}
-            {% include "conference/_field.html" with field=form.supervisor_phone %}
-          </div>
-        </fieldset>
-
-        <fieldset class="card">
-          <legend>Связь на втором этапе</legend>
-          {% include "conference/_field.html" with field=form.links_email %}
-        </fieldset>
-
-        {% include "conference/_field.html" with field=form.consent %}
-
-        <button type="submit" class="btn btn--primary btn--lg">Отправить работу</button>
-      </form>
+        </form>
+      </div>
     {% endif %}
   </div>
 </section>

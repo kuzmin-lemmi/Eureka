@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Эврика — композиции главной</title>
+<!-- Макеты на настоящих стилях сайта: меняется только расположение блоков. -->
+<link rel="stylesheet" href="../conference/static/conference/style.css">
+<style>
+  .switcher {
+    position: sticky; top: 0; z-index: 100;
+    display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap;
+    padding: 10px 16px; background: #111827; color: #fff; font: 14px/1.3 system-ui, sans-serif;
+  }
+  .switcher span { opacity: .7; margin-right: 4px; }
+  .switcher button { padding: 8px 14px; border: 1px solid #374151; border-radius: 999px; background: transparent; color: #fff; font: inherit; cursor: pointer; }
+  .switcher button[aria-pressed="true"] { background: #fff; color: #111827; border-color: #fff; font-weight: 600; }
+  .layout { display: none; }
+  .layout.is-active { display: block; }
+  .eyebrow { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 14px; padding: 6px 14px; background: #fff; border: 2px solid var(--ink); border-radius: 999px; font-weight: 800; font-size: .95rem; }
+  .eyebrow .deadline__dot { animation: pulse 2s infinite; }
+  .kicker { margin: 0 0 4px; color: var(--muted); font-weight: 800; font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; }
+
+  /* ===== 1. АФИША ===== */
+  .l1-hero { padding: 16px 0 0; text-align: center; }
+  .l1-hero img { width: min(420px, 80%); transform: rotate(-2deg); filter: drop-shadow(6px 8px 0 rgba(29,43,79,.12)); }
+  .l1-hero .hero__note { display: block; margin: -6px 0 6px; transform: rotate(-2deg); transform-origin: center; }
+  .l1-hero h1 { max-width: 16em; margin: 0 auto 10px; font-size: clamp(2.1rem, 5vw, 3.4rem); }
+  .l1-hero .hero__lead { margin: 0 auto 28px; }
+  .ticket { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; align-items: stretch; padding: 0; overflow: hidden; }
+  .ticket__cell { padding: 16px 22px; border-right: 2px dashed var(--ink); }
+  .ticket__cell b { display: block; font-size: 1.15rem; }
+  .ticket__cta { display: flex; align-items: center; padding: 14px 20px; background: var(--tint-yellow); }
+  .timeline { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin: 12px 0 0; padding: 0; list-style: none; }
+  .timeline::before { content: ""; position: absolute; top: 23px; left: 8%; right: 8%; border-top: 3px dashed var(--ink); }
+  .timeline li { position: relative; text-align: center; }
+  .timeline .step__num { position: relative; margin: 0 auto 12px; background: var(--yellow); }
+  .timeline time { display: block; margin-bottom: 4px; color: var(--blue); font-weight: 800; }
+  .timeline p { margin: 0 auto; max-width: 22em; color: var(--muted); }
+  .l1-split { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+  .l1-split .sections { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .prepare { padding: 22px; }
+  .prepare h3 { margin-bottom: 12px; }
+  .prepare ul { display: flex; flex-direction: column; gap: 12px; margin: 0 0 16px; padding: 0; list-style: none; }
+  .prepare li { display: flex; gap: 10px; }
+  .prepare li span:first-child { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border: 2px solid var(--ink); border-radius: 50%; background: var(--tint-green); font-size: .8rem; font-weight: 900; }
+  .prepare small { display: block; color: var(--muted); }
+
+  /* ===== 2. СПЛИТ ===== */
+  .l2-hero { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 40px; align-items: center; padding: 28px 0 8px; }
+  .l2-hero h1 { font-size: clamp(2.2rem, 4.6vw, 3.4rem); }
+  .polaroid { position: relative; padding: 22px 22px 14px; background: #fff; border: var(--border); border-radius: 18px; box-shadow: 8px 8px 0 var(--ink); transform: rotate(2deg); text-align: center; }
+  .polaroid img { width: 100%; }
+  .polaroid .hand { display: block; margin-top: 4px; color: var(--coral); font-size: 1.8rem; }
+  .polaroid::before { content: ""; position: absolute; top: -14px; left: 50%; width: 110px; height: 28px; transform: translateX(-50%) rotate(-3deg); background: rgba(255, 216, 77, .8); border: 2px solid var(--ink); }
+  .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+  .tile { padding: 16px 18px; }
+  .tile b { display: block; font-size: 1.3rem; line-height: 1.2; }
+  .tile--accent { background: var(--yellow); }
+  .l2-how { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 32px; align-items: start; }
+  .vline { margin: 0; padding: 0; list-style: none; }
+  .vline li { position: relative; display: grid; grid-template-columns: 46px 1fr; gap: 16px; padding-bottom: 26px; }
+  .vline li:not(:last-child)::before { content: ""; position: absolute; left: 22px; top: 48px; bottom: 4px; border-left: 3px dashed var(--ink); }
+  .vline .step__num { margin: 0; }
+  .vline time { color: var(--blue); font-weight: 800; }
+  .vline h3 { margin: 2px 0 4px; }
+  .vline p { margin: 0; color: var(--muted); }
+  .sticky { position: sticky; top: 20px; }
+  .rows { margin: 0; padding: 0; list-style: none; border: var(--border); border-radius: var(--radius); background: #fff; box-shadow: var(--shadow); overflow: hidden; columns: 2; column-gap: 0; }
+  .rows li { display: flex; gap: 14px; align-items: baseline; padding: 14px 20px; border-bottom: 2px solid var(--grid); break-inside: avoid; }
+  .rows li b { color: var(--blue); font-family: var(--hand); font-size: 1.5rem; line-height: 1; }
+  .rows small { display: block; color: var(--muted); }
+  .faq { display: flex; flex-direction: column; gap: 12px; }
+  .faq details { padding: 0; margin: 0; }
+  .faq summary { padding: 16px 20px; font-weight: 800; cursor: pointer; }
+  .faq details p { margin: 0; padding: 0 20px 16px; color: var(--muted); }
+
+  /* ===== 3. ПОРТАЛ ===== */
+  .l3-hero { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; align-items: center; margin-top: 8px; padding: 32px 36px; background: var(--tint-blue); }
+  .l3-hero h1 { font-size: clamp(2rem, 4vw, 3rem); }
+  .l3-hero .hero__lead { margin-bottom: 0; }
+  .l3-hero img { transform: rotate(-3deg); }
+  .l3-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 28px; align-items: start; margin-top: 28px; }
+  .l3-main > .card { margin-bottom: 24px; }
+  .l3-main h2 { font-size: 1.5rem; }
+  .l3-aside { position: sticky; top: 20px; display: flex; flex-direction: column; gap: 20px; }
+  .l3-aside .card { margin: 0; padding: 20px; }
+  .status { background: var(--tint-yellow); }
+  .status__date { margin: 4px 0 2px; font-size: 2rem; font-weight: 900; line-height: 1.1; }
+  .status .btn { width: 100%; margin-top: 14px; }
+  .countdown { display: flex; gap: 8px; margin-top: 12px; }
+  .countdown div { flex: 1; padding: 6px 0; text-align: center; background: #fff; border: 2px solid var(--ink); border-radius: 10px; }
+  .countdown b { display: block; font-size: 1.4rem; line-height: 1.1; }
+  .countdown small { color: var(--muted); font-size: .75rem; font-weight: 700; }
+  .doclist { display: flex; flex-direction: column; gap: 10px; margin: 10px 0 0; padding: 0; list-style: none; }
+  .doclist a { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border: 2px solid var(--ink); border-radius: 10px; color: var(--ink); font-weight: 800; text-decoration: none; }
+  .doclist a:hover { background: var(--tint-yellow); }
+  .doclist small { color: var(--muted); font-weight: 700; }
+  .steps-compact { margin: 0; padding: 0; list-style: none; display: grid; gap: 14px; }
+  .steps-compact li { display: grid; grid-template-columns: 46px 1fr; gap: 14px; align-items: start; }
+  .steps-compact .step__num { margin: 0; background: var(--tint-yellow); }
+  .steps-compact p { margin: 0; color: var(--muted); }
+  .l3-main .sections { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  @media (max-width: 960px) {
+    .l3-grid { grid-template-columns: 1fr; }
+    .l3-aside { position: static; order: -1; }
+    .l2-how { grid-template-columns: 1fr; }
+    .sticky { position: static; }
+    .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 860px) {
+    .ticket { grid-template-columns: 1fr 1fr; }
+    .ticket__cell { border-bottom: 2px dashed var(--ink); }
+    .ticket__cta { grid-column: 1 / -1; justify-content: center; }
+    .ticket__cta .btn { width: 100%; }
+    .timeline { grid-template-columns: 1fr; }
+    .timeline::before { display: none; }
+    .l1-split { grid-template-columns: 1fr; }
+    .l2-hero { grid-template-columns: 1fr; text-align: center; }
+    .l2-hero .polaroid { max-width: 340px; margin: 12px auto 0; order: -1; }
+    .l2-hero .hero__actions { justify-content: center; }
+    .l3-hero { grid-template-columns: 1fr; padding: 24px; text-align: center; }
+    .l3-hero img { max-width: 260px; margin: 0 auto; order: -1; }
+    .rows { columns: 1; }
+  }
+  @media (max-width: 640px) {
+    .l1-split .sections, .l3-main .sections { grid-template-columns: 1fr; }
+    .ticket { grid-template-columns: 1fr; }
+    .ticket__cell { border-right: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="switcher" role="toolbar" aria-label="Варианты композиции">
+  <span>Композиция:</span>
+  <button type="button" data-layout="l1" aria-pressed="true">1 · Афиша</button>
+  <button type="button" data-layout="l2" aria-pressed="false">2 · Сплит + таймлайн</button>
+  <button type="button" data-layout="l3" aria-pressed="false">3 · Портал с боковой панелью</button>
+</div>
+
+<header class="site-header">
+  <div class="container">
+    <div class="box site-header__inner">
+      <a class="logo" href="#">
+        <img src="../conference/static/conference/emblem.png" alt="" width="56" height="40">
+        <span class="logo__text"><b>Эврика</b><small>конференция школьников</small></span>
+      </a>
+      <nav class="nav">
+        <a class="nav__link" href="#">Как участвовать</a>
+        <a class="nav__link" href="#">Секции</a>
+        <a class="btn btn--sm" href="#">Подать работу</a>
+      </nav>
+    </div>
+  </div>
+</header>
+
+<main>
+<!-- ================= 1. АФИША ================= -->
+<div class="layout l1 is-active" id="l1">
+  <section class="l1-hero">
+    <div class="container">
+      <img src="../conference/static/conference/emblem.png" alt="Эмблема «Эврика»">
+      <p class="hero__note hand">Твоё открытие начинается здесь!</p>
+      <h1>Межрегиональная НПК «Эврика-2026»</h1>
+      <p class="hero__lead">Научно-практическая конференция исследовательских работ школьников</p>
+    </div>
+  </section>
+  <div class="container">
+    <div class="box ticket">
+      <div class="ticket__cell"><p class="kicker">Даты</p><b>апрель 2027</b></div>
+      <div class="ticket__cell"><p class="kicker">Место</p><b>Саратов</b></div>
+      <div class="ticket__cell"><p class="kicker">Приём работ до</p><b>21 ноября</b><span class="muted">осталось 45 дней</span></div>
+      <div class="ticket__cta"><a class="btn btn--lg" href="#">Подать работу</a></div>
+    </div>
+  </div>
+
+  <section class="section">
+    <div class="container">
+      <h2><span class="hand">Три шага</span> до конференции</h2>
+      <ol class="timeline">
+        <li><span class="step__num hand">1</span><time>до 21 ноября</time><h3>Анкета и документы</h3><p>Заполни анкету, прикрепи работу, заявку и согласие.</p></li>
+        <li><span class="step__num hand">2</span><time>декабрь</time><h3>Заочный этап</h3><p>Эксперты читают работу, ссылка на тестирование придёт на почту.</p></li>
+        <li><span class="step__num hand">3</span><time>апрель</time><h3>Защита</h3><p>Выступи на секции и расскажи о своём открытии!</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container l1-split">
+      <div>
+        <h2><span class="hand">Выбери</span> свою секцию</h2>
+        <ul class="sections">
+          <li class="section-card"><h3>Математика и информатика</h3><p>Алгоритмы, программирование, прикладная математика.</p></li>
+          <li class="section-card"><h3>Физика и техника</h3><p>Эксперименты, моделирование, инженерные проекты.</p></li>
+          <li class="section-card"><h3>Естественные науки</h3><p>Биология, химия, экология, география.</p></li>
+          <li class="section-card"><h3>Гуманитарные науки</h3><p>История, филология, обществознание, искусство.</p></li>
+        </ul>
+      </div>
+      <aside class="card prepare">
+        <h3>Что подготовить</h3>
+        <ul>
+          <li><span>1</span><div>Текст работы<small>PDF, DOC, DOCX, ODT, RTF до 20 МБ</small></div></li>
+          <li><span>2</span><div>Заявка с подписью<small>скан или фото · <a href="#">бланк</a></small></div></li>
+          <li><span>3</span><div>Согласие на обработку ПДн<small>подписывает родитель · <a href="#">бланк</a></small></div></li>
+        </ul>
+        <a class="btn" href="#" style="width:100%">Подать работу</a>
+      </aside>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="cta">
+        <div><h2>Остались вопросы?</h2><p>Напишите в оргкомитет — поможем с анкетой и документами.</p></div>
+        <div class="cta__contacts"><a href="#">orgkomitet@example.ru</a></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ================= 2. СПЛИТ + ТАЙМЛАЙН ================= -->
+<div class="layout l2" id="l2">
+  <section class="container l2-hero">
+    <div>
+      <p class="eyebrow"><span class="deadline__dot"></span>Приём работ открыт до 21 ноября</p>
+      <h1>Межрегиональная НПК «Эврика-2026»</h1>
+      <p class="hero__lead">Научно-практическая конференция исследовательских работ школьников 1–11 классов. Саратов, апрель 2027.</p>
+      <div class="hero__actions">
+        <a class="btn btn--lg" href="#">Подать работу</a>
+        <a class="btn btn--lg btn--ghost" href="#">Как участвовать</a>
+      </div>
+    </div>
+    <div class="polaroid">
+      <img src="../conference/static/conference/emblem.png" alt="Эмблема «Эврика»">
+      <span class="hand">Твоё открытие начинается здесь!</span>
+    </div>
+  </section>
+
+  <section class="section" style="padding-top:40px">
+    <div class="container tiles">
+      <div class="card tile tile--accent"><p class="kicker">Приём работ</p><b>до 21 ноября</b><span>осталось 45 дней</span></div>
+      <div class="card tile"><p class="kicker">Конференция</p><b>апрель 2027</b><span class="muted">очная защита</span></div>
+      <div class="card tile"><p class="kicker">Место</p><b>Саратов</b><span class="muted">и онлайн-этап</span></div>
+      <div class="card tile"><p class="kicker">Участники</p><b>1–11 класс</b><span class="muted">4 секции</span></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container l2-how">
+      <div>
+        <h2><span class="hand">Как</span> принять участие</h2>
+        <ol class="vline">
+          <li><span class="step__num hand">1</span><div><time>до 21 ноября</time><h3>Анкета и документы</h3><p>Заполни анкету на сайте, прикрепи текст работы, подписанную заявку и согласие родителя.</p></div></li>
+          <li><span class="step__num hand">2</span><div><time>декабрь</time><h3>Заочный этап</h3><p>Эксперты читают работу. Ссылка на тестирование придёт на указанную почту.</p></div></li>
+          <li><span class="step__num hand">3</span><div><time>апрель 2027</time><h3>Защита</h3><p>Выступи на секции и расскажи о своём открытии!</p></div></li>
+        </ol>
+      </div>
+      <aside class="card prepare sticky">
+        <h3>Что подготовить</h3>
+        <ul>
+          <li><span>1</span><div>Текст работы<small>PDF, DOC, DOCX, ODT, RTF до 20 МБ</small></div></li>
+          <li><span>2</span><div>Заявка с подписью<small>скан или фото · <a href="#">бланк</a></small></div></li>
+          <li><span>3</span><div>Согласие на обработку ПДн<small>подписывает родитель · <a href="#">бланк</a></small></div></li>
+        </ul>
+        <a class="btn" href="#" style="width:100%">Подать работу</a>
+      </aside>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2><span class="hand">Секции</span> конференции</h2>
+      <ul class="rows">
+        <li><b>1</b><div>Математика и информатика<small>Алгоритмы, программирование, прикладная математика</small></div></li>
+        <li><b>2</b><div>Физика и техника<small>Эксперименты, моделирование, инженерные проекты</small></div></li>
+        <li><b>3</b><div>Естественные науки<small>Биология, химия, экология, география</small></div></li>
+        <li><b>4</b><div>Гуманитарные науки<small>История, филология, обществознание, искусство</small></div></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container container--narrow">
+      <h2><span class="hand">Частые</span> вопросы</h2>
+      <p class="muted" style="margin-top:-8px">Примеры — тексты задаст оргкомитет.</p>
+      <div class="faq">
+        <details class="card" open><summary>Можно ли подать работу вдвоём?</summary><p>Да, в анкете есть блок «Соавтор».</p></details>
+        <details class="card"><summary>Где взять бланки заявки и согласия?</summary><p>Ссылки на бланки — в блоке «Что подготовить» и прямо в анкете.</p></details>
+        <details class="card"><summary>Учитель подаёт несколько работ — заполнять всё заново?</summary><p>Нет: после отправки нажмите «Подать ещё одну работу», данные школы и руководителя подставятся.</p></details>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ================= 3. ПОРТАЛ ================= -->
+<div class="layout l3" id="l3">
+  <div class="container">
+    <section class="box l3-hero">
+      <div>
+        <p class="hero__note hand">Твоё открытие начинается здесь!</p>
+        <h1>Межрегиональная НПК «Эврика-2026»</h1>
+        <p class="hero__lead">Научно-практическая конференция исследовательских работ школьников · Саратов, апрель 2027</p>
+      </div>
+      <img src="../conference/static/conference/emblem.png" alt="Эмблема «Эврика»">
+    </section>
+
+    <div class="l3-grid">
+      <div class="l3-main">
+        <section class="card">
+          <h2>Как принять участие</h2>
+          <ol class="steps-compact">
+            <li><span class="step__num hand">1</span><div><h3>Анкета и документы — до 21 ноября</h3><p>Заполни анкету, прикрепи работу, заявку и согласие.</p></div></li>
+            <li><span class="step__num hand">2</span><div><h3>Заочный этап — декабрь</h3><p>Эксперты читают работу, ссылка на тестирование придёт на почту.</p></div></li>
+            <li><span class="step__num hand">3</span><div><h3>Защита — апрель</h3><p>Выступи на секции и расскажи о своём открытии!</p></div></li>
+          </ol>
+        </section>
+        <section>
+          <h2><span class="hand">Выбери</span> свою секцию</h2>
+          <ul class="sections">
+            <li class="section-card"><h3>Математика и информатика</h3><p>Алгоритмы, программирование, прикладная математика.</p></li>
+            <li class="section-card"><h3>Физика и техника</h3><p>Эксперименты, моделирование, инженерные проекты.</p></li>
+            <li class="section-card"><h3>Естественные науки</h3><p>Биология, химия, экология, география.</p></li>
+            <li class="section-card"><h3>Гуманитарные науки</h3><p>История, филология, обществознание, искусство.</p></li>
+          </ul>
+        </section>
+        <section class="card prose" style="margin-top:24px">
+          <h2>О конференции</h2>
+          <p>Здесь текст из админки: «Настройки конференции → описание». Организаторы, цели, история конференции, награждение.</p>
+        </section>
+      </div>
+
+      <aside class="l3-aside">
+        <div class="card status">
+          <p class="kicker"><span class="deadline__dot" style="display:inline-block;margin-right:6px"></span>Приём работ открыт</p>
+          <p class="status__date">до 21 ноября</p>
+          <div class="countdown"><div><b>45</b><small>дней</small></div><div><b>6</b><small>часов</small></div><div><b>12</b><small>минут</small></div></div>
+          <a class="btn btn--lg" href="#">Подать работу</a>
+        </div>
+        <div class="card">
+          <h3>Документы</h3>
+          <ul class="doclist">
+            <li><a href="#">Бланк заявки <small>DOCX ↓</small></a></li>
+            <li><a href="#">Согласие на обработку ПДн <small>PDF ↓</small></a></li>
+            <li><a href="#">Положение о конференции <small>PDF ↓</small></a></li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Оргкомитет</h3>
+          <p style="margin:0"><a href="#">orgkomitet@example.ru</a><br><span class="muted">+7 (8452) 00-00-00</span></p>
+        </div>
+      </aside>
+    </div>
+  </div>
+</div>
+</main>
+
+<footer class="site-footer">
+  <div class="container site-footer__inner">
+    <div><strong>Межрегиональная НПК «Эврика-2026»</strong></div>
+    <div class="site-footer__contacts"><a href="#">Обработка персональных данных</a></div>
+  </div>
+</footer>
+
+<script>
+  const buttons = document.querySelectorAll("[data-layout]");
+  const show = (id) => {
+    document.querySelectorAll(".layout").forEach((el) => el.classList.toggle("is-active", el.id === id));
+    buttons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.layout === id)));
+    history.replaceState(null, "", "#" + id);
+  };
+  buttons.forEach((b) => b.addEventListener("click", () => { show(b.dataset.layout); scrollTo(0, 0); }));
+  if (/^#l[123]$/.test(location.hash)) show(location.hash.slice(1));
+</script>
+</body>
+</html>

@@ -1,11 +1,16 @@
 import uuid
 from pathlib import Path
 
-from django.core.validators import MaxValueValidator, MinValueValidator
+from django.core.validators import FileExtensionValidator, MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
 
 GRADE_VALIDATORS = [MinValueValidator(1), MaxValueValidator(11)]
+BLANK_EXTENSIONS = ["pdf", "doc", "docx", "odt", "rtf"]
+
+
+def blank_upload_to(instance, filename):
+    return f"blanks/{uuid.uuid4().hex}{Path(filename).suffix.lower()}"
 
 
 class ConferenceSettings(models.Model):
@@ -27,6 +32,21 @@ class ConferenceSettings(models.Model):
     submissions_open = models.BooleanField("приём работ открыт", default=True)
     submissions_deadline = models.DateTimeField(
         "приём работ до", null=True, blank=True, help_text="Пусто — без ограничения по времени."
+    )
+
+    application_template = models.FileField(
+        "бланк заявки",
+        upload_to=blank_upload_to,
+        blank=True,
+        validators=[FileExtensionValidator(BLANK_EXTENSIONS)],
+        help_text="Участники скачивают его из анкеты, заполняют, подписывают и загружают скан.",
+    )
+    consent_template = models.FileField(
+        "бланк согласия на обработку ПДн",
+        upload_to=blank_upload_to,
+        blank=True,
+        validators=[FileExtensionValidator(BLANK_EXTENSIONS)],
+        help_text="Согласие родителя (законного представителя) участника.",
     )
 
     privacy_policy = models.TextField(
@@ -79,6 +99,11 @@ def submission_upload_to(instance, filename):
     return f"submissions/{timezone.now():%Y}/{uuid.uuid4().hex}{ext}"
 
 
+def document_upload_to(instance, filename):
+    ext = Path(filename).suffix.lower()
+    return f"documents/{timezone.now():%Y}/{uuid.uuid4().hex}{ext}"
+
+
 class Submission(models.Model):
     class Status(models.TextChoices):
         NEW = "new", "Новая"
@@ -101,6 +126,13 @@ class Submission(models.Model):
     )
     file = models.FileField("файл работы", upload_to=submission_upload_to)
     original_filename = models.CharField("исходное имя файла", max_length=255, blank=True)
+
+    # Подписанные документы (скан или фото). В анкете обязательны; пустыми
+    # остаются только у заявок, поданных до появления этих полей.
+    application_file = models.FileField("заявка", upload_to=document_upload_to, blank=True)
+    application_original_filename = models.CharField("исходное имя файла заявки", max_length=255, blank=True)
+    consent_file = models.FileField("согласие на обработку ПДн", upload_to=document_upload_to, blank=True)
+    consent_original_filename = models.CharField("исходное имя файла согласия", max_length=255, blank=True)
 
     # Соавтор (необязательно)
     coauthor_first_name = models.CharField("имя соавтора", max_length=100, blank=True)

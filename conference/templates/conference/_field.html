@@ -8,6 +8,13 @@
         <label class="check">{{ radio.tag }} <span>{{ radio.choice_label }}</span></label>
       {% endfor %}
     </fieldset>
+  {% elif field.widget_type == "file" %}
+    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+    <div class="drop">
+      {{ field }}
+      <span class="drop__icon" aria-hidden="true">⬆</span>
+      <span class="drop__text"><b>Выберите файл</b> или перетащите сюда</span>
+    </div>
   {% else %}
     <label for="{{ field.id_for_label }}">{{ field.label }}</label>
     {{ field }}
