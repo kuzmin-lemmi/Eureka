@@ -5,7 +5,9 @@ from django.core.validators import FileExtensionValidator, MaxValueValidator, Mi
 from django.db import models
 from django.utils import timezone
 
-GRADE_VALIDATORS = [MinValueValidator(1), MaxValueValidator(11)]
+# В конференции участвуют школьники 8–11 классов.
+GRADE_MIN, GRADE_MAX = 8, 11
+GRADE_VALIDATORS = [MinValueValidator(GRADE_MIN), MaxValueValidator(GRADE_MAX)]
 BLANK_EXTENSIONS = ["pdf", "doc", "docx", "odt", "rtf"]
 
 

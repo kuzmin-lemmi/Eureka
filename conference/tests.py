@@ -32,7 +32,7 @@ class SubmissionTests(TestCase):
             "school": "Гимназия № 87",
             "last_name": "Иванова",
             "first_name": "Мария",
-            "grade": "7",
+            "grade": "9",
             "title": "Маятник Фуко в домашних условиях",
             "section_slot": f"{self.section.pk}:1",
             "supervisor_last_name": "Петрова",
@@ -53,7 +53,7 @@ class SubmissionTests(TestCase):
         self.assertRedirects(response, reverse("conference:thanks"))
         submission = Submission.objects.get()
         self.assertEqual(submission.status, Submission.Status.NEW)
-        self.assertEqual(submission.grade, 7)
+        self.assertEqual(submission.grade, 9)
         self.assertEqual(submission.original_filename, "работа.docx")
         self.assertNotIn("работа", submission.file.name)
         self.assertEqual(submission.coauthor, "")
@@ -145,7 +145,8 @@ class SubmissionTests(TestCase):
         self.assertEqual(Submission.objects.count(), 2)
 
     def test_grade_out_of_range_rejected(self):
-        self.post(grade="12")
+        for grade in ("7", "12"):
+            self.post(grade=grade)
         self.assertFalse(Submission.objects.exists())
 
     def test_partial_coauthor_rejected(self):

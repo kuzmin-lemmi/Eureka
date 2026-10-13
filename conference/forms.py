@@ -7,13 +7,13 @@ from django.urls import reverse
 from django.db import transaction
 from django.utils.html import format_html
 
-from .models import ConferenceSettings, Section, Submission
+from .models import GRADE_MAX, GRADE_MIN, ConferenceSettings, Section, Submission
 
 # Текст работы — только документы: без презентаций и видео.
 ALLOWED_EXTENSIONS = (".pdf", ".doc", ".docx", ".odt", ".rtf")
 # Подписанные заявка и согласие — скан или фото.
 DOCUMENT_EXTENSIONS = (".pdf", ".jpg", ".jpeg", ".png")
-GRADE_CHOICES = [("", "—")] + [(n, str(n)) for n in range(1, 12)]
+GRADE_CHOICES = [("", "—")] + [(n, str(n)) for n in range(GRADE_MIN, GRADE_MAX + 1)]
 
 # Поля, которые переносятся в анкету следующей работы того же руководителя.
 REPEAT_FIELDS = (

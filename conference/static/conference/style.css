@@ -182,9 +182,13 @@ p { text-wrap: pretty; }
 .prepare__num { flex: none; display: grid; place-items: center; width: 26px; height: 26px; background: var(--tint-green); border: 2px solid var(--ink); border-radius: 50%; font-size: .8rem; font-weight: 900; }
 .prepare__btn { width: 100%; }
 
-.rows { margin: 8px 0 0; padding: 0; list-style: none; columns: 2; column-gap: 0; background: #fff; border: var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
-.rows li { display: flex; gap: 14px; align-items: baseline; padding: 14px 20px; border-bottom: 2px solid var(--grid); break-inside: avoid; font-weight: 800; }
-.rows__num { flex: none; min-width: 1.2em; color: var(--blue); font-family: var(--hand); font-size: 1.5rem; line-height: 1; }
+.rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 18px; margin: 8px 0 0; padding: 0; list-style: none; }
+.rows li { display: flex; gap: 14px; align-items: flex-start; padding: 14px 18px; background: #fff; border: var(--border); border-radius: 14px; box-shadow: 3px 3px 0 var(--ink); font-weight: 800; }
+.rows li:nth-child(4n+1) .rows__num { background: var(--tint-yellow); }
+.rows li:nth-child(4n+2) .rows__num { background: var(--tint-blue); }
+.rows li:nth-child(4n+3) .rows__num { background: var(--tint-coral); }
+.rows li:nth-child(4n+4) .rows__num { background: var(--tint-green); }
+.rows__num { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border: 2px solid var(--ink); border-radius: 50%; color: var(--ink); font-family: var(--hand); font-size: 1.4rem; line-height: 1; }
 .rows small { display: block; color: var(--muted); font-weight: 600; font-size: .92rem; }
 .rows small.rows__meta { margin-top: 2px; color: var(--blue); font-weight: 700; font-size: .85rem; }
 
@@ -348,7 +352,7 @@ fieldset.card > legend + * { clear: both; }
   .hero__actions { justify-content: center; }
   .how { grid-template-columns: 1fr; }
   .prepare { position: static; }
-  .rows { columns: 1; }
+  .rows { grid-template-columns: 1fr; }
 }
 @media (max-width: 640px) {
   body { font-size: 16px; }
