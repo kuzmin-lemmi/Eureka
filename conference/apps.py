@@ -12,6 +12,14 @@ ORGANIZERS_PERMISSIONS = [
     "delete_section",
     "view_conferencesettings",
     "change_conferencesettings",
+    "view_newspost",
+    "add_newspost",
+    "change_newspost",
+    "delete_newspost",
+    "view_document",
+    "add_document",
+    "change_document",
+    "delete_document",
 ]
 
 

@@ -234,3 +234,64 @@ class Submission(models.Model):
         return " ".join(
             part for part in (self.supervisor_last_name, self.supervisor_first_name, self.supervisor_middle_name) if part
         )
+
+
+class NewsPost(models.Model):
+    title = models.CharField("заголовок", max_length=200)
+    text = models.TextField("текст", help_text="Абзацы разделяйте пустой строкой.")
+    published_at = models.DateTimeField(
+        "дата публикации", default=timezone.now, help_text="Можно поставить дату в будущем: новость появится в этот момент."
+    )
+    is_published = models.BooleanField("опубликована", default=True)
+
+    class Meta:
+        verbose_name = "новость"
+        verbose_name_plural = "новости"
+        ordering = ["-published_at", "-pk"]
+
+    def __str__(self):
+        return self.title
+
+    @classmethod
+    def visible(cls):
+        return cls.objects.filter(is_published=True, published_at__lte=timezone.now())
+
+
+DOCUMENT_EXTENSIONS = ["pdf", "doc", "docx", "odt", "rtf", "xls", "xlsx", "ods", "ppt", "pptx", "zip", "jpg", "jpeg", "png"]
+
+
+def public_document_upload_to(instance, filename):
+    return f"public_documents/{uuid.uuid4().hex}{Path(filename).suffix.lower()}"
+
+
+class Document(models.Model):
+    title = models.CharField("название", max_length=200)
+    description = models.CharField("пояснение", max_length=300, blank=True)
+    file = models.FileField(
+        "файл", upload_to=public_document_upload_to, validators=[FileExtensionValidator(DOCUMENT_EXTENSIONS)]
+    )
+    order = models.PositiveSmallIntegerField("порядок", default=0)
+    is_published = models.BooleanField("показывать на сайте", default=True)
+    uploaded_at = models.DateTimeField("загружен", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "документ"
+        verbose_name_plural = "документы"
+        ordering = ["order", "-uploaded_at"]
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def extension(self):
+        return Path(self.file.name).suffix.lstrip(".").upper()
+
+    @property
+    def size_display(self):
+        try:
+            size = self.file.size
+        except OSError:
+            return ""
+        if size < 1024 * 1024:
+            return f"{max(1, round(size / 1024))} КБ"
+        return f"{size / 1024 / 1024:.1f}".replace(".", ",") + " МБ"

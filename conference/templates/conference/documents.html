@@ -1,0 +1,28 @@
+{% extends "conference/base.html" %}
+
+{% block title %}Документы — {{ conf.title }}{% endblock %}
+
+{% block content %}
+<section class="page">
+  <div class="container container--narrow">
+    <div class="page-head">
+      <h1><span class="hand">Документы</span> конференции</h1>
+      <p class="muted">Положение, бланки и другие материалы: скачайте то, что нужно.</p>
+    </div>
+
+    {% if documents %}
+      <ul class="docs">
+        {% for doc in documents %}
+          <li>
+            <span class="docs__ext" aria-hidden="true">{{ doc.extension }}</span>
+            <div class="docs__text">{{ doc.title }}<small>{% if doc.description %}{{ doc.description }} · {% endif %}{{ doc.extension }}{% if doc.size_display %}, {{ doc.size_display }}{% endif %}</small></div>
+            <a class="btn btn--sm" href="{% url 'conference:download_document' doc.pk %}">Скачать</a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="card empty">Документы пока не опубликованы.</div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

@@ -6,7 +6,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods
 
 from .forms import REPEAT_FIELDS, SectionFull, SubmissionForm
-from .models import ConferenceSettings, Section, Submission
+from .models import ConferenceSettings, Document, NewsPost, Section, Submission
 
 THANKS_SESSION_KEY = "conference_thanks"
 REPEAT_SESSION_KEY = "conference_repeat"
@@ -94,3 +94,25 @@ def download_submission(request, pk, kind="work"):
     else:
         filename = f"{submission.pk:04d}_{submission.last_name}_{original}"
     return FileResponse(file.open("rb"), as_attachment=True, filename=filename)
+
+
+def news_list(request):
+    return render(request, "conference/news_list.html", {"posts": NewsPost.visible()})
+
+
+def news_detail(request, pk):
+    post = get_object_or_404(NewsPost.visible(), pk=pk)
+    return render(request, "conference/news_detail.html", {"post": post})
+
+
+def documents(request):
+    return render(request, "conference/documents.html", {"documents": Document.objects.filter(is_published=True)})
+
+
+def download_document(request, pk):
+    """Опубликованные документы открыты всем; файлы не раздаются через MEDIA_URL напрямую."""
+    document = get_object_or_404(Document, pk=pk, is_published=True)
+    if not document.file or not document.file.storage.exists(document.file.name):
+        raise Http404("Файл не найден")
+    filename = f"{document.title}{Path(document.file.name).suffix}"
+    return FileResponse(document.file.open("rb"), as_attachment=True, filename=filename)

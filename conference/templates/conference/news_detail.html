@@ -1,0 +1,16 @@
+{% extends "conference/base.html" %}
+
+{% block title %}{{ post.title }} — {{ conf.title }}{% endblock %}
+
+{% block content %}
+<section class="page">
+  <div class="container container--narrow">
+    <a class="back-link" href="{% url 'conference:news' %}">← Все новости</a>
+    <article class="card article">
+      <p class="news__date">{{ post.published_at|date:"j E Y" }}</p>
+      <h1>{{ post.title }}</h1>
+      <div class="article__body">{{ post.text|linebreaks }}</div>
+    </article>
+  </div>
+</section>
+{% endblock %}

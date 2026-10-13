@@ -4,7 +4,7 @@ from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.html import format_html
 
-from .models import ConferenceSettings, Section, Submission
+from .models import ConferenceSettings, Document, NewsPost, Section, Submission
 
 
 @admin.register(ConferenceSettings)
@@ -137,3 +137,18 @@ class SubmissionAdmin(admin.ModelAdmin):
             self._link(obj, "application", obj.application_file, "заявка"),
             self._link(obj, "consent", obj.consent_file, "согласие"),
         )
+
+
+@admin.register(NewsPost)
+class NewsPostAdmin(admin.ModelAdmin):
+    list_display = ("title", "published_at", "is_published")
+    list_editable = ("is_published",)
+    search_fields = ("title", "text")
+    date_hierarchy = "published_at"
+
+
+@admin.register(Document)
+class DocumentAdmin(admin.ModelAdmin):
+    list_display = ("title", "description", "order", "is_published", "uploaded_at")
+    list_editable = ("order", "is_published")
+    search_fields = ("title", "description")

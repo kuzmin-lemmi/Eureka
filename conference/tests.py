@@ -10,7 +10,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .apps import ORGANIZERS_GROUP
-from .models import ConferenceSettings, Section, Submission
+from .models import ConferenceSettings, Document, NewsPost, Section, Submission
 
 MEDIA_ROOT = tempfile.mkdtemp()
 
@@ -256,3 +256,47 @@ class PagesTests(TestCase):
         self.client.force_login(admin)
         response = self.client.get(reverse("admin:conference_conferencesettings_changelist"))
         self.assertRedirects(response, reverse("admin:conference_conferencesettings_change", args=[1]))
+
+
+@override_settings(MEDIA_ROOT=MEDIA_ROOT)
+class NewsAndDocumentsTests(TestCase):
+    def test_news_list_shows_only_published_and_past(self):
+        NewsPost.objects.create(title="Открыта", text="Текст")
+        NewsPost.objects.create(title="Черновик", text="Текст", is_published=False)
+        NewsPost.objects.create(title="Завтра", text="Текст", published_at=timezone.now() + timedelta(days=1))
+        response = self.client.get(reverse("conference:news"))
+        self.assertContains(response, "Открыта")
+        self.assertNotContains(response, "Черновик")
+        self.assertNotContains(response, "Завтра")
+
+    def test_hidden_news_detail_is_404(self):
+        post = NewsPost.objects.create(title="Черновик", text="Текст", is_published=False)
+        self.assertEqual(self.client.get(reverse("conference:news_detail", args=[post.pk])).status_code, 404)
+
+    def test_news_detail_shows_text(self):
+        post = NewsPost.objects.create(title="Итоги", text="Первый абзац\n\nВторой абзац")
+        response = self.client.get(reverse("conference:news_detail", args=[post.pk]))
+        self.assertContains(response, "Второй абзац")
+
+    def test_empty_pages_have_placeholder(self):
+        self.assertContains(self.client.get(reverse("conference:news")), "Новостей пока нет")
+        self.assertContains(self.client.get(reverse("conference:documents")), "Документы пока не опубликованы")
+
+    def test_document_is_listed_and_downloadable(self):
+        doc = Document.objects.create(title="Положение", file=SimpleUploadedFile("pol.pdf", b"%PDF-1.4"))
+        self.assertContains(self.client.get(reverse("conference:documents")), "Положение")
+        response = self.client.get(reverse("conference:download_document", args=[doc.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("attachment", response["Content-Disposition"])
+
+    def test_unpublished_document_hidden(self):
+        doc = Document.objects.create(title="Секрет", file=SimpleUploadedFile("s.pdf", b"x"), is_published=False)
+        self.assertNotContains(self.client.get(reverse("conference:documents")), "Секрет")
+        self.assertEqual(self.client.get(reverse("conference:download_document", args=[doc.pk])).status_code, 404)
+
+    def test_organizer_can_publish_news_and_documents(self):
+        organizer = User.objects.create_user("org2", password="pass", is_staff=True)
+        organizer.groups.add(Group.objects.get(name=ORGANIZERS_GROUP))
+        self.client.force_login(organizer)
+        self.assertEqual(self.client.get(reverse("admin:conference_newspost_add")).status_code, 200)
+        self.assertEqual(self.client.get(reverse("admin:conference_document_add")).status_code, 200)
