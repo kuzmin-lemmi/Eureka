@@ -77,9 +77,9 @@
     <aside class="card prepare">
       <h3>Что подготовить</h3>
       <ul>
-        <li><span class="prepare__num">1</span><div>Текст работы<small>PDF, DOC, DOCX, ODT или RTF, до {{ max_upload_mb }} МБ. Презентации и видео не принимаются.</small></div></li>
-        <li><span class="prepare__num">2</span><div>Заявка с подписью<small>Скан или фото{% if conf.application_template %} · <a href="{% url 'conference:blank' 'application' %}">скачать бланк</a>{% endif %}</small></div></li>
-        <li><span class="prepare__num">3</span><div>Согласие на обработку данных<small>Подписывает родитель или законный представитель{% if conf.consent_template %} · <a href="{% url 'conference:blank' 'consent' %}">скачать бланк</a>{% endif %}</small></div></li>
+        <li><span class="prepare__num">1</span><div>Текст работы<small>PDF, DOC, DOCX, ODT или RTF, до {{ max_upload_mb }} МБ. Презентации и видео не принимаются.{% for label, kind in conf.requirements_links %} · <a href="{% url 'conference:blank' kind %}">требования к работе</a>{% endfor %}</small></div></li>
+        <li><span class="prepare__num">2</span><div>Заявка с подписью<small>Скан или фото{% for label, kind in conf.application_links %} · <a href="{% url 'conference:blank' kind %}">бланк {{ label }}</a>{% endfor %}</small></div></li>
+        <li><span class="prepare__num">3</span><div>Согласие на обработку данных<small>Подписывает родитель или законный представитель{% for label, kind in conf.consent_links %} · <a href="{% url 'conference:blank' kind %}">бланк {{ label }}</a>{% endfor %}</small></div></li>
       </ul>
       {% if conf.is_submission_open %}<a class="btn prepare__btn" href="{% url 'conference:submit' %}">Подать работу</a>{% endif %}
     </aside>
@@ -120,8 +120,17 @@
 <section class="section" id="documents">
   <div class="container container--narrow">
     <h2><span class="hand">Документы</span> конференции</h2>
-    {% if documents %}
+    {% if blanks or documents %}
       <ul class="docs">
+        {% for blank in blanks %}
+          <li>
+            <span class="docs__ext" aria-hidden="true">{{ blank.files.0.label }}</span>
+            <div class="docs__text">{{ blank.title }}<small>{{ blank.description }} · {{ blank.files.0.label }}, {{ blank.files.0.size|filesizeformat }}</small></div>
+            <div class="docs__actions">
+              {% for f in blank.files %}<a class="btn btn--sm{% if not forloop.first %} btn--ghost{% endif %}" href="{% url 'conference:blank' f.kind %}">{% if forloop.first %}Скачать {% endif %}{{ f.label }}</a>{% endfor %}
+            </div>
+          </li>
+        {% endfor %}
         {% for doc in documents %}
           <li>
             <span class="docs__ext" aria-hidden="true">{{ doc.extension }}</span>
@@ -157,7 +166,7 @@
       </details>
       <details class="card">
         <summary>Где взять бланки заявки и согласия?</summary>
-        <p>{% if conf.application_template or conf.consent_template %}Ссылки на бланки есть в блоке «Что подготовить» и прямо в анкете рядом с полями загрузки.{% else %}Бланки появятся на этой странице и в анкете. По вопросам о документах напишите в оргкомитет.{% endif %}</p>
+        <p>{% if conf.application_links or conf.consent_links %}Ссылки на бланки есть в блоке «Что подготовить» и прямо в анкете рядом с полями загрузки.{% else %}Бланки появятся на этой странице и в анкете. По вопросам о документах напишите в оргкомитет.{% endif %}</p>
       </details>
       <details class="card">
         <summary>Учитель подаёт несколько работ — заполнять всё заново?</summary>

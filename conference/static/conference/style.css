@@ -396,10 +396,12 @@ fieldset.card > legend + * { clear: both; }
 .docs { display: flex; flex-direction: column; gap: 14px; margin: 8px 0 0; padding: 0; list-style: none; }
 .docs li { display: flex; align-items: center; gap: 16px; padding: 16px 20px; background: #fff; border: var(--border); border-radius: 14px; box-shadow: 3px 3px 0 var(--ink); }
 .docs__ext { display: grid; place-items: center; flex: none; width: 52px; height: 52px; border: 2px solid var(--ink); border-radius: 12px; background: var(--tint-blue); font-size: .8rem; font-weight: 900; }
+.docs__actions { display: flex; flex: none; gap: 8px; }
 .docs__text { flex: 1; min-width: 0; font-weight: 800; }
 .docs__text small { display: block; color: var(--muted); font-weight: 600; font-size: .92rem; }
 .empty { margin-top: 8px; padding: 28px; text-align: center; color: var(--muted); font-weight: 700; }
 @media (max-width: 560px) {
   .docs li { flex-wrap: wrap; }
-  .docs .btn { width: 100%; }
+  .docs__actions { width: 100%; }
+  .docs .btn { flex: 1; }
 }

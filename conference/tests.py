@@ -1,3 +1,4 @@
+from io import StringIO
 import os
 import shutil
 import tempfile
@@ -213,7 +214,7 @@ class SubmissionTests(TestCase):
     def test_blank_is_public(self):
         self.assertEqual(self.client.get(reverse("conference:blank", args=["consent"])).status_code, 404)
         conf = ConferenceSettings.load()
-        conf.consent_template = SimpleUploadedFile("согласие.docx", b"PK blank")
+        conf.consent_pdf = SimpleUploadedFile("согласие.pdf", b"%PDF blank")
         conf.save()
         response = self.client.get(reverse("conference:blank", args=["consent"]))
         self.assertEqual(response.status_code, 200)
@@ -305,3 +306,38 @@ class NewsAndDocumentsTests(TestCase):
         self.client.force_login(organizer)
         self.assertEqual(self.client.get(reverse("admin:conference_newspost_add")).status_code, 200)
         self.assertEqual(self.client.get(reverse("admin:conference_document_add")).status_code, 200)
+
+
+@override_settings(MEDIA_ROOT=MEDIA_ROOT)
+class BlanksTests(TestCase):
+    def test_load_blanks_command_fills_all_templates(self):
+        from django.core.management import call_command
+
+        call_command("load_blanks", stdout=StringIO())
+        conf = ConferenceSettings.load()
+        for field in ("application_pdf", "application_template", "consent_pdf", "consent_template", "requirements_template"):
+            self.assertTrue(getattr(conf, field), field)
+
+    def test_blanks_are_listed_on_home_and_downloadable(self):
+        from django.core.management import call_command
+
+        call_command("load_blanks", stdout=StringIO())
+        home = self.client.get(reverse("conference:home"))
+        for title in ("Заявка на участие", "Согласие родителя (законного представителя)", "Требования к работе"):
+            self.assertContains(home, title)
+        for kind in ("application", "application-word", "consent", "consent-word", "requirements"):
+            response = self.client.get(reverse("conference:blank", args=[kind]))
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("attachment", response["Content-Disposition"])
+
+    def test_anketa_links_requirements_and_blanks(self):
+        from django.core.management import call_command
+
+        Section.objects.create(name="Физика")
+        call_command("load_blanks", stdout=StringIO())
+        page = self.client.get(reverse("conference:submit"))
+        for kind in ("application", "application-word", "consent", "consent-word", "requirements"):
+            self.assertContains(page, reverse("conference:blank", args=[kind]))
+
+    def test_home_without_blanks_hides_them(self):
+        self.assertNotContains(self.client.get(reverse("conference:home")), "Требования к работе")

@@ -19,9 +19,31 @@ SUBMISSION_FILES = {
     "consent": ("consent_file", "consent_original_filename", "согласие"),
 }
 BLANKS = {
-    "application": ("application_template", "Бланк заявки — Эврика"),
-    "consent": ("consent_template", "Согласие на обработку ПДн — Эврика"),
+    "application": ("application_pdf", "Заявка на участие — Эврика"),
+    "application-word": ("application_template", "Заявка на участие — Эврика"),
+    "consent": ("consent_pdf", "Согласие родителя — Эврика"),
+    "consent-word": ("consent_template", "Согласие родителя — Эврика"),
+    "requirements": ("requirements_template", "Требования к работе — Эврика"),
 }
+# Бланки в блоке «Документы» на главной: (вид, название, пояснение).
+BLANK_LISTING = (
+    ("application", "Заявка на участие", "Заполнить, подписать и приложить скан в анкете"),
+    ("consent", "Согласие родителя (законного представителя)", "Подписывает родитель, скан прикладывается к анкете"),
+    ("requirements", "Требования к работе", "Объём, структура и оформление работы"),
+)
+
+
+def _blank_items(conf):
+    items = []
+    for kind, title, description in BLANK_LISTING:
+        files = []
+        for label, link_kind in getattr(conf, f"{kind}_links"):
+            file = getattr(conf, BLANKS[link_kind][0])
+            if file.storage.exists(file.name):
+                files.append({"label": label, "kind": link_kind, "size": file.size})
+        if files:
+            items.append({"title": title, "description": description, "files": files})
+    return items
 
 
 def home(request):
@@ -32,6 +54,7 @@ def home(request):
         "sections": sections,
         "news": NewsPost.visible(),
         "documents": Document.objects.filter(is_published=True),
+        "blanks": _blank_items(ConferenceSettings.load()),
     }
     return render(request, "conference/home.html", context)
 

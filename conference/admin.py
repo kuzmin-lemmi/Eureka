@@ -13,7 +13,13 @@ class ConferenceSettingsAdmin(admin.ModelAdmin):
         (None, {"fields": ("title", "tagline", "description", "event_dates", "venue", "organizer")}),
         ("Контакты", {"fields": ("contact_email", "contact_phone")}),
         ("Приём работ", {"fields": ("submissions_open", "submissions_deadline")}),
-        ("Бланки документов", {"fields": ("application_template", "consent_template")}),
+        ("Бланки документов", {"fields": (
+                "application_pdf",
+                "application_template",
+                "consent_pdf",
+                "consent_template",
+                "requirements_template",
+            )}),
         ("Персональные данные", {"fields": ("privacy_policy",), "classes": ("collapse",)}),
     )
 

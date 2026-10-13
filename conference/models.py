@@ -36,19 +36,40 @@ class ConferenceSettings(models.Model):
         "приём работ до", null=True, blank=True, help_text="Пусто — без ограничения по времени."
     )
 
+    application_pdf = models.FileField(
+        "бланк заявки (PDF)",
+        upload_to=blank_upload_to,
+        blank=True,
+        validators=[FileExtensionValidator(["pdf"])],
+        help_text="Основной файл: участники скачивают его из анкеты, печатают, подписывают и загружают скан.",
+    )
     application_template = models.FileField(
-        "бланк заявки",
+        "бланк заявки (Word)",
         upload_to=blank_upload_to,
         blank=True,
         validators=[FileExtensionValidator(BLANK_EXTENSIONS)],
-        help_text="Участники скачивают его из анкеты, заполняют, подписывают и загружают скан.",
+        help_text="Необязательно: для тех, кто заполняет заявку на компьютере перед печатью.",
+    )
+    consent_pdf = models.FileField(
+        "бланк согласия на обработку ПДн (PDF)",
+        upload_to=blank_upload_to,
+        blank=True,
+        validators=[FileExtensionValidator(["pdf"])],
+        help_text="Согласие родителя (законного представителя) участника. Основной файл.",
     )
     consent_template = models.FileField(
-        "бланк согласия на обработку ПДн",
+        "бланк согласия на обработку ПДн (Word)",
         upload_to=blank_upload_to,
         blank=True,
         validators=[FileExtensionValidator(BLANK_EXTENSIONS)],
-        help_text="Согласие родителя (законного представителя) участника.",
+        help_text="Необязательно: для тех, кто заполняет согласие на компьютере перед печатью.",
+    )
+    requirements_template = models.FileField(
+        "требования к работе (PDF)",
+        upload_to=blank_upload_to,
+        blank=True,
+        validators=[FileExtensionValidator(["pdf"])],
+        help_text="Объём, структура и оформление работы. Показывается в анкете и в документах конференции.",
     )
 
     privacy_policy = models.TextField(
@@ -72,6 +93,23 @@ class ConferenceSettings(models.Model):
     def load(cls):
         obj, _ = cls.objects.get_or_create(pk=1)
         return obj
+
+    @staticmethod
+    def _links(pdf, pdf_kind, word, word_kind):
+        """Ссылки на файлы бланка: [(подпись, вид в URL)], PDF первым."""
+        return [(label, kind) for label, kind, file in (("PDF", pdf_kind, pdf), ("Word", word_kind, word)) if file]
+
+    @property
+    def application_links(self):
+        return self._links(self.application_pdf, "application", self.application_template, "application-word")
+
+    @property
+    def consent_links(self):
+        return self._links(self.consent_pdf, "consent", self.consent_template, "consent-word")
+
+    @property
+    def requirements_links(self):
+        return [("PDF", "requirements")] if self.requirements_template else []
 
     @property
     def is_submission_open(self):

@@ -5,7 +5,7 @@ from django import forms
 from django.conf import settings
 from django.urls import reverse
 from django.db import transaction
-from django.utils.html import format_html
+from django.utils.html import format_html, format_html_join
 
 from .models import GRADE_MAX, GRADE_MIN, ConferenceSettings, Section, Submission
 
@@ -139,24 +139,32 @@ class SubmissionForm(forms.ModelForm):
         slot_field.widget.disabled_values = {v for v, (free, *_) in self.slots.items() if not free}
         slot_field.help_text = "Число мест в секции ограничено. Заполненные секции выбрать нельзя."
 
-        self.fields["file"].help_text = (
-            f"{formats(ALLOWED_EXTENSIONS)}, до {max_mb} МБ. Презентации и видео не принимаются."
-        )
+        work_help = f"{formats(ALLOWED_EXTENSIONS)}, до {max_mb} МБ. Презентации и видео не принимаются."
+        self.fields["file"].help_text = work_help
+        if conf.requirements_links:
+            self.fields["file"].help_text = format_html(
+                '<a href="{}" class="blank-link">Требования к работе</a> · {}',
+                reverse("conference:blank", args=[conf.requirements_links[0][1]]),
+                work_help,
+            )
         self.fields["file"].widget.attrs.update({"accept": ",".join(ALLOWED_EXTENSIONS), "data-max-mb": max_mb})
 
         scan_help = f"Скан или фото с подписью: {formats(DOCUMENT_EXTENSIONS)}, до {max_mb} МБ. Несколько страниц — соберите в один PDF."
-        for name, kind, blank in (
-            ("application_file", "application", conf.application_template),
-            ("consent_file", "consent", conf.consent_template),
+        for name, links in (
+            ("application_file", conf.application_links),
+            ("consent_file", conf.consent_links),
         ):
             field = self.fields[name]
             field.required = True
             field.widget.attrs.update({"accept": ",".join(DOCUMENT_EXTENSIONS), "data-max-mb": max_mb})
             field.help_text = scan_help
-            if blank:
-                field.help_text = format_html(
-                    '<a href="{}" class="blank-link">Скачать бланк</a> · {}', reverse("conference:blank", args=[kind]), scan_help
+            if links:
+                anchors = format_html_join(
+                    " · ",
+                    '<a href="{}" class="blank-link">Скачать бланк ({})</a>',
+                    ((reverse("conference:blank", args=[kind]), label) for label, kind in links),
                 )
+                field.help_text = format_html("{} · {}", anchors, scan_help)
 
         self.fields["website"].widget.attrs.update({"tabindex": "-1", "autocomplete": "off"})
         for name in ("email", "links_email"):
