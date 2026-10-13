@@ -69,7 +69,7 @@ a { color: var(--blue); text-underline-offset: 3px; }
 a:hover { color: var(--ink); }
 :focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
 
-h1, h2, h3 { font-weight: 900; line-height: 1.15; margin: 0 0 .5em; text-wrap: balance; }
+h1, h2, h3 { font-weight: 900; line-height: 1.15; margin: 0 0 .5em; text-wrap: balance; overflow-wrap: break-word; hyphens: auto; }
 h1 { font-size: clamp(2rem, 4.2vw, 3.1rem); }
 h2, .h2 { font-size: clamp(1.6rem, 3vw, 2rem); }
 h3, .h3 { font-size: 1.2rem; }
@@ -98,15 +98,15 @@ p { text-wrap: pretty; }
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 8px 10px 8px 14px;
 }
-.logo { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; }
+.logo { display: inline-flex; flex: none; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; }
 .logo img { width: 56px; height: auto; }
-.logo__text { display: flex; flex-direction: column; line-height: 1.1; }
+.logo__text { display: flex; flex-direction: column; line-height: 1.1; white-space: nowrap; }
 .logo__text b { font-size: 1.2rem; font-weight: 900; }
 .logo__text small { font-size: .78rem; font-weight: 700; color: var(--muted); }
 .nav { display: flex; gap: 4px; align-items: center; font-weight: 800; }
-.nav__link { padding: 8px 14px; border-radius: 999px; color: var(--ink); text-decoration: none; }
+.nav__link { padding: 8px 14px; border-radius: 999px; color: var(--ink); text-decoration: none; white-space: nowrap; }
 .nav__link:hover, .nav__link[aria-current="page"] { background: var(--tint-yellow); color: var(--ink); }
-.nav .btn { margin-left: 8px; }
+.nav .btn { margin-left: 8px; white-space: nowrap; }
 
 .site-footer { margin-top: 72px; padding: 28px 0; background: #fff; border-top: var(--border); font-size: .95rem; }
 .site-footer__inner { display: flex; justify-content: space-between; gap: 16px 32px; flex-wrap: wrap; }
@@ -225,7 +225,8 @@ p { text-wrap: pretty; }
 .progress__bar { height: 10px; margin-bottom: 14px; background: var(--grid); border: 2px solid var(--ink); border-radius: 999px; overflow: hidden; }
 .progress__bar span { display: block; width: 0; height: 100%; background: var(--green); transition: width .3s; }
 .progress__list { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; counter-reset: step; }
-.progress__list a { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 10px; color: var(--ink); font-weight: 700; text-decoration: none; }
+/* Сетка: кружок слева, текст справа; длинное название и «по желанию» переносятся внутри своей колонки. */
+.progress__list a { display: grid; grid-template-columns: 20px minmax(0, 1fr); column-gap: 10px; align-items: center; padding: 6px 8px; border-radius: 10px; color: var(--ink); font-weight: 700; line-height: 1.25; text-decoration: none; overflow-wrap: anywhere; }
 .progress__list a::before {
   content: ""; flex: none; display: grid; place-items: center; width: 20px; height: 20px;
   border: 2px solid var(--ink); border-radius: 50%; background: #fff; font-size: .75rem; font-weight: 900;
@@ -235,7 +236,7 @@ p { text-wrap: pretty; }
 .progress__list a.is-done::before { content: "✓"; background: var(--green); color: #fff; }
 .progress__optional a { color: var(--muted); font-weight: 600; }
 .progress__optional a::before { border-style: dashed; }
-.progress__optional a::after { content: "по желанию"; margin-left: auto; font-size: .72rem; }
+.progress__optional a::after { content: "по желанию"; grid-column: 2; font-size: .72rem; font-weight: 600; }
 
 .card { margin: 0 0 24px; padding: 26px; }
 fieldset.card { min-width: 0; }
@@ -345,14 +346,21 @@ fieldset.card > legend + * { clear: both; }
   .progress__bar { flex: 1; margin: 0; }
   .progress__list { display: none; }
 }
+@media (max-width: 1080px) {
+  /* Средние экраны: в шапке не хватает места на все пункты — якоря главной убираем, они есть на самой главной. */
+  .nav__link--anchor { display: none; }
+}
+@media (max-width: 760px) {
+  .logo__text small { display: none; }
+}
 @media (max-width: 860px) {
-  .hero__grid { grid-template-columns: 1fr; gap: 28px; text-align: center; }
+  .hero__grid { grid-template-columns: minmax(0, 1fr); gap: 28px; text-align: center; }
   .polaroid { order: -1; width: min(340px, 90%); margin: 12px auto 0; }
   .hero__lead { margin-left: auto; margin-right: auto; }
   .hero__actions { justify-content: center; }
-  .how { grid-template-columns: 1fr; }
+  .how { grid-template-columns: minmax(0, 1fr); }
   .prepare { position: static; }
-  .rows { grid-template-columns: 1fr; }
+  .rows { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 640px) {
   body { font-size: 16px; }
@@ -364,8 +372,10 @@ fieldset.card > legend + * { clear: both; }
   .nav__link { padding: 8px 10px; }
   .nav .btn { margin-left: 4px; }
   .logo img { width: 48px; }
-  .grid--2, .grid--3 { grid-template-columns: 1fr; }
-  .grid--name { grid-template-columns: minmax(0, 1fr) 90px; }
+  .grid--2, .grid--3 { grid-template-columns: minmax(0, 1fr); }
+  /* Колонка «Класс» шириной в подпись «Класс соавтора»: подпись в одну строку, поля в строке на одном уровне. */
+  .grid--name { grid-template-columns: minmax(0, 1fr) 122px; }
+  .grid--name > :last-child > label { white-space: nowrap; }
   .grid--name > :first-child { grid-column: 1 / -1; }
   .site-footer__contacts { text-align: left; }
   .card { padding: 18px; }
@@ -376,6 +386,13 @@ fieldset.card > legend + * { clear: both; }
   .progress { margin: 0 -16px 16px; padding: 10px 16px; }
   .hero__actions .btn, .submit-card .btn, .actions .btn { width: 100%; }
   .polaroid figcaption { font-size: 1.5rem; }
+}
+
+@media (max-width: 400px) {
+  /* «Межрегиональная» — длинное слово: на узких телефонах заголовок мельче, чтобы оно влезало целиком. */
+  .hero h1 { font-size: 1.75rem; }
+  h1 { font-size: 1.7rem; }
+  h2, .h2 { font-size: 1.45rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
