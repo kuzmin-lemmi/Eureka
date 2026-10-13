@@ -88,8 +88,8 @@ class SubmissionAdmin(admin.ModelAdmin):
         ("Оргкомитет", {"fields": ("number_display", "status", "admin_comment", ("created_at", "updated_at"))}),
         ("Работа", {"fields": ("title", ("section", "section_number"), "file_link")}),
         ("Документы", {"fields": ("application_link", "consent_link")}),
-        ("Участник", {"fields": (("last_name", "first_name", "grade"), "school", "district", "email")}),
-        ("Соавтор", {"fields": (("coauthor_last_name", "coauthor_first_name", "coauthor_grade"),)}),
+        ("Участник", {"fields": (("last_name", "first_name", "grade"), "snils", "school", "district", "email")}),
+        ("Соавтор", {"fields": (("coauthor_last_name", "coauthor_first_name", "coauthor_grade"), "coauthor_snils")}),
         (
             "Руководитель",
             {

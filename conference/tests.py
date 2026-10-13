@@ -34,6 +34,7 @@ class SubmissionTests(TestCase):
             "last_name": "Иванова",
             "first_name": "Мария",
             "grade": "9",
+            "snils": "112-233-445 95",
             "title": "Маятник Фуко в домашних условиях",
             "section_slot": f"{self.section.pk}:1",
             "supervisor_last_name": "Петрова",
@@ -150,12 +151,12 @@ class SubmissionTests(TestCase):
     def test_coauthor_takes_a_place(self):
         self.section.capacity = 2
         self.section.save()
-        self.post(coauthor_last_name="Сидоров", coauthor_first_name="Пётр", coauthor_grade="8")
+        self.post(coauthor_last_name="Сидоров", coauthor_first_name="Пётр", coauthor_grade="8", coauthor_snils="123-456-789 64")
         self.assertEqual(self.section.free_places(), {1: 0})
 
         self.section.capacity = 3
         self.section.save()
-        response = self.post(coauthor_last_name="Орлов", coauthor_first_name="Иван", coauthor_grade="8")
+        response = self.post(coauthor_last_name="Орлов", coauthor_first_name="Иван", coauthor_grade="8", coauthor_snils="123-456-789 64")
         self.assertContains(response, "осталось 1 место")
         self.assertEqual(Submission.objects.count(), 1)
 
@@ -175,15 +176,43 @@ class SubmissionTests(TestCase):
     def test_partial_coauthor_rejected(self):
         response = self.post(coauthor_last_name="Сидоров")
         self.assertFalse(Submission.objects.exists())
-        self.assertContains(response, "Заполните, если у работы есть соавтор.", count=2)
+        self.assertContains(response, "Заполните, если у работы есть соавтор.", count=3)
 
     def test_full_coauthor_saved(self):
-        self.post(coauthor_last_name="Сидоров", coauthor_first_name="Пётр", coauthor_grade="8")
+        self.post(coauthor_last_name="Сидоров", coauthor_first_name="Пётр", coauthor_grade="8", coauthor_snils="123-456-789 64")
         self.assertEqual(Submission.objects.get().coauthor, "Сидоров Пётр, 8 класс")
 
     def test_supervisor_middle_name_optional(self):
         self.post(supervisor_middle_name="")
         self.assertEqual(Submission.objects.get().supervisor, "Петрова Анна")
+
+    def test_snils_is_required_and_normalized(self):
+        self.post(snils="11223344595")
+        self.assertEqual(Submission.objects.get().snils, "112-233-445 95")
+
+    def test_missing_snils_rejected(self):
+        self.post(snils="")
+        self.assertFalse(Submission.objects.exists())
+
+    def test_snils_typo_rejected(self):
+        response = self.post(snils="112-233-445 96")
+        self.assertFalse(Submission.objects.exists())
+        self.assertContains(response, "опечатка")
+
+    def test_short_snils_rejected(self):
+        self.post(snils="112-233")
+        self.assertFalse(Submission.objects.exists())
+
+    def test_coauthor_requires_snils(self):
+        response = self.post(coauthor_last_name="Сидоров", coauthor_first_name="Пётр", coauthor_grade="8")
+        self.assertFalse(Submission.objects.exists())
+        self.assertContains(response, "Заполните, если у работы есть соавтор.")
+
+    def test_coauthor_snils_saved(self):
+        self.post(
+            coauthor_last_name="Сидоров", coauthor_first_name="Пётр", coauthor_grade="8", coauthor_snils="12345678964"
+        )
+        self.assertEqual(Submission.objects.get().coauthor_snils, "123-456-789 64")
 
     def test_second_supervisor_is_optional(self):
         self.post()

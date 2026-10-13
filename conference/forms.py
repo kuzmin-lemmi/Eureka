@@ -38,6 +38,23 @@ SUPERVISOR2_FIELDS = (
 )
 
 
+def clean_snils(value):
+    """Приводит СНИЛС к виду «123-456-789 01» и проверяет контрольное число (ловит опечатки)."""
+    digits = re.sub(r"\D", "", value or "")
+    if not digits:
+        return ""
+    if len(digits) != 11:
+        raise forms.ValidationError("СНИЛС состоит из 11 цифр, например 123-456-789 01.")
+    number, control = digits[:9], int(digits[9:])
+    # Контрольное число считается только для номеров больше 001-001-998.
+    if int(number) > 1001998:
+        total = sum(int(d) * w for d, w in zip(number, range(9, 0, -1)))
+        expected = total if total < 100 else (0 if total in (100, 101) else (total % 101) % 100)
+        if expected != control:
+            raise forms.ValidationError("Проверьте СНИЛС: в номере опечатка.")
+    return f"{digits[:3]}-{digits[3:6]}-{digits[6:9]} {digits[9:]}"
+
+
 def places(n):
     if n % 10 == 1 and n % 100 != 11:
         return f"{n} место"
@@ -98,10 +115,12 @@ class SubmissionForm(forms.ModelForm):
             "last_name",
             "first_name",
             "grade",
+            "snils",
             "title",
             "coauthor_last_name",
             "coauthor_first_name",
             "coauthor_grade",
+            "coauthor_snils",
             "supervisor_last_name",
             "supervisor_first_name",
             "supervisor_middle_name",
@@ -128,6 +147,7 @@ class SubmissionForm(forms.ModelForm):
             "coauthor_last_name": "Фамилия соавтора",
             "coauthor_first_name": "Имя соавтора",
             "coauthor_grade": "Класс соавтора",
+            "coauthor_snils": "СНИЛС соавтора",
             "supervisor_last_name": "Фамилия",
             "supervisor_first_name": "Имя",
             "supervisor_middle_name": "Отчество",
@@ -141,6 +161,8 @@ class SubmissionForm(forms.ModelForm):
             "links_email": "Почта для ссылок на тестирование и второй этап",
         }
         help_texts = {
+            "snils": "Формат: 123-456-789 01",
+            "coauthor_snils": "Формат: 123-456-789 01",
             "school": "Как в уставе (в соответствии с ЕГРЮЛ), без сокращений",
             "district": "Например: Ленинский район г. Саратова",
         }
@@ -197,6 +219,11 @@ class SubmissionForm(forms.ModelForm):
         self.fields["website"].widget.attrs.update({"tabindex": "-1", "autocomplete": "off"})
         for name in ("email", "links_email"):
             self.fields[name].widget.attrs.update({"placeholder": "name@example.ru", "autocomplete": "off"})
+        self.fields["snils"].required = True
+        for name in ("snils", "coauthor_snils"):
+            self.fields[name].widget.attrs.update(
+                {"inputmode": "numeric", "placeholder": "123-456-789 01", "autocomplete": "off", "data-snils": ""}
+            )
         for name in ("supervisor_phone", "supervisor2_phone"):
             self.fields[name].widget.attrs.update(
                 {"type": "tel", "inputmode": "tel", "placeholder": "+7 (900) 000-00-00", "data-phone": ""}
@@ -217,6 +244,12 @@ class SubmissionForm(forms.ModelForm):
         if phone and (not re.fullmatch(r"[\d\s()+\-]+", phone) or len(re.sub(r"\D", "", phone)) < 10):
             raise forms.ValidationError("Укажите телефон полностью, например +7 900 000-00-00.")
         return phone
+
+    def clean_snils(self):
+        return clean_snils(self.cleaned_data["snils"])
+
+    def clean_coauthor_snils(self):
+        return clean_snils(self.cleaned_data["coauthor_snils"])
 
     def clean_supervisor_phone(self):
         return self._check_phone(self.cleaned_data["supervisor_phone"])
@@ -265,7 +298,7 @@ class SubmissionForm(forms.ModelForm):
             else:
                 self.instance.section, self.instance.section_number = section, number
         # Соавтор необязателен, но если он указан — нужны все три поля.
-        coauthor_fields = ("coauthor_last_name", "coauthor_first_name", "coauthor_grade")
+        coauthor_fields = ("coauthor_last_name", "coauthor_first_name", "coauthor_grade", "coauthor_snils")
         if any(cleaned.get(name) for name in coauthor_fields):
             for name in coauthor_fields:
                 if not cleaned.get(name) and name not in self.errors:
@@ -306,5 +339,5 @@ class SubmissionForm(forms.ModelForm):
 
     @property
     def has_coauthor(self):
-        names = ("coauthor_last_name", "coauthor_first_name", "coauthor_grade")
+        names = ("coauthor_last_name", "coauthor_first_name", "coauthor_grade", "coauthor_snils")
         return any(self[name].value() or self[name].errors for name in names)

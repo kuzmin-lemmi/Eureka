@@ -194,6 +194,7 @@ class Submission(models.Model):
     last_name = models.CharField("фамилия", max_length=100)
     first_name = models.CharField("имя", max_length=100)
     grade = models.PositiveSmallIntegerField("класс", validators=GRADE_VALIDATORS)
+    snils = models.CharField("СНИЛС", max_length=14, blank=True, help_text="Формат: 123-456-789 01")
 
     # Работа
     title = models.CharField("название научно-исследовательской работы", max_length=500)
@@ -217,6 +218,7 @@ class Submission(models.Model):
     # Соавтор (необязательно)
     coauthor_first_name = models.CharField("имя соавтора", max_length=100, blank=True)
     coauthor_last_name = models.CharField("фамилия соавтора", max_length=100, blank=True)
+    coauthor_snils = models.CharField("СНИЛС соавтора", max_length=14, blank=True)
     coauthor_grade = models.PositiveSmallIntegerField(
         "класс соавтора", null=True, blank=True, validators=GRADE_VALIDATORS
     )

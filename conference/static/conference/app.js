@@ -92,6 +92,19 @@ document.addEventListener("DOMContentLoaded", () => {
     input.addEventListener("blur", format);
   });
 
+  // --- Маска СНИЛС: 123-456-789 01 ---
+  form.querySelectorAll("input[data-snils]").forEach((input) => {
+    input.addEventListener("input", (event) => {
+      if (event.inputType && event.inputType.startsWith("delete")) return;
+      const d = input.value.replace(/\D/g, "").slice(0, 11);
+      let out = d.slice(0, 3);
+      if (d.length > 3) out += `-${d.slice(3, 6)}`;
+      if (d.length > 6) out += `-${d.slice(6, 9)}`;
+      if (d.length > 9) out += ` ${d.slice(9, 11)}`;
+      input.value = out;
+    });
+  });
+
   // --- Проверка полей при вводе ---
   const messageFor = (input) => {
     const v = input.validity;
@@ -106,7 +119,14 @@ document.addEventListener("DOMContentLoaded", () => {
     return input.validationMessage;
   };
 
+  const checkSnils = (input) => {
+    if (!input.matches("[data-snils]")) return;
+    const digits = input.value.replace(/\D/g, "");
+    input.setCustomValidity(input.value && digits.length !== 11 ? "СНИЛС состоит из 11 цифр." : "");
+  };
+
   const checkPhone = (input) => {
+    checkSnils(input);
     if (!input.matches("[data-phone]")) return;
     const digits = input.value.replace(/\D/g, "");
     input.setCustomValidity(input.value && digits.length < 10 ? "Укажите телефон полностью." : "");
@@ -233,7 +253,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const notice = form.querySelector("[data-draft-notice]");
       notice.hidden = false;
       const coauthor = form.querySelector("#step-coauthor");
-      if (coauthor && ["coauthor_last_name", "coauthor_first_name", "coauthor_grade"].some((n) => form.elements[n]?.value)) {
+      if (coauthor && ["coauthor_last_name", "coauthor_first_name", "coauthor_grade", "coauthor_snils"].some((n) => form.elements[n]?.value)) {
         coauthor.open = true;
       }
       const supervisor2 = form.querySelector("#step-supervisor2");

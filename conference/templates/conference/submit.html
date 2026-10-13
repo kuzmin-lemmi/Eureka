@@ -65,7 +65,10 @@
               {% include "conference/_field.html" with field=form.school %}
               {% include "conference/_field.html" with field=form.district %}
             </div>
-            {% include "conference/_field.html" with field=form.email %}
+            <div class="grid grid--2">
+              {% include "conference/_field.html" with field=form.email %}
+              {% include "conference/_field.html" with field=form.snils %}
+            </div>
           </fieldset>
 
           <fieldset class="card" id="step-work" data-step="work">
@@ -90,6 +93,9 @@
               {% include "conference/_field.html" with field=form.coauthor_last_name %}
               {% include "conference/_field.html" with field=form.coauthor_first_name %}
               {% include "conference/_field.html" with field=form.coauthor_grade %}
+            </div>
+            <div class="grid grid--2">
+              {% include "conference/_field.html" with field=form.coauthor_snils %}
             </div>
           </details>
 
