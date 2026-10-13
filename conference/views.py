@@ -3,6 +3,7 @@ from pathlib import Path
 from django.contrib.admin.views.decorators import staff_member_required
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 
 from .forms import REPEAT_FIELDS, SectionFull, SubmissionForm
@@ -27,7 +28,12 @@ def home(request):
     sections = list(Section.objects.filter(is_active=True))
     for section in sections:
         section.free_total = sum(section.free_places().values())
-    return render(request, "conference/home.html", {"sections": sections})
+    context = {
+        "sections": sections,
+        "news": NewsPost.visible(),
+        "documents": Document.objects.filter(is_published=True),
+    }
+    return render(request, "conference/home.html", context)
 
 
 @require_http_methods(["GET", "POST"])
@@ -96,17 +102,12 @@ def download_submission(request, pk, kind="work"):
     return FileResponse(file.open("rb"), as_attachment=True, filename=filename)
 
 
-def news_list(request):
-    return render(request, "conference/news_list.html", {"posts": NewsPost.visible()})
+def news_redirect(request):
+    return redirect(reverse("conference:home") + "#news")
 
 
-def news_detail(request, pk):
-    post = get_object_or_404(NewsPost.visible(), pk=pk)
-    return render(request, "conference/news_detail.html", {"post": post})
-
-
-def documents(request):
-    return render(request, "conference/documents.html", {"documents": Document.objects.filter(is_published=True)})
+def documents_redirect(request):
+    return redirect(reverse("conference:home") + "#documents")
 
 
 def download_document(request, pk):

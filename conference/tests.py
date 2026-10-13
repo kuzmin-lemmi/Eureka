@@ -260,38 +260,43 @@ class PagesTests(TestCase):
 
 @override_settings(MEDIA_ROOT=MEDIA_ROOT)
 class NewsAndDocumentsTests(TestCase):
-    def test_news_list_shows_only_published_and_past(self):
+    def home(self):
+        return self.client.get(reverse("conference:home"))
+
+    def test_home_shows_only_published_and_past_news(self):
         NewsPost.objects.create(title="Открыта", text="Текст")
         NewsPost.objects.create(title="Черновик", text="Текст", is_published=False)
         NewsPost.objects.create(title="Завтра", text="Текст", published_at=timezone.now() + timedelta(days=1))
-        response = self.client.get(reverse("conference:news"))
+        response = self.home()
         self.assertContains(response, "Открыта")
         self.assertNotContains(response, "Черновик")
         self.assertNotContains(response, "Завтра")
 
-    def test_hidden_news_detail_is_404(self):
-        post = NewsPost.objects.create(title="Черновик", text="Текст", is_published=False)
-        self.assertEqual(self.client.get(reverse("conference:news_detail", args=[post.pk])).status_code, 404)
+    def test_news_text_is_on_home(self):
+        NewsPost.objects.create(title="Итоги", text="Первый абзац\n\nВторой абзац")
+        self.assertContains(self.home(), "Второй абзац")
 
-    def test_news_detail_shows_text(self):
-        post = NewsPost.objects.create(title="Итоги", text="Первый абзац\n\nВторой абзац")
-        response = self.client.get(reverse("conference:news_detail", args=[post.pk]))
-        self.assertContains(response, "Второй абзац")
+    def test_empty_blocks_have_placeholder(self):
+        response = self.home()
+        self.assertContains(response, "Новостей пока нет")
+        self.assertContains(response, "Документы пока не опубликованы")
 
-    def test_empty_pages_have_placeholder(self):
-        self.assertContains(self.client.get(reverse("conference:news")), "Новостей пока нет")
-        self.assertContains(self.client.get(reverse("conference:documents")), "Документы пока не опубликованы")
+    def test_old_urls_redirect_to_home_anchors(self):
+        self.assertRedirects(self.client.get(reverse("conference:news")), reverse("conference:home") + "#news")
+        self.assertRedirects(
+            self.client.get(reverse("conference:documents")), reverse("conference:home") + "#documents"
+        )
 
     def test_document_is_listed_and_downloadable(self):
         doc = Document.objects.create(title="Положение", file=SimpleUploadedFile("pol.pdf", b"%PDF-1.4"))
-        self.assertContains(self.client.get(reverse("conference:documents")), "Положение")
+        self.assertContains(self.home(), "Положение")
         response = self.client.get(reverse("conference:download_document", args=[doc.pk]))
         self.assertEqual(response.status_code, 200)
         self.assertIn("attachment", response["Content-Disposition"])
 
     def test_unpublished_document_hidden(self):
         doc = Document.objects.create(title="Секрет", file=SimpleUploadedFile("s.pdf", b"x"), is_published=False)
-        self.assertNotContains(self.client.get(reverse("conference:documents")), "Секрет")
+        self.assertNotContains(self.home(), "Секрет")
         self.assertEqual(self.client.get(reverse("conference:download_document", args=[doc.pk])).status_code, 404)
 
     def test_organizer_can_publish_news_and_documents(self):

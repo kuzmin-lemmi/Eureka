@@ -99,6 +99,43 @@
 </section>
 {% endif %}
 
+<section class="section" id="news">
+  <div class="container container--narrow">
+    <h2><span class="hand">Новости</span> конференции</h2>
+    {% if news %}
+      <div class="faq news">
+        {% for post in news %}
+          <details class="card"{% if forloop.first %} open{% endif %}>
+            <summary><span class="news__summary"><small>{{ post.published_at|date:"j E Y" }}</small>{{ post.title }}</span></summary>
+            <div class="news__body">{{ post.text|linebreaks }}</div>
+          </details>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="card empty">Новостей пока нет. Загляните позже.</div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="section" id="documents">
+  <div class="container container--narrow">
+    <h2><span class="hand">Документы</span> конференции</h2>
+    {% if documents %}
+      <ul class="docs">
+        {% for doc in documents %}
+          <li>
+            <span class="docs__ext" aria-hidden="true">{{ doc.extension }}</span>
+            <div class="docs__text">{{ doc.title }}<small>{% if doc.description %}{{ doc.description }} · {% endif %}{{ doc.extension }}{% if doc.size_display %}, {{ doc.size_display }}{% endif %}</small></div>
+            <a class="btn btn--sm" href="{% url 'conference:download_document' doc.pk %}">Скачать</a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="card empty">Документы пока не опубликованы.</div>
+    {% endif %}
+  </div>
+</section>
+
 {% if conf.description %}
 <section class="section">
   <div class="container">

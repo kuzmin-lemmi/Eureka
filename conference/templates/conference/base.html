@@ -23,8 +23,8 @@
         <nav class="nav" aria-label="Основное меню">
           <a class="nav__link nav__link--anchor" href="{% url 'conference:home' %}#how">Как участвовать</a>
           <a class="nav__link nav__link--anchor" href="{% url 'conference:home' %}#sections">Секции</a>
-          <a class="nav__link" href="{% url 'conference:news' %}"{% if request.resolver_match.url_name in 'news,news_detail' %} aria-current="page"{% endif %}>Новости</a>
-          <a class="nav__link" href="{% url 'conference:documents' %}"{% if request.resolver_match.url_name == 'documents' %} aria-current="page"{% endif %}>Документы</a>
+          <a class="nav__link" href="{% url 'conference:home' %}#news">Новости</a>
+          <a class="nav__link" href="{% url 'conference:home' %}#documents">Документы</a>
           {% if request.resolver_match.url_name != "submit" %}
             <a class="btn btn--sm" href="{% url 'conference:submit' %}">Подать работу</a>
           {% endif %}
