@@ -132,7 +132,7 @@ class Section(models.Model):
     )
     capacity = models.PositiveSmallIntegerField(
         "мест в секции",
-        default=15,
+        default=12,
         validators=[MinValueValidator(1)],
         help_text="Участник и соавтор занимают по месту. Отклонённые заявки места не занимают.",
     )

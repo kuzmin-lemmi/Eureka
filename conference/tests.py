@@ -101,7 +101,7 @@ class SubmissionTests(TestCase):
         self.section.groups = 3
         self.section.save()
         response = self.client.get(reverse("conference:submit"))
-        self.assertContains(response, "Естественные науки 2 — свободно 15 мест")
+        self.assertContains(response, "Естественные науки 2 — свободно 12 мест")
         self.post(section_slot=f"{self.section.pk}:3")
         submission = Submission.objects.get()
         self.assertEqual(submission.section_number, 3)
@@ -341,3 +341,10 @@ class BlanksTests(TestCase):
 
     def test_home_without_blanks_hides_them(self):
         self.assertNotContains(self.client.get(reverse("conference:home")), "Требования к работе")
+
+
+class SectionCapacityTests(TestCase):
+    def test_new_section_has_12_places(self):
+        section = Section.objects.create(name="Физика")
+        self.assertEqual(section.capacity, 12)
+        self.assertEqual(sum(section.free_places().values()), 12)
