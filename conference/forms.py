@@ -53,10 +53,14 @@ def section_slots():
     """[(значение «pk:номер», подпись, свободно мест, направление, номер)] для активных направлений."""
     slots = []
     for section in Section.objects.filter(is_active=True):
-        for number, free in section.free_places().items():
-            label = section.group_label(number)
-            label += f" — свободно {places(free)}" if free else " — мест нет"
-            slots.append((f"{section.pk}:{number}", label, free, section, number))
+        free_by_number = section.free_places()
+        # Секции направления заполняются по очереди: предлагаем первую, где ещё есть места.
+        # Следующая появляется, когда предыдущая заполнена. Если заполнены все — последнюю, как «мест нет».
+        number = next((n for n, free in free_by_number.items() if free), max(free_by_number))
+        free = free_by_number[number]
+        label = section.group_label(number)
+        label += f" — свободно {places(free)}" if free else " — мест нет"
+        slots.append((f"{section.pk}:{number}", label, free, section, number))
     return slots
 
 
@@ -100,7 +104,7 @@ class SubmissionForm(forms.ModelForm):
         labels = {
             "email": "Электронная почта участника",
             "district": "Муниципальный район",
-            "school": "Образовательная организация",
+            "school": "Полное название образовательной организации",
             "title": "Название научно-исследовательской работы",
             "file": "Текст работы",
             "application_file": "Заявка на участие",
@@ -116,7 +120,7 @@ class SubmissionForm(forms.ModelForm):
             "links_email": "Почта для ссылок на тестирование и второй этап",
         }
         help_texts = {
-            "school": "Краткое название, например: МАОУ «Гимназия № 87»",
+            "school": "Как в уставе (в соответствии с ЕГРЮЛ), без сокращений",
             "district": "Например: Ленинский район г. Саратова",
         }
         widgets = {
@@ -137,7 +141,10 @@ class SubmissionForm(forms.ModelForm):
         slot_field = self.fields["section_slot"]
         slot_field.choices = [("", "— выберите секцию —")] + [(value, label) for value, label, *_ in slots]
         slot_field.widget.disabled_values = {v for v, (free, *_) in self.slots.items() if not free}
-        slot_field.help_text = "Число мест в секции ограничено. Заполненные секции выбрать нельзя."
+        slot_field.help_text = "Число мест в секции ограничено. Секции одного направления открываются по очереди: следующая появляется, когда предыдущая заполнена."
+        slot_field.error_messages["invalid_choice"] = (
+            "Эта секция уже заполнена или недоступна. Выберите секцию из списка заново."
+        )
 
         work_help = f"{formats(ALLOWED_EXTENSIONS)}, до {max_mb} МБ. Презентации и видео не принимаются."
         self.fields["file"].help_text = work_help
@@ -224,7 +231,7 @@ class SubmissionForm(forms.ModelForm):
                     "section_slot",
                     "Эта секция уже заполнена — выберите другую."
                     if not free
-                    else f"В секции осталось {places(free)}, а с соавтором нужно два. Выберите другую секцию.",
+                    else f"В секции осталось {places(free)}, а с соавтором нужно два. Подайте работу без соавтора или выберите другую секцию.",
                 )
             else:
                 self.instance.section, self.instance.section_number = section, number

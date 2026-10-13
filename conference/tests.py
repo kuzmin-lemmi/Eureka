@@ -97,15 +97,37 @@ class SubmissionTests(TestCase):
         # Без ?more анкета пустая.
         self.assertNotContains(self.client.get(reverse("conference:submit")), 'value="Петрова"')
 
-    def test_section_groups_are_numbered(self):
+    def test_only_first_group_is_offered_until_it_is_full(self):
         self.section.groups = 3
+        self.section.capacity = 1
         self.section.save()
-        response = self.client.get(reverse("conference:submit"))
-        self.assertContains(response, "Естественные науки 2 — свободно 12 мест")
-        self.post(section_slot=f"{self.section.pk}:3")
-        submission = Submission.objects.get()
-        self.assertEqual(submission.section_number, 3)
-        self.assertEqual(submission.section_label, "Естественные науки 3")
+        page = self.client.get(reverse("conference:submit")).content.decode()
+        self.assertIn("Естественные науки 1 — свободно 1 место", page)
+        self.assertNotIn("Естественные науки 2", page)
+        self.assertNotIn("Естественные науки 3", page)
+
+        # Чужую секцию из будущего подставить нельзя.
+        self.post(section_slot=f"{self.section.pk}:2")
+        self.assertFalse(Submission.objects.exists())
+
+        self.post()
+        page = self.client.get(reverse("conference:submit")).content.decode()
+        self.assertIn("Естественные науки 2 — свободно 1 место", page)
+        self.assertNotIn("Естественные науки 1", page)
+
+        self.post(last_name="Петров", section_slot=f"{self.section.pk}:2")
+        submission = Submission.objects.get(last_name="Петров")
+        self.assertEqual((submission.section_number, submission.section_label), (2, "Естественные науки 2"))
+
+    def test_when_all_groups_are_full_last_one_is_shown_disabled(self):
+        self.section.groups = 2
+        self.section.capacity = 1
+        self.section.save()
+        self.post()
+        self.post(last_name="Петров", section_slot=f"{self.section.pk}:2")
+        page = self.client.get(reverse("conference:submit")).content.decode()
+        self.assertIn("Естественные науки 2 — мест нет", page)
+        self.assertNotIn("Естественные науки 1", page)
 
     def test_group_number_out_of_range_rejected(self):
         self.post(section_slot=f"{self.section.pk}:2")

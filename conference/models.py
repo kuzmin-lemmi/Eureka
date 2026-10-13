@@ -188,7 +188,9 @@ class Submission(models.Model):
     # Участник
     email = models.EmailField("электронная почта участника")
     district = models.CharField("муниципальный район", max_length=200)
-    school = models.CharField("образовательная организация", max_length=300, help_text="Краткое название")
+    school = models.CharField(
+        "образовательная организация", max_length=300, help_text="Полное название, без сокращений"
+    )
     last_name = models.CharField("фамилия", max_length=100)
     first_name = models.CharField("имя", max_length=100)
     grade = models.PositiveSmallIntegerField("класс", validators=GRADE_VALIDATORS)
