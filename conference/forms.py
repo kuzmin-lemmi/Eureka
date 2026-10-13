@@ -24,6 +24,17 @@ REPEAT_FIELDS = (
     "supervisor_middle_name",
     "supervisor_position",
     "supervisor_phone",
+    "supervisor2_last_name",
+    "supervisor2_first_name",
+    "supervisor2_middle_name",
+    "supervisor2_position",
+    "supervisor2_phone",
+)
+SUPERVISOR2_FIELDS = (
+    "supervisor2_last_name",
+    "supervisor2_first_name",
+    "supervisor2_position",
+    "supervisor2_phone",
 )
 
 
@@ -96,6 +107,11 @@ class SubmissionForm(forms.ModelForm):
             "supervisor_middle_name",
             "supervisor_position",
             "supervisor_phone",
+            "supervisor2_last_name",
+            "supervisor2_first_name",
+            "supervisor2_middle_name",
+            "supervisor2_position",
+            "supervisor2_phone",
             "links_email",
             "file",
             "application_file",
@@ -117,6 +133,11 @@ class SubmissionForm(forms.ModelForm):
             "supervisor_middle_name": "Отчество",
             "supervisor_position": "Должность",
             "supervisor_phone": "Контактный телефон",
+            "supervisor2_last_name": "Фамилия",
+            "supervisor2_first_name": "Имя",
+            "supervisor2_middle_name": "Отчество",
+            "supervisor2_position": "Должность",
+            "supervisor2_phone": "Контактный телефон",
             "links_email": "Почта для ссылок на тестирование и второй этап",
         }
         help_texts = {
@@ -176,9 +197,10 @@ class SubmissionForm(forms.ModelForm):
         self.fields["website"].widget.attrs.update({"tabindex": "-1", "autocomplete": "off"})
         for name in ("email", "links_email"):
             self.fields[name].widget.attrs.update({"placeholder": "name@example.ru", "autocomplete": "off"})
-        self.fields["supervisor_phone"].widget.attrs.update(
-            {"type": "tel", "inputmode": "tel", "placeholder": "+7 (900) 000-00-00", "data-phone": ""}
-        )
+        for name in ("supervisor_phone", "supervisor2_phone"):
+            self.fields[name].widget.attrs.update(
+                {"type": "tel", "inputmode": "tel", "placeholder": "+7 (900) 000-00-00", "data-phone": ""}
+            )
         self.fields["consent"].label = format_html(
             "Подтверждаю согласие родителя (законного представителя) участника на обработку персональных данных "
             'в соответствии с <a href="{}" target="_blank">политикой</a>',
@@ -189,11 +211,18 @@ class SubmissionForm(forms.ModelForm):
     def is_spam(self):
         return bool(self.cleaned_data.get("website"))
 
-    def clean_supervisor_phone(self):
-        phone = self.cleaned_data["supervisor_phone"].strip()
-        if not re.fullmatch(r"[\d\s()+\-]+", phone) or len(re.sub(r"\D", "", phone)) < 10:
+    @staticmethod
+    def _check_phone(value):
+        phone = value.strip()
+        if phone and (not re.fullmatch(r"[\d\s()+\-]+", phone) or len(re.sub(r"\D", "", phone)) < 10):
             raise forms.ValidationError("Укажите телефон полностью, например +7 900 000-00-00.")
         return phone
+
+    def clean_supervisor_phone(self):
+        return self._check_phone(self.cleaned_data["supervisor_phone"])
+
+    def clean_supervisor2_phone(self):
+        return self._check_phone(self.cleaned_data["supervisor2_phone"])
 
     def _check_file(self, name, extensions, what):
         file = self.cleaned_data[name]
@@ -241,6 +270,11 @@ class SubmissionForm(forms.ModelForm):
             for name in coauthor_fields:
                 if not cleaned.get(name) and name not in self.errors:
                     self.add_error(name, "Заполните, если у работы есть соавтор.")
+        # Второй руководитель необязателен, но если он указан — нужны ФИО (без отчества), должность и телефон.
+        if any(cleaned.get(name) for name in (*SUPERVISOR2_FIELDS, "supervisor2_middle_name")):
+            for name in SUPERVISOR2_FIELDS:
+                if not cleaned.get(name) and name not in self.errors:
+                    self.add_error(name, "Заполните, если у работы два руководителя.")
         return cleaned
 
     def save(self, commit=True):
@@ -264,6 +298,11 @@ class SubmissionForm(forms.ModelForm):
         if commit:
             submission.save()
         return submission
+
+    @property
+    def has_supervisor2(self):
+        names = (*SUPERVISOR2_FIELDS, "supervisor2_middle_name")
+        return any(self[name].value() or self[name].errors for name in names)
 
     @property
     def has_coauthor(self):

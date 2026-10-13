@@ -236,6 +236,8 @@ document.addEventListener("DOMContentLoaded", () => {
       if (coauthor && ["coauthor_last_name", "coauthor_first_name", "coauthor_grade"].some((n) => form.elements[n]?.value)) {
         coauthor.open = true;
       }
+      const supervisor2 = form.querySelector("#step-supervisor2");
+      if (supervisor2 && [...supervisor2.querySelectorAll("input")].some((el) => el.value)) supervisor2.open = true;
       if (sameEmail && email.value && email.value === linksEmail.value) {
         sameEmail.querySelector("input").checked = true;
         linksEmail.readOnly = true;

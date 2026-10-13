@@ -31,6 +31,7 @@
             <li><a href="#step-documents" data-step-link="documents">Документы</a></li>
             <li class="progress__optional"><a href="#step-coauthor">Соавтор</a></li>
             <li><a href="#step-supervisor" data-step-link="supervisor">Руководитель</a></li>
+            <li class="progress__optional"><a href="#step-supervisor2">Второй руководитель</a></li>
             <li><a href="#step-contact" data-step-link="contact">Связь</a></li>
           </ol>
         </aside>
@@ -104,6 +105,19 @@
               {% include "conference/_field.html" with field=form.supervisor_phone %}
             </div>
           </fieldset>
+
+          <details class="card card--details" id="step-supervisor2"{% if form.has_supervisor2 %} open{% endif %}>
+            <summary><span class="legend-num legend-num--muted">+</span>Второй руководитель <span class="legend-note">— если есть (не более двух)</span></summary>
+            <div class="grid grid--3">
+              {% include "conference/_field.html" with field=form.supervisor2_last_name %}
+              {% include "conference/_field.html" with field=form.supervisor2_first_name %}
+              {% include "conference/_field.html" with field=form.supervisor2_middle_name %}
+            </div>
+            <div class="grid grid--2">
+              {% include "conference/_field.html" with field=form.supervisor2_position %}
+              {% include "conference/_field.html" with field=form.supervisor2_phone %}
+            </div>
+          </details>
 
           <fieldset class="card" id="step-contact" data-step="contact">
             <legend><span class="legend-num">5</span>Связь на втором этапе</legend>

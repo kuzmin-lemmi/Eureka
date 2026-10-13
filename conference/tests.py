@@ -185,6 +185,39 @@ class SubmissionTests(TestCase):
         self.post(supervisor_middle_name="")
         self.assertEqual(Submission.objects.get().supervisor, "Петрова Анна")
 
+    def test_second_supervisor_is_optional(self):
+        self.post()
+        submission = Submission.objects.get()
+        self.assertEqual(submission.supervisor2, "")
+
+    def test_second_supervisor_saved(self):
+        self.post(
+            supervisor2_last_name="Сидорова",
+            supervisor2_first_name="Мария",
+            supervisor2_middle_name="Ивановна",
+            supervisor2_position="учитель биологии",
+            supervisor2_phone="+7 900 765-43-21",
+        )
+        self.assertEqual(Submission.objects.get().supervisor2, "Сидорова Мария Ивановна")
+
+    def test_partial_second_supervisor_rejected(self):
+        response = self.post(supervisor2_last_name="Сидорова")
+        self.assertFalse(Submission.objects.exists())
+        self.assertContains(response, "Заполните, если у работы два руководителя.", count=3)
+
+    def test_bad_second_supervisor_phone_rejected(self):
+        self.post(
+            supervisor2_last_name="Сидорова",
+            supervisor2_first_name="Мария",
+            supervisor2_position="учитель",
+            supervisor2_phone="123",
+        )
+        self.assertFalse(Submission.objects.exists())
+
+    def test_second_supervisor_block_open_on_error(self):
+        response = self.post(supervisor2_last_name="Сидорова")
+        self.assertContains(response, 'id="step-supervisor2" open')
+
     def test_bad_supervisor_phone_rejected(self):
         self.post(supervisor_phone="123")
         self.assertFalse(Submission.objects.exists())

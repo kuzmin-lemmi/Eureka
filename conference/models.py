@@ -228,6 +228,13 @@ class Submission(models.Model):
     supervisor_position = models.CharField("должность руководителя", max_length=200)
     supervisor_phone = models.CharField("телефон руководителя", max_length=30)
 
+    # Второй руководитель (необязательно): по Положению их допускается не более двух.
+    supervisor2_last_name = models.CharField("фамилия второго руководителя", max_length=100, blank=True)
+    supervisor2_first_name = models.CharField("имя второго руководителя", max_length=100, blank=True)
+    supervisor2_middle_name = models.CharField("отчество второго руководителя", max_length=100, blank=True)
+    supervisor2_position = models.CharField("должность второго руководителя", max_length=200, blank=True)
+    supervisor2_phone = models.CharField("телефон второго руководителя", max_length=30, blank=True)
+
     links_email = models.EmailField(
         "почта для ссылок на тестирование и второй этап",
         help_text="На этот адрес придут ссылки на подключение к тестированию и второму этапу конференции.",
@@ -268,6 +275,14 @@ class Submission(models.Model):
         if not self.coauthor_last_name:
             return ""
         return f"{self.coauthor_last_name} {self.coauthor_first_name}, {self.coauthor_grade} класс"
+
+    @property
+    def supervisor2(self):
+        return " ".join(
+            part
+            for part in (self.supervisor2_last_name, self.supervisor2_first_name, self.supervisor2_middle_name)
+            if part
+        )
 
     @property
     def supervisor(self):

@@ -79,6 +79,7 @@ class SubmissionAdmin(admin.ModelAdmin):
         "district",
         "title",
         "supervisor_last_name",
+        "supervisor2_last_name",
         "coauthor_last_name",
     )
     date_hierarchy = "created_at"
@@ -95,6 +96,15 @@ class SubmissionAdmin(admin.ModelAdmin):
                 "fields": (
                     ("supervisor_last_name", "supervisor_first_name", "supervisor_middle_name"),
                     ("supervisor_position", "supervisor_phone"),
+                )
+            },
+        ),
+        (
+            "Второй руководитель",
+            {
+                "fields": (
+                    ("supervisor2_last_name", "supervisor2_first_name", "supervisor2_middle_name"),
+                    ("supervisor2_position", "supervisor2_phone"),
                 )
             },
         ),
