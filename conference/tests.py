@@ -816,3 +816,24 @@ class OfficePasswordTests(TestCase):
         self.assertEqual(self.client.get(reverse("conference:office_staff")).status_code, 403)
         url = reverse("conference:office_staff_password", args=[self.admin.pk])
         self.assertEqual(self.client.post(url, {"new_password1": "x-y-z-12345", "new_password2": "x-y-z-12345"}).status_code, 403)
+
+
+@override_settings(MEDIA_ROOT=MEDIA_ROOT)
+class TestSubmissionsCommandTests(TestCase):
+    def test_create_and_delete_keep_real_submissions(self):
+        from django.core.management import call_command
+
+        section = Section.objects.create(name="Здоровое поколение", groups=2)
+        real = Submission.objects.create(
+            section=section, snils=make_snils(500000001), last_name="Настоящая", first_name="Анна", grade=9,
+            email="real@example.ru", links_email="real@example.ru", school="Школа", district="Район", title="Т",
+            supervisor_last_name="П", supervisor_first_name="А", supervisor_position="учитель",
+            supervisor_phone="+79001234567", file="x.docx",
+        )
+        call_command("test_submissions", stdout=StringIO())
+        tests = Submission.objects.exclude(pk=real.pk)
+        self.assertTrue(tests.exists())
+        self.assertTrue(all(s.email.endswith("@eureka-test.example") for s in tests))
+        self.assertLessEqual(section.occupied()[1], section.capacity)
+        call_command("test_submissions", "--delete", stdout=StringIO())
+        self.assertEqual(list(Submission.objects.all()), [real])
