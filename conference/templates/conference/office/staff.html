@@ -1,0 +1,30 @@
+{% extends "conference/office/base.html" %}
+
+{% block title %}Сотрудники — кабинет оргкомитета{% endblock %}
+
+{% block content %}
+<div class="container">
+  <a class="back" href="{% url 'conference:office' %}">← Все секции</a>
+  <h1 class="office-h1">Сотрудники</h1>
+  <p class="lead">Если сотрудник забыл пароль — нажмите «Задать новый пароль» и сообщите новый пароль ему лично.</p>
+
+  {% for message in messages %}<div class="alert alert--success" role="status">{{ message }}</div>{% endfor %}
+
+  <div class="table-wrap">
+    <table class="people">
+      <thead><tr><th>Сотрудник</th><th>Логин</th><th>Последний вход</th><th></th></tr></thead>
+      <tbody>
+        {% for person in users %}
+          <tr>
+            <td><b>{{ person.get_full_name|default:"—" }}</b>{% if person.is_superuser %}<small>администратор сайта</small>{% endif %}{% if not person.is_active %}<small>отключён</small>{% endif %}</td>
+            <td>{{ person.username }}</td>
+            <td>{% if person.last_login %}{{ person.last_login|date:"j E Y, H:i" }}{% else %}ещё не входил{% endif %}</td>
+            <td><a class="btn btn--sm" href="{% url 'conference:office_staff_password' person.pk %}">Задать новый пароль</a></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="help">Добавить нового сотрудника или отключить старого можно в <a href="{% url 'admin:auth_user_changelist' %}">расширенных настройках</a>: «Пользователи».</p>
+</div>
+{% endblock %}

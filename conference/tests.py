@@ -774,3 +774,45 @@ class OfficeTests(TestCase):
         link = ReviewLink.objects.create(expires_at=timezone.now() - timedelta(minutes=1))
         self.assertEqual(self.client.get(reverse("conference:review_download", args=[link.token])).status_code, 404)
         self.assertEqual(ReviewLink.objects.create().expires_at.date(), (timezone.now() + timedelta(days=30)).date())
+
+
+class OfficePasswordTests(TestCase):
+    def setUp(self):
+        self.organizer = User.objects.create_user("olga", password="Старый-пароль-1", is_staff=True, first_name="Ольга")
+        self.organizer.groups.add(Group.objects.get(name=ORGANIZERS_GROUP))
+        self.admin = User.objects.create_superuser("adminK", password="Админ-пароль-1")
+
+    def test_staff_changes_own_password_and_stays_logged_in(self):
+        self.client.force_login(self.organizer)
+        response = self.client.post(reverse("conference:office_password"), {
+            "old_password": "Старый-пароль-1", "new_password1": "сова-трамвай-лимон-7", "new_password2": "сова-трамвай-лимон-7",
+        })
+        self.assertRedirects(response, reverse("conference:office"))
+        self.organizer.refresh_from_db()
+        self.assertTrue(self.organizer.check_password("сова-трамвай-лимон-7"))
+        self.assertEqual(self.client.get(reverse("conference:office")).status_code, 200)
+
+    def test_wrong_old_password_and_weak_password_rejected(self):
+        self.client.force_login(self.organizer)
+        response = self.client.post(reverse("conference:office_password"), {
+            "old_password": "не тот", "new_password1": "123456", "new_password2": "123456",
+        })
+        self.assertEqual(response.status_code, 200)
+        self.organizer.refresh_from_db()
+        self.assertTrue(self.organizer.check_password("Старый-пароль-1"))
+
+    def test_superuser_sets_password_for_staff(self):
+        self.client.force_login(self.admin)
+        self.assertContains(self.client.get(reverse("conference:office_staff")), "olga")
+        response = self.client.post(reverse("conference:office_staff_password", args=[self.organizer.pk]), {
+            "new_password1": "сова-трамвай-лимон-7", "new_password2": "сова-трамвай-лимон-7",
+        })
+        self.assertRedirects(response, reverse("conference:office_staff"))
+        self.organizer.refresh_from_db()
+        self.assertTrue(self.organizer.check_password("сова-трамвай-лимон-7"))
+
+    def test_organizer_cannot_manage_staff(self):
+        self.client.force_login(self.organizer)
+        self.assertEqual(self.client.get(reverse("conference:office_staff")).status_code, 403)
+        url = reverse("conference:office_staff_password", args=[self.admin.pk])
+        self.assertEqual(self.client.post(url, {"new_password1": "x-y-z-12345", "new_password2": "x-y-z-12345"}).status_code, 403)

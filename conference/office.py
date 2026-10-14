@@ -8,9 +8,9 @@ from functools import wraps
 from io import BytesIO
 
 from django.contrib import messages
-from django.contrib.auth import logout
+from django.contrib.auth import get_user_model, logout, update_session_auth_hash
 from django.contrib.auth import views as auth_views
-from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm, SetPasswordForm
 from django.core.cache import cache
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.http import FileResponse, Http404, StreamingHttpResponse
@@ -293,3 +293,68 @@ def review_download(request, token):
     if not link or not link.is_valid:
         raise Http404
     return _archive_response(link.groups())
+
+
+# --- Пароли ---
+
+
+@office_required
+def change_password(request):
+    """Сотрудник меняет свой пароль: старый, новый, ещё раз новый."""
+    form = PasswordChangeForm(request.user, request.POST or None)
+    form.fields["old_password"].label = "Старый пароль"
+    form.fields["new_password1"].label = "Новый пароль"
+    form.fields["new_password2"].label = "Новый пароль ещё раз"
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        update_session_auth_hash(request, form.user)  # не выкидывать из кабинета после смены
+        messages.success(request, "Пароль изменён. В следующий раз входите с новым паролем.")
+        return redirect("conference:office")
+    context = {
+        "form": form,
+        "title": "Сменить пароль",
+        "lead": "Сначала введите старый пароль, затем дважды новый.",
+        "back": reverse("conference:office"),
+    }
+    return render(request, "conference/office/password.html", context)
+
+
+def superuser_required(view):
+    @office_required
+    @wraps(view)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_superuser:
+            raise PermissionDenied
+        return view(request, *args, **kwargs)
+
+    return wrapper
+
+
+@superuser_required
+def staff_list(request):
+    users = get_user_model().objects.filter(is_staff=True).order_by("last_name", "first_name", "username")
+    return render(request, "conference/office/staff.html", {"users": users})
+
+
+@superuser_required
+def staff_password(request, pk):
+    """Администратор сайта задаёт сотруднику новый пароль, если тот забыл старый."""
+    person = get_object_or_404(get_user_model(), pk=pk, is_staff=True)
+    form = SetPasswordForm(person, request.POST or None)
+    form.fields["new_password1"].label = "Новый пароль"
+    form.fields["new_password2"].label = "Новый пароль ещё раз"
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        if person == request.user:
+            update_session_auth_hash(request, person)
+        name = person.get_full_name() or person.username
+        messages.success(request, f"Новый пароль для «{name}» задан. Сообщите его сотруднику лично.")
+        return redirect("conference:office_staff")
+    name = person.get_full_name() or person.username
+    context = {
+        "form": form,
+        "title": f"Новый пароль: {name}",
+        "lead": f"Логин — {person.username}. Старый пароль знать не нужно.",
+        "back": reverse("conference:office_staff"),
+    }
+    return render(request, "conference/office/password.html", context)
