@@ -43,7 +43,6 @@ COLUMNS = [
     ("Телефон руководителя", 18, lambda s: s.supervisor_phone),
     ("Второй руководитель", 28, lambda s: s.supervisor2),
     ("Почта участника", 26, lambda s: s.email),
-    ("Почта для ссылок", 26, lambda s: s.links_email),
     ("Статус", 13, lambda s: s.public_status),
     ("Подана", 17, _created),
 ]

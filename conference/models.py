@@ -239,11 +239,6 @@ class Submission(models.Model):
     supervisor2_position = models.CharField("должность второго руководителя", max_length=200, blank=True)
     supervisor2_phone = models.CharField("телефон второго руководителя", max_length=30, blank=True)
 
-    links_email = models.EmailField(
-        "почта для ссылок на тестирование и второй этап",
-        help_text="На этот адрес придут ссылки на подключение к тестированию и второму этапу конференции.",
-    )
-
     # Оргкомитет
     status = models.CharField("статус", max_length=10, choices=Status, default=Status.NEW)
     admin_comment = models.TextField("комментарий оргкомитета", blank=True, help_text="Виден только оргкомитету.")

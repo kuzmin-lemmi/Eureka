@@ -39,7 +39,6 @@
             <li class="progress__optional"><a href="#step-coauthor">Соавтор</a></li>
             <li><a href="#step-supervisor" data-step-link="supervisor">Руководитель</a></li>
             <li class="progress__optional"><a href="#step-supervisor2">Второй руководитель</a></li>
-            <li><a href="#step-contact" data-step-link="contact">Связь</a></li>
           </ol>
         </aside>
 
@@ -134,14 +133,6 @@
               {% include "conference/_field.html" with field=form.supervisor2_phone %}
             </div>
           </details>
-
-          <fieldset class="card" id="step-contact" data-step="contact">
-            <legend><span class="legend-num">5</span>Связь на втором этапе</legend>
-            <label class="check check--small" data-same-email hidden>
-              <input type="checkbox"> <span>Совпадает с почтой участника</span>
-            </label>
-            {% include "conference/_field.html" with field=form.links_email %}
-          </fieldset>
 
           <div class="card submit-card">
             {% if editing %}

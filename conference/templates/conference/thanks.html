@@ -22,7 +22,6 @@
         <h2 class="h3">Что дальше</h2>
         <ol class="next-steps">
           <li>Оргкомитет проверит работу и документы. Если понадобится что-то поправить, свяжемся по адресу <strong>{{ application.email }}</strong>.</li>
-          <li>Ссылка на тестирование и второй этап придёт на <strong>{{ application.links_email|default:application.email }}</strong>.</li>
           <li>Защита работ на секциях{% if conf.event_dates %} — {{ conf.event_dates }}{% endif %}.</li>
         </ol>
       </div>

@@ -167,27 +167,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // --- «Совпадает с почтой участника» ---
-  const sameEmail = form.querySelector("[data-same-email]");
-  const email = form.elements.email;
-  const linksEmail = form.elements.links_email;
-  if (sameEmail && email && linksEmail) {
-    const checkbox = sameEmail.querySelector("input");
-    sameEmail.hidden = false;
-    const sync = () => {
-      linksEmail.readOnly = checkbox.checked;
-      if (checkbox.checked) {
-        linksEmail.value = email.value;
-        if (email.value) validateField(linksEmail, true);
-      }
-      updateProgress();
-    };
-    checkbox.addEventListener("change", sync);
-    email.addEventListener("input", () => checkbox.checked && sync());
-    checkbox.checked = Boolean(email.value) && email.value === linksEmail.value;
-    linksEmail.readOnly = checkbox.checked;
-  }
-
   // --- Прогресс по разделам ---
   const progress = document.querySelector("[data-progress]");
   const steps = [...form.querySelectorAll("[data-step]")];
@@ -262,10 +241,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       const supervisor2 = form.querySelector("#step-supervisor2");
       if (supervisor2 && [...supervisor2.querySelectorAll("input")].some((el) => el.value)) supervisor2.open = true;
-      if (sameEmail && email.value && email.value === linksEmail.value) {
-        sameEmail.querySelector("input").checked = true;
-        linksEmail.readOnly = true;
-      }
       notice.querySelector("[data-draft-reset]").addEventListener("click", () => {
         storage.remove(DRAFT_KEY);
         window.location.href = window.location.pathname;

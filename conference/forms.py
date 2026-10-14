@@ -163,7 +163,6 @@ class SubmissionForm(forms.ModelForm):
             "supervisor2_middle_name",
             "supervisor2_position",
             "supervisor2_phone",
-            "links_email",
             "file",
             "application_file",
             "consent_file",
@@ -190,7 +189,6 @@ class SubmissionForm(forms.ModelForm):
             "supervisor2_middle_name": "Отчество",
             "supervisor2_position": "Должность",
             "supervisor2_phone": "Контактный телефон",
-            "links_email": "Почта для ссылок на тестирование и второй этап",
         }
         help_texts = {
             "snils": "Формат: 123-456-789 01",
@@ -258,8 +256,7 @@ class SubmissionForm(forms.ModelForm):
                 field.help_text = format_html("{} · {}", anchors, scan_help)
 
         self.fields["website"].widget.attrs.update({"tabindex": "-1", "autocomplete": "off"})
-        for name in ("email", "links_email"):
-            self.fields[name].widget.attrs.update({"placeholder": "name@example.ru", "autocomplete": "off"})
+        self.fields["email"].widget.attrs.update({"placeholder": "name@example.ru", "autocomplete": "off"})
         self.fields["snils"].required = True
         for name in ("snils", "coauthor_snils"):
             self.fields[name].widget.attrs.update(

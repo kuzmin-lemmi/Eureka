@@ -98,7 +98,6 @@ class SubmissionAdmin(admin.ModelAdmin):
         "last_name",
         "first_name",
         "email",
-        "links_email",
         "school",
         "district",
         "title",
@@ -146,7 +145,6 @@ class SubmissionAdmin(admin.ModelAdmin):
                 )
             },
         ),
-        ("Связь", {"fields": ("links_email",)}),
     )
 
     def has_add_permission(self, request):

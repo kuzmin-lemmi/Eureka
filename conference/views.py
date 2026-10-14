@@ -100,7 +100,6 @@ def submit(request):
         request.session[THANKS_SESSION_KEY] = {
             "number": submission.number,
             "email": submission.email,
-            "links_email": submission.links_email,
         }
         request.session[REPEAT_SESSION_KEY] = {name: form.cleaned_data[name] for name in REPEAT_FIELDS}
         _remember_participant(request, submission.snils, submission.email)

@@ -213,7 +213,6 @@ class Command(BaseCommand):
             grade=rng.randint(8, 11),
             snils=test_snils(serial),
             email=f"pupil{serial}@{TEST_DOMAIN}",
-            links_email=f"parent{serial}@{TEST_DOMAIN}",
             school=school,
             district=district,
             title=title,

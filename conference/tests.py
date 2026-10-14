@@ -52,7 +52,6 @@ class SubmissionTests(TestCase):
             "supervisor_first_name": "Анна",
             "supervisor_position": "учитель физики",
             "supervisor_phone": "+7 900 123-45-67",
-            "links_email": "parent@example.ru",
             "file": SimpleUploadedFile("работа.docx", b"PK test", content_type="application/octet-stream"),
             "application_file": SimpleUploadedFile("заявка.pdf", b"%PDF-1.4"),
             "consent_file": SimpleUploadedFile("IMG_0001.JPG", b"JPEG test"),
@@ -484,7 +483,6 @@ class ParticipantAccessTests(TestCase):
             "supervisor_first_name": "Анна",
             "supervisor_position": "учитель физики",
             "supervisor_phone": "+7 900 123-45-67",
-            "links_email": "parent@example.ru",
             "file": SimpleUploadedFile("работа.docx", b"PK test"),
             "application_file": SimpleUploadedFile("заявка.pdf", b"%PDF-1.4"),
             "consent_file": SimpleUploadedFile("согласие.jpg", b"JPEG"),
@@ -617,7 +615,7 @@ class SectionsExportTests(TestCase):
         for i, (number, status) in enumerate(((1, "new"), (2, "new"), (1, "rejected"))):
             Submission.objects.create(
                 section=self.section, section_number=number, status=status, snils=make_snils(300000000 + i),
-                last_name=f"Участник{i}", first_name="Имя", grade=9, email="p@example.ru", links_email="p@example.ru",
+                last_name=f"Участник{i}", first_name="Имя", grade=9, email="p@example.ru",
                 school="Гимназия № 87", district="Ленинский", title=f"Работа {i}",
                 supervisor_last_name="Петрова", supervisor_first_name="Анна", supervisor_position="учитель",
                 supervisor_phone="+79001234567", file="x.docx",
@@ -672,7 +670,7 @@ class OfficeTests(TestCase):
         ):
             s = Submission(
                 section=section, section_number=number, status=status, snils=make_snils(400000000 + i),
-                last_name=f"Фамилия{i}", first_name="Имя", grade=9, email=f"p{i}@example.ru", links_email="l@example.ru",
+                last_name=f"Фамилия{i}", first_name="Имя", grade=9, email=f"p{i}@example.ru",
                 school="Гимназия № 87", district="Ленинский", title=f"Работа номер {i}",
                 supervisor_last_name="Петрова", supervisor_first_name="Анна", supervisor_position="учитель",
                 supervisor_phone="+79001234567",
@@ -826,7 +824,7 @@ class TestSubmissionsCommandTests(TestCase):
         section = Section.objects.create(name="Здоровое поколение", groups=2)
         real = Submission.objects.create(
             section=section, snils=make_snils(500000001), last_name="Настоящая", first_name="Анна", grade=9,
-            email="real@example.ru", links_email="real@example.ru", school="Школа", district="Район", title="Т",
+            email="real@example.ru", school="Школа", district="Район", title="Т",
             supervisor_last_name="П", supervisor_first_name="А", supervisor_position="учитель",
             supervisor_phone="+79001234567", file="x.docx",
         )
