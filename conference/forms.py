@@ -4,7 +4,9 @@ from pathlib import Path
 from django import forms
 from django.conf import settings
 from django.urls import reverse
+from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
+from django.utils import timezone
 from django.utils.html import format_html, format_html_join
 
 from .models import GRADE_MAX, GRADE_MIN, ConferenceSettings, Section, Submission
@@ -77,18 +79,22 @@ class SlotSelect(forms.Select):
         return option
 
 
-def section_slots():
-    """[(значение «pk:номер», подпись, свободно мест, направление, номер)] для активных направлений."""
+def slot_label(section, number, free):
+    label = section.group_label(number)
+    return label + (f" — свободно {places(free)}" if free else " — мест нет")
+
+
+def section_slots(exclude=None):
+    """[(значение «pk:номер», подпись, свободно мест, направление, номер)] для активных направлений.
+    exclude — pk редактируемой заявки: её места считаются свободными."""
     slots = []
     for section in Section.objects.filter(is_active=True):
-        free_by_number = section.free_places()
+        free_by_number = section.free_places(exclude)
         # Секции направления заполняются по очереди: предлагаем первую, где ещё есть места.
         # Следующая появляется, когда предыдущая заполнена. Если заполнены все — последнюю, как «мест нет».
         number = next((n for n, free in free_by_number.items() if free), max(free_by_number))
         free = free_by_number[number]
-        label = section.group_label(number)
-        label += f" — свободно {places(free)}" if free else " — мест нет"
-        slots.append((f"{section.pk}:{number}", label, free, section, number))
+        slots.append((f"{section.pk}:{number}", slot_label(section, number, free), free, section, number))
     return slots
 
 
@@ -98,6 +104,32 @@ def formats(extensions):
 
 class SectionFull(Exception):
     """Секцию заняли, пока участник заполнял анкету."""
+
+
+def duplicate_message(section):
+    return format_html(
+        "У участника с этим СНИЛС уже есть заявка в направлении «{}». Подать вторую в то же направление нельзя — "
+        'изменить поданную можно в разделе <a href="{}">«Мои заявки»</a>.',
+        section.name,
+        reverse("conference:my"),
+    )
+
+
+class LookupForm(forms.Form):
+    snils = forms.CharField(label="СНИЛС участника", max_length=20)
+    email = forms.EmailField(
+        label="Электронная почта участника", help_text="Та, что указана в анкете в блоке «Участник»."
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["snils"].widget.attrs.update(
+            {"inputmode": "numeric", "placeholder": "123-456-789 01", "autocomplete": "off", "data-snils": ""}
+        )
+        self.fields["email"].widget.attrs.update({"placeholder": "name@example.ru", "autocomplete": "email"})
+
+    def clean_snils(self):
+        return clean_snils(self.cleaned_data["snils"])
 
 
 class SubmissionForm(forms.ModelForm):
@@ -178,8 +210,17 @@ class SubmissionForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         conf = ConferenceSettings.load()
         max_mb = settings.MAX_UPLOAD_MB
+        self.editing = bool(self.instance.pk)
 
-        slots = section_slots()
+        slots = section_slots(exclude=self.instance.pk)
+        if self.editing:
+            # Текущая секция заявки остаётся в списке, даже если по очереди сейчас открыта другая.
+            current = f"{self.instance.section_id}:{self.instance.section_number}"
+            if current not in {value for value, *_ in slots}:
+                section, number = self.instance.section, self.instance.section_number
+                free = section.free_places(self.instance.pk).get(number, 0)
+                slots.append((current, slot_label(section, number, free), free, section, number))
+            self.initial.setdefault("section_slot", current)
         self.slots = {value: (free, section, number) for value, _, free, section, number in slots}
         slot_field = self.fields["section_slot"]
         slot_field.choices = [("", "— выберите секцию —")] + [(value, label) for value, label, *_ in slots]
@@ -228,6 +269,21 @@ class SubmissionForm(forms.ModelForm):
             self.fields[name].widget.attrs.update(
                 {"type": "tel", "inputmode": "tel", "placeholder": "+7 (900) 000-00-00", "data-phone": ""}
             )
+        if self.editing:
+            # Файлы уже загружены: новый нужен, только если его хотят заменить. Согласие дано при подаче.
+            for name, original in (
+                ("file", self.instance.original_filename),
+                ("application_file", self.instance.application_original_filename),
+                ("consent_file", self.instance.consent_original_filename),
+            ):
+                field = self.fields[name]
+                field.required = False
+                field.help_text = format_html(
+                    "Сейчас загружен: <b>{}</b>. Выберите новый файл, только если нужно заменить. {}",
+                    original or "файл",
+                    field.help_text,
+                )
+            self.fields["consent"].required = False
         self.fields["consent"].label = format_html(
             "Подтверждаю согласие родителя (законного представителя) участника на обработку персональных данных "
             'в соответствии с <a href="{}" target="_blank">политикой</a>',
@@ -259,6 +315,8 @@ class SubmissionForm(forms.ModelForm):
 
     def _check_file(self, name, extensions, what):
         file = self.cleaned_data[name]
+        if not isinstance(file, UploadedFile):
+            return file  # при редактировании файл не меняли
         if Path(file.name).suffix.lower() not in extensions:
             raise forms.ValidationError(f"Недопустимый формат. Загрузите {what} в {formats(extensions)}.")
         if file.size > settings.MAX_UPLOAD_MB * 1024 * 1024:
@@ -297,6 +355,14 @@ class SubmissionForm(forms.ModelForm):
                 )
             else:
                 self.instance.section, self.instance.section_number = section, number
+                snils = cleaned.get("snils")
+                duplicate = (
+                    Submission.objects.filter(snils=snils, section=section)
+                    .exclude(status=Submission.Status.REJECTED)
+                    .exclude(pk=self.instance.pk)
+                )
+                if snils and duplicate.exists():
+                    self.add_error("section_slot", duplicate_message(section))
         # Соавтор необязателен, но если он указан — нужны все три поля.
         coauthor_fields = ("coauthor_last_name", "coauthor_first_name", "coauthor_grade", "coauthor_snils")
         if any(cleaned.get(name) for name in coauthor_fields):
@@ -316,7 +382,7 @@ class SubmissionForm(forms.ModelForm):
                 # Повторная проверка мест прямо перед записью: пока заполняли анкету,
                 # секцию могли занять другие.
                 section = Section.objects.select_for_update().get(pk=self.instance.section_id)
-                if section.free_places().get(self.instance.section_number, 0) < (
+                if section.free_places(self.instance.pk).get(self.instance.section_number, 0) < (
                     2 if self.cleaned_data.get("coauthor_last_name") else 1
                 ):
                     raise SectionFull
@@ -325,9 +391,18 @@ class SubmissionForm(forms.ModelForm):
 
     def _save(self, commit=True):
         submission = super().save(commit=False)
-        submission.original_filename = Path(self.cleaned_data["file"].name).name[:255]
-        submission.application_original_filename = Path(self.cleaned_data["application_file"].name).name[:255]
-        submission.consent_original_filename = Path(self.cleaned_data["consent_file"].name).name[:255]
+        for name, original in (
+            ("file", "original_filename"),
+            ("application_file", "application_original_filename"),
+            ("consent_file", "consent_original_filename"),
+        ):
+            if isinstance(self.cleaned_data[name], UploadedFile):
+                setattr(submission, original, Path(self.cleaned_data[name].name).name[:255])
+        if self.editing:
+            submission.edited_by_participant_at = timezone.now()
+            # Исправленная заявка снова уходит на проверку.
+            if submission.status == Submission.Status.REVISION:
+                submission.status = Submission.Status.NEW
         if commit:
             submission.save()
         return submission

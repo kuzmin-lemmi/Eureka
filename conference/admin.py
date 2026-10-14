@@ -67,7 +67,7 @@ class SubmissionAdmin(admin.ModelAdmin):
         "files_display",
     )
     list_display_links = ("number_display", "full_name_display")
-    list_filter = ("status", "section", "section_number", "grade", "created_at")
+    list_filter = ("status", "section", "section_number", "grade", "created_at", ("edited_by_participant_at", admin.EmptyFieldListFilter))
     list_editable = ("status",)
     list_select_related = ("section",)
     search_fields = (
@@ -83,9 +83,23 @@ class SubmissionAdmin(admin.ModelAdmin):
         "coauthor_last_name",
     )
     date_hierarchy = "created_at"
-    readonly_fields = ("number_display", "created_at", "updated_at", "file_link", "application_link", "consent_link")
+    readonly_fields = (
+        "number_display", "created_at", "updated_at", "edited_by_participant_at",
+        "file_link", "application_link", "consent_link",
+    )
     fieldsets = (
-        ("Оргкомитет", {"fields": ("number_display", "status", "admin_comment", ("created_at", "updated_at"))}),
+        (
+            "Оргкомитет",
+            {
+                "fields": (
+                    "number_display",
+                    "status",
+                    "participant_message",
+                    "admin_comment",
+                    ("created_at", "updated_at", "edited_by_participant_at"),
+                )
+            },
+        ),
         ("Работа", {"fields": ("title", ("section", "section_number"), "file_link")}),
         ("Документы", {"fields": ("application_link", "consent_link")}),
         ("Участник", {"fields": (("last_name", "first_name", "grade"), "snils", "school", "district", "email")}),

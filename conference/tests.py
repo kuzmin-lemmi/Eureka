@@ -16,6 +16,14 @@ from .models import ConferenceSettings, Document, NewsPost, Section, Submission
 MEDIA_ROOT = tempfile.mkdtemp()
 
 
+def make_snils(number):
+    """Корректный СНИЛС с контрольным числом для 9-значного номера."""
+    digits = f"{number:09d}"
+    total = sum(int(d) * w for d, w in zip(digits, range(9, 0, -1)))
+    control = total if total < 100 else (0 if total in (100, 101) else (total % 101) % 100)
+    return f"{digits[:3]}-{digits[3:6]}-{digits[6:]} {control:02d}"
+
+
 @override_settings(MEDIA_ROOT=MEDIA_ROOT, MAX_UPLOAD_MB=1)
 class SubmissionTests(TestCase):
     @classmethod
@@ -25,8 +33,11 @@ class SubmissionTests(TestCase):
 
     def setUp(self):
         self.section = Section.objects.create(name="Естественные науки")
+        self.posts = 0
 
     def post(self, **overrides):
+        # Каждая заявка по умолчанию от нового человека: одному СНИЛС нельзя дважды в одно направление.
+        self.posts += 1
         data = {
             "email": "pupil@example.ru",
             "district": "Ленинский район",
@@ -34,7 +45,7 @@ class SubmissionTests(TestCase):
             "last_name": "Иванова",
             "first_name": "Мария",
             "grade": "9",
-            "snils": "112-233-445 95",
+            "snils": make_snils(112233444 + self.posts),
             "title": "Маятник Фуко в домашних условиях",
             "section_slot": f"{self.section.pk}:1",
             "supervisor_last_name": "Петрова",
@@ -448,3 +459,152 @@ class SectionCapacityTests(TestCase):
         section = Section.objects.create(name="Физика")
         self.assertEqual(section.capacity, 12)
         self.assertEqual(sum(section.free_places().values()), 12)
+
+
+@override_settings(MEDIA_ROOT=MEDIA_ROOT, MAX_UPLOAD_MB=1)
+class ParticipantAccessTests(TestCase):
+    SNILS = "112-233-445 95"
+
+    def setUp(self):
+        self.section = Section.objects.create(name="Экология", groups=2, capacity=3)
+        self.other = Section.objects.create(name="Краеведение")
+
+    def data(self, **overrides):
+        return {
+            "email": "Pupil@Example.ru",
+            "district": "Ленинский район",
+            "school": "Гимназия № 87",
+            "last_name": "Иванова",
+            "first_name": "Мария",
+            "grade": "9",
+            "snils": self.SNILS,
+            "title": "Маятник Фуко",
+            "section_slot": f"{self.section.pk}:1",
+            "supervisor_last_name": "Петрова",
+            "supervisor_first_name": "Анна",
+            "supervisor_position": "учитель физики",
+            "supervisor_phone": "+7 900 123-45-67",
+            "links_email": "parent@example.ru",
+            "file": SimpleUploadedFile("работа.docx", b"PK test"),
+            "application_file": SimpleUploadedFile("заявка.pdf", b"%PDF-1.4"),
+            "consent_file": SimpleUploadedFile("согласие.jpg", b"JPEG"),
+            "consent": "on",
+            **overrides,
+        }
+
+    def submit(self, **overrides):
+        return self.client.post(reverse("conference:submit"), self.data(**overrides))
+
+    def login(self, snils=SNILS, email="pupil@example.ru"):
+        return self.client.post(reverse("conference:my"), {"snils": snils, "email": email})
+
+    def test_second_submission_to_same_direction_rejected(self):
+        self.submit()
+        response = self.submit(section_slot=f"{self.section.pk}:1", title="Другая работа")
+        self.assertContains(response, "уже есть заявка в направлении «Экология»")
+        self.assertEqual(Submission.objects.count(), 1)
+
+    def test_same_person_can_apply_to_other_direction(self):
+        self.submit()
+        self.submit(section_slot=f"{self.other.pk}:1", title="Другая работа")
+        self.assertEqual(Submission.objects.count(), 2)
+
+    def test_rejected_submission_allows_new_one(self):
+        self.submit()
+        Submission.objects.update(status=Submission.Status.REJECTED)
+        self.submit()
+        self.assertEqual(Submission.objects.count(), 2)
+
+    def test_coauthor_is_not_restricted(self):
+        self.submit()
+        self.submit(snils=make_snils(200000001), coauthor_last_name="Иванова", coauthor_first_name="Мария",
+                    coauthor_grade="9", coauthor_snils=self.SNILS)
+        self.assertEqual(Submission.objects.count(), 2)
+
+    def test_database_blocks_duplicate(self):
+        from django.db import IntegrityError, transaction
+
+        self.submit()
+        first = Submission.objects.get()
+        first.pk = None
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            first.save()
+
+    def test_after_submit_participant_sees_my_page(self):
+        self.submit()
+        response = self.client.get(reverse("conference:my"))
+        self.assertContains(response, "Маятник Фуко")
+        self.assertContains(response, "Изменить заявку")
+
+    def test_login_requires_matching_snils_and_email(self):
+        self.submit()
+        self.client.post(reverse("conference:my_logout"))
+        response = self.login(email="other@example.ru")
+        self.assertContains(response, "Заявки не найдены")
+        self.assertNotContains(response, "Маятник Фуко")
+
+        response = self.login(snils="11223344595", email="PUPIL@example.ru")
+        self.assertRedirects(response, reverse("conference:my"))
+        self.assertContains(self.client.get(reverse("conference:my")), "Маятник Фуко")
+
+    def test_too_many_failed_attempts_blocked(self):
+        from django.core.cache import cache
+
+        cache.clear()
+        self.submit()
+        self.client.post(reverse("conference:my_logout"))
+        for _ in range(10):
+            self.login(email="wrong@example.ru")
+        response = self.login()
+        self.assertContains(response, "Слишком много попыток")
+        cache.clear()
+
+    def test_edit_keeps_files_and_frees_own_place(self):
+        self.section.capacity = 1
+        self.section.save()
+        self.submit()
+        submission = Submission.objects.get()
+        url = reverse("conference:my_edit", args=[submission.pk])
+        data = self.data(title="Новое название")
+        for name in ("file", "application_file", "consent_file", "consent"):
+            data.pop(name)
+        response = self.client.post(url, data)
+        self.assertRedirects(response, reverse("conference:my"))
+        submission.refresh_from_db()
+        self.assertEqual(submission.title, "Новое название")
+        self.assertEqual(submission.original_filename, "работа.docx")
+        self.assertIsNotNone(submission.edited_by_participant_at)
+
+    def test_edit_returns_revision_to_new(self):
+        self.submit()
+        Submission.objects.update(status=Submission.Status.REVISION, participant_message="Добавьте список литературы")
+        submission = Submission.objects.get()
+        self.assertContains(self.client.get(reverse("conference:my")), "Добавьте список литературы")
+        data = self.data()
+        for name in ("file", "application_file", "consent_file"):
+            data.pop(name)
+        self.client.post(reverse("conference:my_edit", args=[submission.pk]), data)
+        submission.refresh_from_db()
+        self.assertEqual(submission.status, Submission.Status.NEW)
+
+    def test_accepted_submission_not_editable(self):
+        self.submit()
+        Submission.objects.update(status=Submission.Status.ACCEPTED)
+        submission = Submission.objects.get()
+        response = self.client.get(reverse("conference:my_edit", args=[submission.pk]))
+        self.assertRedirects(response, reverse("conference:my"))
+
+    def test_cannot_edit_someone_elses_submission(self):
+        self.submit()
+        foreign = Submission.objects.get()
+        self.client.post(reverse("conference:my_logout"))
+        self.submit(snils=make_snils(200000001), email="other@example.ru", section_slot=f"{self.other.pk}:1")
+        response = self.client.get(reverse("conference:my_edit", args=[foreign.pk]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_edit_without_login_redirects(self):
+        self.submit()
+        submission = Submission.objects.get()
+        self.client.post(reverse("conference:my_logout"))
+        response = self.client.get(reverse("conference:my_edit", args=[submission.pk]))
+        self.assertRedirects(response, reverse("conference:my"))

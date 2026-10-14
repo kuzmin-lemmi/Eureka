@@ -1,13 +1,20 @@
 {% extends "conference/base.html" %}
 
-{% block title %}Подать работу — {{ conf.title }}{% endblock %}
+{% block title %}{% if editing %}Изменение заявки{% else %}Подать работу{% endif %} — {{ conf.title }}{% endblock %}
 
 {% block content %}
 <section class="page">
   <div class="container">
     <div class="page-head">
+      {% if editing %}
+        <p><a href="{% url 'conference:my' %}">← Мои заявки</a></p>
+        <h1>Изменение заявки {{ editing.number }}</h1>
+        <p class="lead">Исправьте нужные поля и сохраните. Файлы загружайте, только если хотите их заменить.</p>
+        {% if editing.status == "revision" %}<p class="muted">После сохранения заявка снова уйдёт на проверку оргкомитету.</p>{% endif %}
+      {% else %}
       <h1>Анкета участника</h1>
-      {% if not closed and form.has_sections %}
+      {% endif %}
+      {% if not closed and form.has_sections and not editing %}
         <p class="lead">
           {% if conf.submissions_deadline %}Приём работ до <b>{{ conf.submissions_deadline|date:"j E Y, H:i" }}</b>. {% endif %}
           Займёт около 10 минут.
@@ -36,18 +43,21 @@
           </ol>
         </aside>
 
-        <form method="post" enctype="multipart/form-data" class="form" novalidate data-once data-draft>
+        <form method="post" enctype="multipart/form-data" class="form" novalidate data-once data-draft{% if editing %}="off"{% endif %}>
           {% csrf_token %}
           <div class="hp" aria-hidden="true">{{ form.website }}</div>
 
           {% include "conference/_form_errors.html" %}
 
-          {% if not form.has_free %}
+          {% if not form.has_free and not editing %}
             <div class="alert">Все секции сейчас заполнены. Если место освободится, оно снова появится в списке. По вопросам участия напишите оргкомитету{% if conf.contact_email %}: <a href="mailto:{{ conf.contact_email }}">{{ conf.contact_email }}</a>{% endif %}.</div>
           {% endif %}
 
           {% if repeat %}
             <div class="alert alert--info">Школа и руководитель подставлены из прошлой заявки. Проверьте их и заполните данные нового участника.</div>
+          {% endif %}
+          {% if editing and editing.participant_message %}
+            <div class="alert alert--info"><b>Сообщение оргкомитета:</b> {{ editing.participant_message|linebreaksbr }}</div>
           {% endif %}
           <div class="alert alert--info" data-draft-notice hidden>
             Мы восстановили незаконченную анкету. Файлы нужно прикрепить заново.
@@ -134,9 +144,14 @@
           </fieldset>
 
           <div class="card submit-card">
-            {% include "conference/_field.html" with field=form.consent %}
-            <button type="submit" class="btn btn--lg">Отправить работу</button>
-            <p class="help">После отправки вы получите номер заявки. Черновик анкеты хранится только в этом браузере.</p>
+            {% if editing %}
+              <button type="submit" class="btn btn--lg" data-busy-text="Сохраняем…">Сохранить изменения</button>
+              <p class="help"><a href="{% url 'conference:my' %}">Отменить и вернуться к заявкам</a></p>
+            {% else %}
+              {% include "conference/_field.html" with field=form.consent %}
+              <button type="submit" class="btn btn--lg">Отправить работу</button>
+              <p class="help">После отправки вы получите номер заявки. Проверить статус и исправить заявку можно в разделе «Мои заявки» по СНИЛС и почте.</p>
+            {% endif %}
           </div>
         </form>
       </div>

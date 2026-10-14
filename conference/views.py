@@ -1,19 +1,28 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
+from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
+from django.core.cache import cache
+from django.db import IntegrityError
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
-from .forms import REPEAT_FIELDS, SectionFull, SubmissionForm
+from .forms import REPEAT_FIELDS, LookupForm, SectionFull, SubmissionForm, duplicate_message
 from .models import ConferenceSettings, Document, NewsPost, Section, Submission
 
 THANKS_SESSION_KEY = "conference_thanks"
 FRESH_NEWS_DAYS = 7
 REPEAT_SESSION_KEY = "conference_repeat"
+# «Мои заявки»: после входа по СНИЛС и почте доступ хранится в сессии ограниченное время.
+MY_SESSION_KEY = "conference_my"
+MY_SESSION_TTL = timedelta(hours=2)
+# Не больше LOOKUP_LIMIT неудачных попыток входа за LOOKUP_WINDOW секунд — с одного адреса и на один СНИЛС.
+LOOKUP_LIMIT = 10
+LOOKUP_WINDOW = 15 * 60
 
 # kind в URL → (поле файла, поле исходного имени, подпись в имени скачанного файла)
 SUBMISSION_FILES = {
@@ -78,6 +87,10 @@ def submit(request):
             return redirect("conference:thanks")
         try:
             submission = form.save()
+        except IntegrityError:
+            # Две одинаковые анкеты отправили одновременно — вторую не пропустило ограничение в базе.
+            form.add_error("section_slot", duplicate_message(form.instance.section))
+            return render(request, "conference/submit.html", {"form": form})
         except SectionFull:
             # Пересчитываем свободные места: проверка формы сама отметит занятую секцию.
             form = SubmissionForm(request.POST, request.FILES)
@@ -90,6 +103,7 @@ def submit(request):
             "links_email": submission.links_email,
         }
         request.session[REPEAT_SESSION_KEY] = {name: form.cleaned_data[name] for name in REPEAT_FIELDS}
+        _remember_participant(request, submission.snils, submission.email)
         return redirect("conference:thanks")
     return render(request, "conference/submit.html", {"form": form, "repeat": bool(initial)})
 
@@ -146,3 +160,95 @@ def download_document(request, pk):
         raise Http404("Файл не найден")
     filename = f"{document.title}{Path(document.file.name).suffix}"
     return FileResponse(document.file.open("rb"), as_attachment=True, filename=filename)
+
+
+# --- «Мои заявки»: просмотр и редактирование своих заявок по СНИЛС и почте ---
+
+
+def _remember_participant(request, snils, email):
+    request.session[MY_SESSION_KEY] = {"snils": snils, "email": email.lower(), "at": timezone.now().isoformat()}
+
+
+def _participant(request):
+    """(СНИЛС, почта) вошедшего участника или None, если вход не выполнен или устарел."""
+    data = request.session.get(MY_SESSION_KEY)
+    if not data:
+        return None
+    try:
+        at = datetime.fromisoformat(data["at"])
+    except (KeyError, ValueError):
+        return None
+    if timezone.now() - at > MY_SESSION_TTL:
+        request.session.pop(MY_SESSION_KEY, None)
+        return None
+    return data["snils"], data["email"]
+
+
+def _my_submissions(participant):
+    snils, email = participant
+    return Submission.objects.filter(snils=snils, email__iexact=email).select_related("section")
+
+
+def _lookup_keys(request, snils):
+    ip = request.META.get("REMOTE_ADDR", "unknown")
+    return [f"my-lookup:ip:{ip}", f"my-lookup:snils:{snils}"]
+
+
+@require_http_methods(["GET", "POST"])
+def my(request):
+    participant = _participant(request)
+    if participant and request.method == "GET":
+        return render(request, "conference/my.html", {"submissions": _my_submissions(participant)})
+
+    form = LookupForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        snils, email = form.cleaned_data["snils"], form.cleaned_data["email"].lower()
+        keys = _lookup_keys(request, snils)
+        if any(cache.get(key, 0) >= LOOKUP_LIMIT for key in keys):
+            form.add_error(None, "Слишком много попыток. Подождите 15 минут и попробуйте снова.")
+        elif _my_submissions((snils, email)).exists():
+            _remember_participant(request, snils, email)
+            return redirect("conference:my")
+        else:
+            for key in keys:
+                cache.add(key, 0, LOOKUP_WINDOW)
+                cache.incr(key)
+            form.add_error(
+                None,
+                "Заявки не найдены. Проверьте СНИЛС и почту: почта должна совпадать с почтой участника из анкеты.",
+            )
+    return render(request, "conference/my.html", {"form": form})
+
+
+@require_http_methods(["POST"])
+def my_logout(request):
+    request.session.pop(MY_SESSION_KEY, None)
+    return redirect("conference:my")
+
+
+@require_http_methods(["GET", "POST"])
+def my_edit(request, pk):
+    participant = _participant(request)
+    if not participant:
+        return redirect("conference:my")
+    submission = get_object_or_404(_my_submissions(participant), pk=pk)
+    if not submission.is_editable:
+        messages.info(request, f"Заявку {submission.number} изменить уже нельзя.")
+        return redirect("conference:my")
+
+    form = SubmissionForm(request.POST or None, request.FILES or None, instance=submission)
+    if request.method == "POST" and form.is_valid():
+        try:
+            form.save()
+        except IntegrityError:
+            form.add_error("section_slot", duplicate_message(form.instance.section))
+        except SectionFull:
+            form = SubmissionForm(request.POST, request.FILES, instance=Submission.objects.get(pk=pk))
+            if form.is_valid() or "section_slot" not in form.errors:
+                form.add_error("section_slot", "Пока вы редактировали заявку, эту секцию заняли. Выберите другую.")
+        else:
+            # СНИЛС или почту могли поменять — входим заново с новыми данными.
+            _remember_participant(request, form.instance.snils, form.instance.email)
+            messages.success(request, f"Изменения в заявке {form.instance.number} сохранены.")
+            return redirect("conference:my")
+    return render(request, "conference/submit.html", {"form": form, "editing": submission})

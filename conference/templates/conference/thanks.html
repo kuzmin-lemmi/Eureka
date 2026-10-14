@@ -10,7 +10,7 @@
       {% if application %}
         <h1>Работа отправлена!</h1>
         <p class="success__number">Номер заявки <strong>{{ application.number }}</strong></p>
-        <p>Сохраните номер — он понадобится при обращении в оргкомитет.</p>
+        <p>Сохраните номер — он понадобится при обращении в оргкомитет. Статус заявки и исправления — в разделе <a href="{% url 'conference:my' %}">«Мои заявки»</a>: вход по СНИЛС и почте участника.</p>
       {% else %}
         <h1>Спасибо!</h1>
         <p>Ваша заявка получена.</p>
@@ -32,6 +32,7 @@
       {% if conf.is_submission_open %}
         <a class="btn" href="{% url 'conference:submit' %}?more=1">Подать ещё одну работу</a>
       {% endif %}
+      <a class="btn btn--ghost" href="{% url 'conference:my' %}">Мои заявки</a>
       <a class="btn btn--ghost" href="{% url 'conference:home' %}">На главную</a>
     </div>
     {% if conf.is_submission_open %}

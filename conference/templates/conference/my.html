@@ -1,0 +1,70 @@
+{% extends "conference/base.html" %}
+
+{% block title %}Мои заявки — {{ conf.title }}{% endblock %}
+
+{% block content %}
+<section class="page">
+  <div class="container container--narrow">
+    <div class="page-head">
+      <h1>Мои заявки</h1>
+      {% if form %}
+        <p class="lead">Посмотрите статус поданных работ и исправьте заявку, если нужно.</p>
+        <p class="muted">Введите СНИЛС участника и почту, которую указали в анкете в блоке «Участник».</p>
+      {% endif %}
+    </div>
+
+    {% for message in messages %}
+      <div class="alert{% if message.level_tag == 'success' %} alert--success{% else %} alert--info{% endif %}" role="status">{{ message }}</div>
+    {% endfor %}
+
+    {% if form %}
+      <form method="post" class="card lookup" novalidate>
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+          <div class="alert alert--error" role="alert">{% for error in form.non_field_errors %}{{ error }}{% endfor %}</div>
+        {% endif %}
+        <div class="grid grid--2">
+          {% include "conference/_field.html" with field=form.snils %}
+          {% include "conference/_field.html" with field=form.email %}
+        </div>
+        <button type="submit" class="btn">Найти заявки</button>
+      </form>
+      <p class="help">Подавали работу, но заявок нет? Проверьте, что почта та же, что в анкете. Если не помогло — напишите оргкомитету{% if conf.contact_email %}: <a href="mailto:{{ conf.contact_email }}">{{ conf.contact_email }}</a>{% endif %}.</p>
+    {% else %}
+      <ul class="my-list">
+        {% for s in submissions %}
+          <li class="card my-item">
+            <div class="my-item__head">
+              <span class="my-item__number">{{ s.number }}</span>
+              <span class="badge badge--{{ s.status }}">{{ s.get_status_display }}</span>
+            </div>
+            <h2 class="h3">{{ s.title }}</h2>
+            <dl class="my-item__facts">
+              <div><dt>Секция</dt><dd>{{ s.section_label }}</dd></div>
+              <div><dt>Участник</dt><dd>{{ s.full_name }}, {{ s.grade }} класс</dd></div>
+              {% if s.coauthor %}<div><dt>Соавтор</dt><dd>{{ s.coauthor }}</dd></div>{% endif %}
+              <div><dt>Подана</dt><dd>{{ s.created_at|date:"j E Y, H:i" }}{% if s.edited_by_participant_at %} · изменена {{ s.edited_by_participant_at|date:"j E, H:i" }}{% endif %}</dd></div>
+            </dl>
+            {% if s.participant_message %}
+              <div class="alert alert--info my-item__message"><b>Сообщение оргкомитета:</b> {{ s.participant_message|linebreaksbr }}</div>
+            {% endif %}
+            {% if s.is_editable %}
+              <a class="btn btn--sm" href="{% url 'conference:my_edit' s.pk %}">Изменить заявку</a>
+            {% elif s.status == "accepted" %}
+              <p class="help">Заявка принята — изменить её уже нельзя. Если нашли ошибку, напишите оргкомитету.</p>
+            {% elif s.status == "rejected" %}
+              <p class="help">Заявка отклонена. Если приём работ ещё открыт, можно подать работу в это направление заново.</p>
+            {% else %}
+              <p class="help">Приём работ закрыт — изменить заявку уже нельзя.</p>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+      <div class="actions">
+        {% if conf.is_submission_open %}<a class="btn btn--ghost" href="{% url 'conference:submit' %}?more=1">Подать работу в другое направление</a>{% endif %}
+        <form method="post" action="{% url 'conference:my_logout' %}">{% csrf_token %}<button type="submit" class="link-button">Выйти</button></form>
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

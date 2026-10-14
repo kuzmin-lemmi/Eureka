@@ -150,20 +150,21 @@ class Section(models.Model):
     def group_label(self, number):
         return f"{self.name} {number}" if self.groups > 1 else self.name
 
-    def occupied(self):
-        """Занятые места по номерам секций: {1: 12, 2: 3, …}."""
+    def occupied(self, exclude=None):
+        """Занятые места по номерам секций: {1: 12, 2: 3, …}. exclude — pk заявки, которую не считать
+        (при редактировании заявка не должна занимать место сама у себя)."""
         taken = dict.fromkeys(range(1, self.groups + 1), 0)
-        rows = (
-            self.submissions.exclude(status=Submission.Status.REJECTED)
-            .values_list("section_number", "coauthor_last_name")
-        )
+        rows = self.submissions.exclude(status=Submission.Status.REJECTED)
+        if exclude:
+            rows = rows.exclude(pk=exclude)
+        rows = rows.values_list("section_number", "coauthor_last_name")
         for number, coauthor in rows:
             taken[number] = taken.get(number, 0) + (2 if coauthor else 1)
         return taken
 
-    def free_places(self):
+    def free_places(self, exclude=None):
         """Свободные места по номерам секций (только существующие секции)."""
-        taken = self.occupied()
+        taken = self.occupied(exclude)
         return {n: max(self.capacity - taken[n], 0) for n in range(1, self.groups + 1)}
 
 
@@ -244,14 +245,35 @@ class Submission(models.Model):
 
     # Оргкомитет
     status = models.CharField("статус", max_length=10, choices=Status, default=Status.NEW)
-    admin_comment = models.TextField("комментарий оргкомитета", blank=True)
+    admin_comment = models.TextField("комментарий оргкомитета", blank=True, help_text="Виден только оргкомитету.")
+    participant_message = models.TextField(
+        "сообщение участнику",
+        blank=True,
+        help_text="Участник видит его в разделе «Мои заявки», например что исправить в работе.",
+    )
     created_at = models.DateTimeField("подана", auto_now_add=True)
     updated_at = models.DateTimeField("изменена", auto_now=True)
+    edited_by_participant_at = models.DateTimeField("изменена участником", null=True, blank=True)
+
+    EDITABLE_STATUSES = (Status.NEW, Status.REVISION)
 
     class Meta:
         verbose_name = "заявка"
         verbose_name_plural = "заявки"
         ordering = ["-created_at"]
+        constraints = [
+            # Один человек (по СНИЛС основного автора) — одна действующая заявка в направлении.
+            models.UniqueConstraint(
+                fields=["snils", "section"],
+                condition=~models.Q(status="rejected") & ~models.Q(snils=""),
+                name="one_active_submission_per_snils_and_section",
+                violation_error_message="Заявка этого участника в это направление уже есть.",
+            )
+        ]
+
+    @property
+    def is_editable(self):
+        return self.status in self.EDITABLE_STATUSES and ConferenceSettings.load().is_submission_open
 
     def __str__(self):
         return f"{self.number} {self.full_name} — {self.title}"

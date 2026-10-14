@@ -230,7 +230,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const draftFields = () =>
     controls().filter((el) => el.type !== "file" && el.type !== "checkbox" && el.name !== "csrfmiddlewaretoken");
 
+  // При редактировании поданной заявки черновик не нужен: он подставил бы данные чужой анкеты.
+  const useDraft = form.dataset.draft !== "off";
+
   const saveDraft = () => {
+    if (!useDraft) return;
     const data = {};
     draftFields().forEach((el) => {
       if (el.value) data[el.name] = el.value;
@@ -239,7 +243,7 @@ document.addEventListener("DOMContentLoaded", () => {
     else storage.remove(DRAFT_KEY);
   };
 
-  const draft = storage.get(DRAFT_KEY);
+  const draft = useDraft ? storage.get(DRAFT_KEY) : null;
   if (draft && typeof draft === "object") {
     let restored = 0;
     draftFields().forEach((el) => {
@@ -292,6 +296,6 @@ document.addEventListener("DOMContentLoaded", () => {
     saveDraft();
     const button = form.querySelector("button[type=submit]");
     button.disabled = true;
-    button.textContent = "Отправляем…";
+    button.textContent = button.dataset.busyText || "Отправляем…";
   });
 });
