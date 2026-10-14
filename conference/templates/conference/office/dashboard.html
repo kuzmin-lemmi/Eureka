@@ -4,53 +4,62 @@
 
 {% block content %}
 <div class="container">
-  <h1 class="office-h1">Секции</h1>
+  <div class="office-top">
+    <h1 class="office-h1">Секции</h1>
+    <ul class="kpis">
+      <li class="kpi kpi--accent"><b>{{ works }}</b> работ подано</li>
+      <li class="kpi"><b>{{ people }}</b> участников</li>
+      <li class="kpi"><b>{{ free }}</b> свободных мест из {{ capacity }}</li>
+      <li class="kpi">
+        {% if days_left is not None %}<b>{{ days_left }}</b> дн. до конца приёма
+        {% elif conf.is_submission_open %}срок приёма не задан
+        {% else %}приём работ закрыт{% endif %}
+      </li>
+    </ul>
+  </div>
 
   {% for message in messages %}<div class="alert alert--success" role="status">{{ message }}</div>{% endfor %}
 
-  <div class="stats">
-    <div class="card stat stat--accent"><b>{{ works }}</b><span>работ подано</span></div>
-    <div class="card stat"><b>{{ people }}</b><span>участников (с соавторами)</span></div>
-    <div class="card stat"><b>{{ free }}</b><span>свободных мест из {{ capacity }}</span></div>
-    <div class="card stat">
-      {% if days_left is not None %}<b>{{ days_left }}</b><span>дней до конца приёма</span>
-      {% elif conf.is_submission_open %}<b>—</b><span>срок приёма не задан</span>
-      {% else %}<b>0</b><span>приём работ закрыт</span>{% endif %}
-    </div>
+  <div class="toolbar">
+    <span class="toolbar__label">Скачать всё:</span>
+    <a class="btn btn--sm btn--word" href="{% url 'conference:office_word' %}">📄 Word</a>
+    <a class="btn btn--sm btn--excel" href="{% url 'conference:office_excel' %}">📊 Excel по секциям</a>
+    <a class="btn btn--sm btn--excel" href="{% url 'conference:office_participants' %}">👥 Все участники</a>
+    <a class="btn btn--sm btn--zip" href="{% url 'conference:office_archive' %}">🗂 Архив работ</a>
+    <form method="post" action="{% url 'conference:office_link_create' %}">{% csrf_token %}
+      <button type="submit" class="btn btn--sm btn--link">🔗 Ссылка для проверяющего</button>
+    </form>
+    <span class="legend"><span class="l-free">есть места</span><span class="l-almost">почти заполнена</span><span class="l-full">мест нет</span></span>
   </div>
 
-  <section class="card exports">
-    <h2>Скачать всё сразу</h2>
-    <p>Нажмите кнопку — файл скачается на компьютер. Отдельная секция — ниже, кнопка «Открыть».</p>
-    <div class="exports__buttons">
-      <a class="btn btn--word" href="{% url 'conference:office_word' %}"><span aria-hidden="true">📄</span> Все секции — Word</a>
-      <a class="btn btn--excel" href="{% url 'conference:office_excel' %}"><span aria-hidden="true">📊</span> Все секции — Excel</a>
-      <a class="btn btn--excel" href="{% url 'conference:office_participants' %}"><span aria-hidden="true">👥</span> Все участники — Excel</a>
-      <a class="btn btn--zip" href="{% url 'conference:office_archive' %}"><span aria-hidden="true">🗂</span> Все работы — архив</a>
-      <form method="post" action="{% url 'conference:office_link_create' %}">{% csrf_token %}
-        <button type="submit" class="btn btn--link"><span aria-hidden="true">🔗</span> Ссылка для проверяющего</button>
-      </form>
+  {% if directions %}
+    <div class="card overview-wrap">
+      <table class="overview">
+        <thead><tr><th>Направление</th><th>Секции — нажмите, чтобы открыть</th><th class="overview__total">Всего</th></tr></thead>
+        <tbody>
+          {% for direction in directions %}
+            <tr>
+              <td class="overview__name">{{ direction.section.name }}</td>
+              <td class="overview__slots">
+                <div class="slots">
+                  {% for g in direction.groups %}
+                    <a class="slot slot--{{ g.state }}" href="{% url 'conference:office_section' g.section.pk g.number %}" title="{{ g.label }}: {{ g.state_label|lower }}">
+                      {% if direction.section.groups > 1 %}<span class="slot__num">{{ g.number }}</span>{% endif %}
+                      <span class="slot__bar" aria-hidden="true"><i style="width: {{ g.percent }}%"></i></span>
+                      <span>{{ g.taken }}/{{ g.capacity }}</span>
+                    </a>
+                  {% endfor %}
+                </div>
+              </td>
+              <td class="overview__total">{{ direction.taken }}/{{ direction.capacity }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
-  </section>
-
-  <div class="directions">
-    {% for direction in directions %}
-      <section class="card direction">
-        <h2 class="h3">{{ direction.section.name }}</h2>
-        {% for g in direction.groups %}
-          <div class="group">
-            <span class="group__name">{{ g.label }}</span>
-            <div class="meter meter--{{ g.state }}" role="img" aria-label="Занято {{ g.taken }} из {{ g.capacity }}"><span style="width: {{ g.percent }}%"></span></div>
-            <span class="group__count">{{ g.taken }} из {{ g.capacity }}</span>
-            <span class="chip chip--{{ g.state }}">{{ g.state_label }}</span>
-            <a class="btn btn--sm" href="{% url 'conference:office_section' g.section.pk g.number %}">Открыть</a>
-          </div>
-        {% endfor %}
-      </section>
-    {% empty %}
-      <div class="card empty">Направления ещё не созданы. Их добавляет администратор сайта.</div>
-    {% endfor %}
-  </div>
+  {% else %}
+    <div class="card empty">Направления ещё не созданы. Их добавляет администратор сайта.</div>
+  {% endif %}
 
   {% if user.is_superuser %}
     <p class="office-admin-link"><a href="{% url 'admin:index' %}">Расширенные настройки сайта (для администратора)</a></p>

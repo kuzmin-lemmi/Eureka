@@ -140,7 +140,12 @@ def dashboard(request):
     for section in Section.objects.filter(is_active=True):
         taken = section.occupied()
         groups = [_group_info(section, n, taken) for n in range(1, section.groups + 1)]
-        directions.append({"section": section, "groups": groups})
+        directions.append({
+            "section": section,
+            "groups": groups,
+            "taken": sum(taken.values()),
+            "capacity": section.capacity * section.groups,
+        })
         capacity += section.capacity * section.groups
         taken_total += sum(taken.values())
     works = Submission.objects.exclude(status=Submission.Status.REJECTED).count()

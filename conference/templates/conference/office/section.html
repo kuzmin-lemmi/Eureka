@@ -5,22 +5,26 @@
 {% block content %}
 <div class="container">
   <a class="back" href="{% url 'conference:office' %}">← Все секции</a>
-  <h1 class="office-h1">{{ info.label }}</h1>
-  <p class="lead"><b>{{ info.taken }} из {{ info.capacity }}</b> мест занято · <span class="chip chip--{{ info.state }}">{{ info.state_label }}</span></p>
+  <div class="office-top">
+    <h1 class="office-h1">{{ info.label }}</h1>
+    <ul class="kpis">
+      <li class="kpi kpi--accent"><b>{{ info.taken }}</b> из {{ info.capacity }} мест занято</li>
+      <li class="kpi"><b>{{ submissions|length }}</b> работ</li>
+      <li class="chip chip--{{ info.state }}">{{ info.state_label }}</li>
+    </ul>
+  </div>
 
-  <section class="card exports">
-    <h2>Скачать эту секцию</h2>
-    <div class="exports__buttons">
-      <a class="btn btn--word" href="{% url 'conference:office_section_word' info.section.pk info.number %}"><span aria-hidden="true">📄</span> Список — Word</a>
-      <a class="btn btn--excel" href="{% url 'conference:office_section_excel' info.section.pk info.number %}"><span aria-hidden="true">📊</span> Список — Excel</a>
-      <a class="btn btn--zip" href="{% url 'conference:office_section_archive' info.section.pk info.number %}"><span aria-hidden="true">🗂</span> Работы — архив</a>
-      <form method="post" action="{% url 'conference:office_link_create' %}">{% csrf_token %}
-        <input type="hidden" name="section" value="{{ info.section.pk }}">
-        <input type="hidden" name="number" value="{{ info.number }}">
-        <button type="submit" class="btn btn--link"><span aria-hidden="true">🔗</span> {% if link %}Ссылка для проверяющего (уже есть){% else %}Ссылка для проверяющего{% endif %}</button>
-      </form>
-    </div>
-  </section>
+  <div class="toolbar">
+    <span class="toolbar__label">Скачать секцию:</span>
+    <a class="btn btn--sm btn--word" href="{% url 'conference:office_section_word' info.section.pk info.number %}">📄 Список — Word</a>
+    <a class="btn btn--sm btn--excel" href="{% url 'conference:office_section_excel' info.section.pk info.number %}">📊 Список — Excel</a>
+    <a class="btn btn--sm btn--zip" href="{% url 'conference:office_section_archive' info.section.pk info.number %}">🗂 Работы — архив</a>
+    <form method="post" action="{% url 'conference:office_link_create' %}">{% csrf_token %}
+      <input type="hidden" name="section" value="{{ info.section.pk }}">
+      <input type="hidden" name="number" value="{{ info.number }}">
+      <button type="submit" class="btn btn--sm btn--link">🔗 Ссылка для проверяющего{% if link %} (уже есть){% endif %}</button>
+    </form>
+  </div>
 
   {% if submissions %}
     <div class="table-wrap">

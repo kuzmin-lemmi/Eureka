@@ -695,9 +695,9 @@ class OfficeTests(TestCase):
         self.assertRedirects(response, reverse("conference:office"))
         response = self.client.get(reverse("conference:office"))
         self.assertContains(response, "Здоровое поколение 1")
-        self.assertContains(response, "2 из 3")
-        self.assertContains(response, "1 из 3")
-        self.assertContains(response, "<b>3</b><span>работ подано</span>", html=False)
+        self.assertContains(response, "<span>2/3</span>", html=False)
+        self.assertContains(response, "<span>1/3</span>", html=False)
+        self.assertContains(response, "<b>3</b> работ подано", html=False)
 
     def test_wrong_password_and_lockout(self):
         for _ in range(10):
