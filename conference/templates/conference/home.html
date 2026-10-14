@@ -26,6 +26,16 @@
   </div>
 </section>
 
+{% if fresh_news %}
+<div class="container">
+  <a class="news-flash" href="#news-{{ fresh_news.pk }}">
+    <span class="news-flash__label">Новость</span>
+    <span class="news-flash__text"><small>{{ fresh_news.published_at|date:"j E" }}</small>{{ fresh_news.title }}</span>
+    <span class="news-flash__more" aria-hidden="true">Подробнее →</span>
+  </a>
+</div>
+{% endif %}
+
 <section class="section section--tight">
   <div class="container">
     <dl class="tiles">
@@ -86,37 +96,6 @@
   </div>
 </section>
 
-{% if sections %}
-<section class="section" id="sections">
-  <div class="container">
-    <h2><span class="hand">Секции</span> конференции</h2>
-    <ol class="rows">
-      {% for section in sections %}
-        <li><b class="rows__num">{{ forloop.counter }}</b><div>{{ section.name }}{% if section.description %}<small>{{ section.description }}</small>{% endif %}<small class="rows__meta">{% if section.groups > 1 %}Секций: {{ section.groups }} · {% endif %}{% if section.free_total %}свободно мест: {{ section.free_total }}{% else %}мест нет{% endif %}</small></div></li>
-      {% endfor %}
-    </ol>
-  </div>
-</section>
-{% endif %}
-
-<section class="section" id="news">
-  <div class="container container--narrow">
-    <h2><span class="hand">Новости</span> конференции</h2>
-    {% if news %}
-      <div class="faq news">
-        {% for post in news %}
-          <details class="card"{% if forloop.first %} open{% endif %}>
-            <summary><span class="news__summary"><small>{{ post.published_at|date:"j E Y" }}</small>{{ post.title }}</span></summary>
-            <div class="news__body">{{ post.text|linebreaks }}</div>
-          </details>
-        {% endfor %}
-      </div>
-    {% else %}
-      <div class="card empty">Новостей пока нет. Загляните позже.</div>
-    {% endif %}
-  </div>
-</section>
-
 <section class="section" id="documents">
   <div class="container container--narrow">
     <h2><span class="hand">Документы</span> конференции</h2>
@@ -141,6 +120,37 @@
       </ul>
     {% else %}
       <div class="card empty">Документы пока не опубликованы.</div>
+    {% endif %}
+  </div>
+</section>
+
+{% if sections %}
+<section class="section" id="sections">
+  <div class="container">
+    <h2><span class="hand">Секции</span> конференции</h2>
+    <ol class="rows">
+      {% for section in sections %}
+        <li><b class="rows__num">{{ forloop.counter }}</b><div>{{ section.name }}{% if section.description %}<small>{{ section.description }}</small>{% endif %}<small class="rows__meta">{% if section.groups > 1 %}Секций: {{ section.groups }} · {% endif %}{% if section.free_total %}свободно мест: {{ section.free_total }}{% else %}мест нет{% endif %}</small></div></li>
+      {% endfor %}
+    </ol>
+  </div>
+</section>
+{% endif %}
+
+<section class="section" id="news">
+  <div class="container container--narrow">
+    <h2><span class="hand">Новости</span> конференции</h2>
+    {% if news %}
+      <div class="faq news">
+        {% for post in news %}
+          <details class="card" id="news-{{ post.pk }}"{% if forloop.first %} open{% endif %}>
+            <summary><span class="news__summary"><small>{{ post.published_at|date:"j E Y" }}</small>{{ post.title }}</span></summary>
+            <div class="news__body">{{ post.text|linebreaks }}</div>
+          </details>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="card empty">Новостей пока нет. Загляните позже.</div>
     {% endif %}
   </div>
 </section>

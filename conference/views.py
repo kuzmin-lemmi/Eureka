@@ -1,15 +1,18 @@
+from datetime import timedelta
 from pathlib import Path
 
 from django.contrib.admin.views.decorators import staff_member_required
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from .forms import REPEAT_FIELDS, SectionFull, SubmissionForm
 from .models import ConferenceSettings, Document, NewsPost, Section, Submission
 
 THANKS_SESSION_KEY = "conference_thanks"
+FRESH_NEWS_DAYS = 7
 REPEAT_SESSION_KEY = "conference_repeat"
 
 # kind в URL → (поле файла, поле исходного имени, подпись в имени скачанного файла)
@@ -50,9 +53,12 @@ def home(request):
     sections = list(Section.objects.filter(is_active=True))
     for section in sections:
         section.free_total = sum(section.free_places().values())
+    news = list(NewsPost.visible())
     context = {
         "sections": sections,
-        "news": NewsPost.visible(),
+        "news": news,
+        # Свежая новость (до FRESH_NEWS_DAYS дней) дублируется плашкой под первым экраном.
+        "fresh_news": news[0] if news and news[0].published_at >= timezone.now() - timedelta(days=FRESH_NEWS_DAYS) else None,
         "documents": Document.objects.filter(is_published=True),
         "blanks": _blank_items(ConferenceSettings.load()),
     }

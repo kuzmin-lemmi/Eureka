@@ -329,6 +329,22 @@ class LoadSectionsTests(TestCase):
 
 
 class PagesTests(TestCase):
+    def test_fresh_news_banner(self):
+        old = NewsPost.objects.create(title="Старая новость", text="…", published_at=timezone.now() - timedelta(days=8))
+        self.assertNotContains(self.client.get(reverse("conference:home")), "news-flash")
+
+        fresh = NewsPost.objects.create(title="Перенесли дедлайн", text="…")
+        response = self.client.get(reverse("conference:home"))
+        self.assertContains(response, f'href="#news-{fresh.pk}"')
+        self.assertContains(response, f'id="news-{fresh.pk}"')
+        self.assertContains(response, f'id="news-{old.pk}"')
+
+    def test_home_block_order(self):
+        Section.objects.create(name="Биология")
+        html = self.client.get(reverse("conference:home")).content.decode()
+        positions = [html.index(f'id="{block}"') for block in ("how", "documents", "sections", "news")]
+        self.assertEqual(positions, sorted(positions))
+
     def test_home_shows_active_sections_only(self):
         Section.objects.create(name="Биология")
         Section.objects.create(name="Секретная", is_active=False)
