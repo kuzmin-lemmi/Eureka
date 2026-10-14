@@ -91,7 +91,15 @@ class SubmissionAdmin(admin.ModelAdmin):
                     ("Word", reverse("admin:conference_submission_students_word")),
                 ],
             },
-            {"title": "Этап 2", "text": "Состав выгрузок будет определён.", "files": []},
+            {
+                "title": "Этап 2. Допущенные ко 2 этапу",
+                "text": "Участники принятых заявок (статус «Принята»), секции по алфавиту.",
+                "files": [
+                    ("Word", reverse("conference:office_admitted_word")),
+                    ("Excel", reverse("conference:office_admitted_excel")),
+                    ("PDF", reverse("conference:office_admitted_pdf")),
+                ],
+            },
             {"title": "Этап 3", "text": "Состав выгрузок будет определён.", "files": []},
             {"title": "Этап 4", "text": "Состав выгрузок будет определён.", "files": []},
         ]

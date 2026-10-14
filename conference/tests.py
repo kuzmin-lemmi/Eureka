@@ -763,6 +763,31 @@ class OfficeTests(TestCase):
         response = self.client.get(reverse("conference:office_students_word"))
         self.assertEqual(len(Document(BytesIO(response.getvalue())).tables[0].rows), 1 + 3)
 
+    def test_admitted_exports_only_accepted_sorted_by_section(self):
+        from docx import Document
+        from openpyxl import load_workbook
+
+        other = Section.objects.create(name="Абвгд", order=99)
+        Submission.objects.filter(last_name="Фамилия0").update(status="accepted")
+        Submission.objects.create(
+            section=other, status="accepted", snils=make_snils(400000001), last_name="Яблоков", first_name="Пётр",
+            grade=10, email="y@example.ru", school="Школа", district="Р", title="Работа Я",
+            supervisor_last_name="Иванова", supervisor_first_name="Мария", supervisor_position="учитель",
+            supervisor_phone="+79001234567", file="x.docx",
+        )
+        self.client.force_login(self.organizer)
+        response = self.client.get(reverse("conference:office_admitted_excel"))
+        rows = list(load_workbook(BytesIO(b"".join(response.streaming_content))).active.values)
+        self.assertIn("2027", rows[0][0])
+        data = rows[3:]
+        self.assertEqual([r[2] for r in data], ["Яблоков Пётр", "Фамилия0 Имя"])  # «Абвгд» раньше по алфавиту
+        self.assertEqual(len(data[0]), 7)  # без даты и почты
+
+        word = self.client.get(reverse("conference:office_admitted_word"))
+        self.assertEqual(len(Document(BytesIO(word.getvalue())).tables[0].rows), 1 + 2)
+        pdf = self.client.get(reverse("conference:office_admitted_pdf"))
+        self.assertTrue(pdf.getvalue().startswith(b"%PDF"))
+
     def test_archive_contains_works_and_list(self):
         import zipfile
 

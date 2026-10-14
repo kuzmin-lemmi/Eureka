@@ -175,47 +175,78 @@ def build_reviewer_workbook(groups):
     return _save(wb)
 
 
-# Этап 1: список всех учеников по секциям — столбцы как в рабочей таблице оргкомитета.
+# Этапы 1 и 2: таблицы учеников в формате рабочих документов оргкомитета.
 STUDENT_HEADERS = ["№", "Секция", "ФИО", "Кл.", "ОУ", "Название работы", "Руководитель", "Дата подачи, e-mail"]
 STUDENT_WIDTHS = [5, 28, 28, 6, 45, 45, 26, 28]
+STUDENT_DOCX_WIDTHS = [1, 3.6, 3.6, 1, 5.5, 5.5, 3.6, 3.6]
+
+ADMITTED_TITLE = (
+    "Список участников, допущенных ко 2 этапу XII межрегиональной научно-практической "
+    "конференции школьников «Эврика» в 2027 году"
+)
+ADMITTED_HEADERS = STUDENT_HEADERS[:-1]
+ADMITTED_WIDTHS = STUDENT_WIDTHS[:-1]
+ADMITTED_DOCX_WIDTHS = [1, 3.6, 3.8, 1, 6.2, 6.2, 4]
+FONT_DIR = Path(__file__).resolve().parent / "fonts"
 
 
-def student_rows():
-    """Строка на каждого ученика: у работы с соавтором две строки. Порядок — по секциям, затем по фамилии."""
+def _student_rows(groups, contact):
+    """Строка на каждого ученика: у работы с соавтором две строки."""
     rows = []
-    for section, number in all_groups():
+    for section, number in groups:
         for s in group_submissions(section, number):
+            if not contact and s.status != Submission.Status.ACCEPTED:
+                continue
             supervisor = s.supervisor + (f"\n{s.supervisor2}" if s.supervisor2 else "")
-            contact = f"{timezone.localtime(s.created_at):%d.%m.%Y}\n{s.email}"
             people = [(s.full_name, s.grade)]
             if s.coauthor_last_name:
                 people.append((f"{s.coauthor_last_name} {s.coauthor_first_name}", s.coauthor_grade))
             for name, grade in people:
-                rows.append([len(rows) + 1, s.section_label, name, grade, s.school, s.title, supervisor, contact])
+                row = [len(rows) + 1, s.section_label, name, grade, s.school, s.title, supervisor]
+                if contact:
+                    row.append(f"{timezone.localtime(s.created_at):%d.%m.%Y}\n{s.email}")
+                rows.append(row)
     return rows
 
 
-def build_students_workbook():
+def student_rows():
+    """Этап 1: все ученики, кроме отклонённых; секции — в порядке направлений."""
+    return _student_rows(all_groups(), contact=True)
+
+
+def admitted_rows():
+    """Этап 2: ученики принятых заявок; секции — по алфавиту."""
+    groups = sorted(all_groups(), key=lambda g: g[0].group_label(g[1]).casefold())
+    return _student_rows(groups, contact=False)
+
+
+def _table_workbook(sheet_title, headers, widths, rows, title=None):
     wb = Workbook()
     ws = wb.active
-    ws.title = "Все ученики"
-    ws.append(STUDENT_HEADERS)
-    for cell in ws[1]:
+    ws.title = sheet_title
+    header_row = 1
+    if title:
+        ws.append([title])
+        ws["A1"].font = TITLE_FONT
+        header_row = 3
+        ws.append([])
+    ws.append(headers)
+    for cell in ws[header_row]:
         cell.font, cell.fill = BOLD, HEADER_FILL
-    for row in student_rows():
+    for row in rows:
         ws.append(row)
-    for col, width in enumerate(STUDENT_WIDTHS, start=1):
+    for col, width in enumerate(widths, start=1):
         ws.column_dimensions[get_column_letter(col)].width = width
-    for row in ws.iter_rows():
+    for row in ws.iter_rows(min_row=header_row):
         for cell in row:
             cell.alignment = Alignment(wrap_text=True, vertical="top")
-    ws.freeze_panes = "A2"
-    if ws.max_row > 1:
-        ws.auto_filter.ref = f"A1:{get_column_letter(len(STUDENT_HEADERS))}{ws.max_row}"
+    ws.freeze_panes = f"A{header_row + 1}"
+    if rows:
+        ws.auto_filter.ref = f"A{header_row}:{get_column_letter(len(headers))}{ws.max_row}"
     return _save(wb)
 
 
-def build_students_docx():
+def _table_docx(title, headers, widths_cm, rows, note=None, subtitle=None):
     doc = Document()
     page = doc.sections[0]
     page.orientation = WD_ORIENT.LANDSCAPE
@@ -226,26 +257,87 @@ def build_students_docx():
     normal.font.name = "Times New Roman"
     normal.font.size = Pt(10)
 
-    doc.add_paragraph(ConferenceSettings.load().title).runs[0].italic = True
-    doc.add_heading("Список учеников по секциям", level=1)
-    rows = student_rows()
-    doc.add_paragraph(f"Учеников: {len(rows)}")
-    table = doc.add_table(rows=1, cols=len(STUDENT_HEADERS))
+    if subtitle:
+        doc.add_paragraph(subtitle).runs[0].italic = True
+    heading = doc.add_heading(title, level=1)
+    if note:
+        doc.add_paragraph(note)
+    table = doc.add_table(rows=1, cols=len(headers))
     table.style = "Table Grid"
-    for cell, text in zip(table.rows[0].cells, STUDENT_HEADERS):
+    for cell, text in zip(table.rows[0].cells, headers):
         cell.text = text
         cell.paragraphs[0].runs[0].bold = True
     for row in rows:
         for cell, value in zip(table.add_row().cells, row):
             cell.text = str(value)
-    widths = [Cm(1), Cm(3.6), Cm(3.6), Cm(1), Cm(5.5), Cm(5.5), Cm(3.6), Cm(3.6)]
     for row in table.rows:
-        for cell, width in zip(row.cells, widths):
-            cell.width = width
+        for cell, width in zip(row.cells, widths_cm):
+            cell.width = Cm(width)
     # Шапка таблицы повторяется на каждой странице.
     table.rows[0]._tr.get_or_add_trPr().append(OxmlElement("w:tblHeader"))
     buffer = BytesIO()
     doc.save(buffer)
+    return buffer.getvalue()
+
+
+def build_students_workbook():
+    return _table_workbook("Все ученики", STUDENT_HEADERS, STUDENT_WIDTHS, student_rows())
+
+
+def build_students_docx():
+    rows = student_rows()
+    return _table_docx(
+        "Список учеников по секциям", STUDENT_HEADERS, STUDENT_DOCX_WIDTHS, rows,
+        note=f"Учеников: {len(rows)}", subtitle=ConferenceSettings.load().title,
+    )
+
+
+def build_admitted_workbook():
+    return _table_workbook("Допущенные", ADMITTED_HEADERS, ADMITTED_WIDTHS, admitted_rows(), title=ADMITTED_TITLE)
+
+
+def build_admitted_docx():
+    return _table_docx(ADMITTED_TITLE, ADMITTED_HEADERS, ADMITTED_DOCX_WIDTHS, admitted_rows())
+
+
+def build_admitted_pdf():
+    from reportlab.lib import colors
+    from reportlab.lib.enums import TA_CENTER
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.units import cm
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    from xml.sax.saxutils import escape
+
+    if "EurekaSerif" not in pdfmetrics.getRegisteredFontNames():
+        pdfmetrics.registerFont(TTFont("EurekaSerif", str(FONT_DIR / "DejaVuSerifCondensed.ttf")))
+        pdfmetrics.registerFont(TTFont("EurekaSerif-Bold", str(FONT_DIR / "DejaVuSerifCondensed-Bold.ttf")))
+        pdfmetrics.registerFontFamily("EurekaSerif", normal="EurekaSerif", bold="EurekaSerif-Bold")
+
+    cell = ParagraphStyle("cell", fontName="EurekaSerif", fontSize=8.5, leading=10.5)
+    head = ParagraphStyle("head", parent=cell, fontName="EurekaSerif-Bold")
+    title = ParagraphStyle("title", parent=cell, fontName="EurekaSerif-Bold", fontSize=13, leading=17, alignment=TA_CENTER)
+
+    def para(value, style=cell):
+        return Paragraph(escape(str(value)).replace("\n", "<br/>"), style)
+
+    data = [[para(h, head) for h in ADMITTED_HEADERS]]
+    data += [[para(v) for v in row] for row in admitted_rows()]
+    widths = [w * cm for w in ADMITTED_DOCX_WIDTHS]
+    table = Table(data, colWidths=widths, repeatRows=1)
+    table.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#FFF3B0")),
+    ]))
+    buffer = BytesIO()
+    pdf = SimpleDocTemplate(
+        buffer, pagesize=landscape(A4), leftMargin=1.5 * cm, rightMargin=1.5 * cm,
+        topMargin=1.5 * cm, bottomMargin=1.5 * cm, title=ADMITTED_TITLE,
+    )
+    pdf.build([Paragraph(escape(ADMITTED_TITLE), title), Spacer(1, 0.4 * cm), table])
     return buffer.getvalue()
 
 

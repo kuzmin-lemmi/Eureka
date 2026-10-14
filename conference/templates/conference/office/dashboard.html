@@ -29,7 +29,16 @@
         <a class="btn btn--sm btn--excel" href="{% url 'conference:office_students_excel' %}">📊 Excel</a>
       </div>
     </div>
-    {% for n in "234" %}
+    <div class="stage">
+      <h2 class="stage__title"><span class="stage__num">2</span> Допущенные ко 2 этапу</h2>
+      <p class="stage__text">Список участников принятых работ (статус «Принята»), секции по алфавиту. Сейчас работ: {{ admitted }}.</p>
+      <div class="stage__btns">
+        <a class="btn btn--sm btn--word" href="{% url 'conference:office_admitted_word' %}">📄 Word</a>
+        <a class="btn btn--sm btn--excel" href="{% url 'conference:office_admitted_excel' %}">📊 Excel</a>
+        <a class="btn btn--sm btn--zip" href="{% url 'conference:office_admitted_pdf' %}">📕 PDF</a>
+      </div>
+    </div>
+    {% for n in "34" %}
       <div class="stage stage--empty">
         <h2 class="stage__title"><span class="stage__num">{{ n }}</span> Этап {{ n }}</h2>
         <p class="stage__text">Выгрузки появятся позже.</p>

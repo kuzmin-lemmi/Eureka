@@ -153,6 +153,7 @@ def dashboard(request):
     if conf.is_submission_open and conf.submissions_deadline:
         days_left = max(0, (timezone.localdate(conf.submissions_deadline) - timezone.localdate()).days)
     context = {
+        "admitted": Submission.objects.filter(status=Submission.Status.ACCEPTED).count(),
         "directions": directions,
         "works": works,
         "people": taken_total,
@@ -228,6 +229,21 @@ def export_students_excel(request):
 @office_required
 def export_students_word(request):
     return _file(exports.build_students_docx(), f"Эврика — все ученики по секциям {_today()}.docx", DOCX)
+
+
+@office_required
+def export_admitted_word(request):
+    return _file(exports.build_admitted_docx(), f"Эврика — допущенные ко 2 этапу {_today()}.docx", DOCX)
+
+
+@office_required
+def export_admitted_excel(request):
+    return _file(exports.build_admitted_workbook(), f"Эврика — допущенные ко 2 этапу {_today()}.xlsx", XLSX)
+
+
+@office_required
+def export_admitted_pdf(request):
+    return _file(exports.build_admitted_pdf(), f"Эврика — допущенные ко 2 этапу {_today()}.pdf", "application/pdf")
 
 
 def _archive_response(groups):
