@@ -56,8 +56,25 @@ Docker + gunicorn + Caddy (`Dockerfile`, `docker-compose.yml`, `Caddyfile`) — 
 
 ### Доступ по SSH
 
-На компьютере владельца в `~/.ssh/config` есть псевдоним `eureka-beget` (ключ `~/.ssh/eureka_beget`, без пароля,
-на сервере в `authorized_keys` с пометкой `claude-eureka-beget`). Пароли не нужны и в чат не запрашиваются.
+Владелец работает с двух компьютеров, у каждого свой ключ (оба в `authorized_keys` на сервере, оба нужны — не удалять):
+`claude-eureka-beget` — ключ `~/.ssh/eureka_beget`, `claude-eureka-deploy` — ключ второго компьютера.
+На каждом компьютере в `~/.ssh/config` должен быть псевдоним `eureka-beget` со своим ключом. Пароли не нужны и в чат не запрашиваются.
+
+Если `ssh eureka-beget` не работает (`Could not resolve hostname`), значит на этом компьютере нет псевдонима.
+Найти свой ключ (`grep -l claude-eureka ~/.ssh/*.pub`) и дописать в `~/.ssh/config`, подставив путь к нему:
+
+```
+Host eureka-beget
+    HostName kuzmingv.beget.tech
+    User kuzmingv
+    IdentityFile ~/.ssh/<ключ_этого_компьютера>
+    IdentitiesOnly yes
+    BatchMode yes
+    ConnectTimeout 15
+```
+
+Если ключа на компьютере нет — не создавать молча: сгенерировать новый (`ssh-keygen -t ed25519 -N "" -C claude-eureka-<имя>`),
+показать владельцу публичную часть и попросить добавить её в `~/.ssh/authorized_keys` на сервере.
 
 ```bash
 ssh eureka-beget 'cd ~/eureka-gymnasium87/app && git log --oneline -1'           # проверка связи
