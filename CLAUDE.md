@@ -54,13 +54,28 @@ Django-сайт приёма работ на конференцию школьн
 (git pull, зависимости, миграции, статика, перезапуск). Скрипты — `deploy/beget/`.
 Docker + gunicorn + Caddy (`Dockerfile`, `docker-compose.yml`, `Caddyfile`) — запасной вариант для VPS.
 
-SSH с компьютера владельца (ключ добавлен в `~/.ssh/authorized_keys` на сервере с пометкой `claude-eureka-deploy`):
+### Доступ по SSH
+
+На компьютере владельца в `~/.ssh/config` есть псевдоним `eureka-beget` (ключ `~/.ssh/eureka_beget`, без пароля,
+на сервере в `authorized_keys` с пометкой `claude-eureka-beget`). Пароли не нужны и в чат не запрашиваются.
 
 ```bash
-ssh -i ~/.ssh/eureka_beget -o BatchMode=yes kuzmingv@urdak.beget.com 'bash ~/eureka-gymnasium87/app/deploy/beget/update.sh'
+ssh eureka-beget 'cd ~/eureka-gymnasium87/app && git log --oneline -1'           # проверка связи
+ssh eureka-beget 'bash ~/eureka-gymnasium87/app/deploy/beget/update.sh'          # выкладка
+ssh eureka-beget 'cd ~/eureka-gymnasium87/app && ../venv/bin/python manage.py check'
 ```
 
-Команды Django на сервере: `cd ~/eureka-gymnasium87/app && ../venv/bin/python manage.py …`.
+Многострочный Python на сервере — через stdin: `ssh eureka-beget 'cd ~/eureka-gymnasium87/app && ../venv/bin/python manage.py shell' < script.py`.
+Баннер `post-quantum key exchange` в выводе ssh — безобидное предупреждение, его можно отфильтровать.
+
+Правила работы с боевым сервером:
+- Смотреть (логи, `git log`, `manage.py check`, чтение базы) — можно без спроса.
+- Всё, что меняет сайт или данные (выкладка, миграции, `load_blanks`, правка `.env`, удаление файлов, изменение
+  записей в базе) — только после явного «да» владельца в чате. Перед миграциями — копия базы:
+  `cp data/db.sqlite3 data/db.sqlite3.bak-ГГГГММДД`.
+- Работать только в `~/eureka-gymnasium87`: это общий аккаунт хостинга, другие каталоги не открывать.
+- Персональные данные участников (СНИЛС, телефоны, сканы) не выводить в чат: для проверок — количества и номера заявок.
+
 Учётные записи с паролями и суперпользователей на сервере создаёт владелец, не Claude.
 
 Тестовые заявки для обучения оргкомитета: `manage.py test_submissions` (создать) / `--delete` (удалить только их).
