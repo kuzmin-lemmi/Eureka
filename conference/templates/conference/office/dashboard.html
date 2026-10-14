@@ -20,8 +20,25 @@
 
   {% for message in messages %}<div class="alert alert--success" role="status">{{ message }}</div>{% endfor %}
 
+  <div class="stages">
+    <div class="stage">
+      <h2 class="stage__title"><span class="stage__num">1</span> Все ученики по секциям</h2>
+      <p class="stage__text">Каждый ученик отдельной строкой: секция, ФИО, класс, школа, работа, руководитель, дата и почта.</p>
+      <div class="stage__btns">
+        <a class="btn btn--sm btn--word" href="{% url 'conference:office_students_word' %}">📄 Word</a>
+        <a class="btn btn--sm btn--excel" href="{% url 'conference:office_students_excel' %}">📊 Excel</a>
+      </div>
+    </div>
+    {% for n in "234" %}
+      <div class="stage stage--empty">
+        <h2 class="stage__title"><span class="stage__num">{{ n }}</span> Этап {{ n }}</h2>
+        <p class="stage__text">Выгрузки появятся позже.</p>
+      </div>
+    {% endfor %}
+  </div>
+
   <div class="toolbar">
-    <span class="toolbar__label">Скачать всё:</span>
+    <span class="toolbar__label">Прочие выгрузки:</span>
     <a class="btn btn--sm btn--word" href="{% url 'conference:office_word' %}">📄 Word</a>
     <a class="btn btn--sm btn--excel" href="{% url 'conference:office_excel' %}">📊 Excel по секциям</a>
     <a class="btn btn--sm btn--excel" href="{% url 'conference:office_participants' %}">👥 Все участники</a>

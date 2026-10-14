@@ -220,6 +220,16 @@ def export_participants(request):
     return _file(exports.build_participants_workbook(), f"Эврика — все участники {_today()}.xlsx", XLSX)
 
 
+@office_required
+def export_students_excel(request):
+    return _file(exports.build_students_workbook(), f"Эврика — все ученики по секциям {_today()}.xlsx", XLSX)
+
+
+@office_required
+def export_students_word(request):
+    return _file(exports.build_students_docx(), f"Эврика — все ученики по секциям {_today()}.docx", DOCX)
+
+
 def _archive_response(groups):
     response = StreamingHttpResponse(exports.stream_archive(groups), content_type="application/zip")
     response["Content-Disposition"] = content_disposition_header(True, exports.archive_filename(groups))

@@ -749,6 +749,20 @@ class OfficeTests(TestCase):
         names = [row[3] for row in wb.active.iter_rows(min_row=2, values_only=True)]
         self.assertEqual(sorted(names), ["Фамилия0 Имя", "Фамилия1 Имя", "Фамилия2 Имя"])  # без отклонённой
 
+    def test_office_dashboard_stage_one_exports(self):
+        from docx import Document
+        from openpyxl import load_workbook
+
+        self.client.force_login(self.organizer)
+        dashboard = self.client.get(reverse("conference:office"))
+        self.assertContains(dashboard, reverse("conference:office_students_excel"))
+        self.assertContains(dashboard, reverse("conference:office_students_word"))
+        response = self.client.get(reverse("conference:office_students_excel"))
+        rows = list(load_workbook(BytesIO(b"".join(response.streaming_content))).active.values)
+        self.assertEqual(len(rows), 1 + 3)  # без отклонённой
+        response = self.client.get(reverse("conference:office_students_word"))
+        self.assertEqual(len(Document(BytesIO(response.getvalue())).tables[0].rows), 1 + 3)
+
     def test_archive_contains_works_and_list(self):
         import zipfile
 
