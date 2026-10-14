@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Кабинет оргкомитета — макет</title>
+<!-- Макет «Кабинета оргкомитета» на настоящих стилях сайта. Данные примерные. -->
+<link rel="stylesheet" href="../conference/static/conference/style.css">
+<style>
+  .switcher {
+    position: sticky; top: 0; z-index: 100;
+    display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap;
+    padding: 10px 16px; background: #111827; color: #fff; font: 14px/1.3 system-ui, sans-serif;
+  }
+  .switcher span { opacity: .7; margin-right: 4px; }
+  .switcher button { padding: 8px 14px; border: 1px solid #374151; border-radius: 999px; background: transparent; color: #fff; font: inherit; cursor: pointer; }
+  .switcher button[aria-pressed="true"] { background: #fff; color: #111827; border-color: #fff; font-weight: 600; }
+  .screen { display: none; }
+  .screen.is-active { display: block; }
+
+  /* Кабинет: крупнее шрифт и кнопки — для тех, кто редко работает за компьютером */
+  .office { font-size: 18px; }
+  .office .btn { font-size: 1.05rem; }
+  .office-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; }
+  .office-bar__title { display: flex; align-items: center; gap: 12px; }
+  .office-bar__title img { width: 52px; }
+  .office-bar__title b { display: block; font-size: 1.2rem; }
+  .office-bar__title small { color: var(--muted); font-weight: 700; }
+  .office-bar__user { display: flex; align-items: center; gap: 14px; font-weight: 700; }
+
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin: 24px 0; }
+  .stat { margin: 0; padding: 18px 20px; }
+  .stat b { display: block; font-size: 2.4rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .stat span { color: var(--muted); font-weight: 700; }
+  .stat--accent { background: var(--yellow); }
+  .stat--accent span { color: var(--ink); }
+
+  .exports { margin: 0 0 32px; padding: 20px 22px; }
+  .exports h2 { font-size: 1.3rem; margin-bottom: 4px; }
+  .exports p { margin: 0 0 14px; color: var(--muted); }
+  .exports__buttons { display: flex; flex-wrap: wrap; gap: 12px; }
+  .btn--icon::before { font-weight: 900; }
+  .btn--word { background: #d6e4ff; }
+  .btn--excel { background: var(--tint-green); }
+  .btn--zip { background: var(--tint-yellow); }
+  .btn--link { background: var(--tint-coral); }
+
+  .directions { display: flex; flex-direction: column; gap: 18px; }
+  .direction { margin: 0; padding: 18px 22px; }
+  .direction h3 { font-size: 1.2rem; margin-bottom: 12px; }
+  .group { display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 1fr) 90px 170px auto; gap: 14px; align-items: center; padding: 10px 0; border-top: 2px solid var(--grid); }
+  .group:first-of-type { border-top: 0; }
+  .group__name { font-weight: 800; }
+  .meter { height: 18px; background: var(--grid); border: 2px solid var(--ink); border-radius: 999px; overflow: hidden; }
+  .meter span { display: block; height: 100%; }
+  .meter--free span { background: var(--green); }
+  .meter--almost span { background: var(--yellow); }
+  .meter--full span { background: var(--coral); }
+  .group__count { font-weight: 900; font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+  .chip { display: inline-block; padding: 3px 12px; border: 2px solid var(--ink); border-radius: 999px; font-weight: 800; font-size: .9rem; white-space: nowrap; }
+  .chip--free { background: var(--tint-green); }
+  .chip--almost { background: var(--tint-yellow); }
+  .chip--full { background: var(--tint-coral); }
+
+  .back { display: inline-block; margin: 20px 0 8px; font-weight: 800; }
+  .section-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; }
+  .section-head h1 { margin-bottom: 4px; }
+  .people { width: 100%; border-collapse: collapse; background: #fff; border: var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+  .people th, .people td { padding: 12px 14px; text-align: left; vertical-align: top; border-bottom: 2px solid var(--grid); }
+  .people th { background: var(--tint-yellow); font-size: .9rem; }
+  .people td:first-child { font-variant-numeric: tabular-nums; color: var(--muted); font-weight: 800; }
+  .people small { display: block; color: var(--muted); }
+  .people .btn { white-space: nowrap; }
+  .table-wrap { overflow-x: auto; margin-bottom: 32px; }
+
+  .login { max-width: 460px; margin: 40px auto; padding: 28px; }
+  .login h1 { font-size: 1.8rem; }
+  .login .btn { width: 100%; margin-top: 8px; }
+  .footer-note { margin-top: 28px; text-align: center; color: var(--muted); }
+  .footer-demo { margin-top: 40px; }
+  .footer-demo .site-footer__contacts a.hl { padding: 4px 10px; background: var(--yellow); border: 2px solid var(--ink); border-radius: 8px; color: var(--ink); font-weight: 800; text-decoration: none; }
+
+  .share { max-width: 720px; margin: 32px auto; padding: 26px; }
+  .share h1 { font-size: 1.7rem; }
+  .share__row { display: flex; gap: 10px; margin: 14px 0; }
+  .share__row input { flex: 1; min-width: 0; padding: 12px; border: 2px solid var(--ink); border-radius: 10px; font: inherit; font-size: .95rem; background: var(--paper); }
+  .share ul { padding-left: 1.2em; }
+  .share__done { display: inline-block; margin-left: 8px; color: var(--green); font-weight: 900; }
+  .links { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  .links td, .links th { padding: 10px 8px; border-bottom: 2px solid var(--grid); text-align: left; }
+  .note { padding: 10px 14px; background: var(--tint-blue); border: 2px solid var(--ink); border-radius: 12px; font-weight: 700; }
+
+  @media (max-width: 900px) {
+    .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .group { grid-template-columns: minmax(0, 1fr) auto; }
+    .group .meter { grid-column: 1 / -1; order: 3; }
+    .group__count { order: 2; }
+    .group .chip { order: 4; justify-self: start; }
+    .group .btn { order: 5; justify-self: end; }
+  }
+  @media (max-width: 640px) {
+    .office { font-size: 16px; }
+    .stat b { font-size: 1.9rem; }
+    .exports__buttons .btn { width: 100%; }
+    .share__row { flex-direction: column; }
+  }
+</style>
+</head>
+<body class="office">
+<div class="switcher" role="toolbar" aria-label="Экраны макета">
+  <span>Макет, данные примерные:</span>
+  <button type="button" data-screen="s1" aria-pressed="false">1 · Вход</button>
+  <button type="button" data-screen="s2" aria-pressed="true">2 · Главная кабинета</button>
+  <button type="button" data-screen="s3" aria-pressed="false">3 · Секция</button>
+  <button type="button" data-screen="s4" aria-pressed="false">4 · Ссылка для проверяющего</button>
+</div>
+
+<!-- ============ 1. ВХОД ============ -->
+<div class="screen" id="s1">
+  <div class="container">
+    <form class="card login" onsubmit="return false">
+      <h1>Вход для оргкомитета</h1>
+      <p class="muted">Введите логин и пароль, которые вам выдал администратор сайта.</p>
+      <div class="field"><label for="l1">Логин</label><input id="l1" type="text" value="olga"></div>
+      <div class="field"><label for="l2">Пароль</label><input id="l2" type="password" value="секрет123"></div>
+      <label class="check check--small"><input type="checkbox"> <span>Показать пароль</span></label>
+      <button class="btn btn--lg" type="submit">Войти</button>
+      <p class="help">Забыли пароль? Обратитесь к администратору сайта — он задаст новый.</p>
+    </form>
+  </div>
+  <footer class="site-footer footer-demo">
+    <div class="container site-footer__inner">
+      <div><strong>Межрегиональная НПК «Эврика-2027»</strong><div class="muted">Так выглядит подвал любой страницы сайта: ссылка на вход — справа внизу.</div></div>
+      <div class="site-footer__contacts">
+        <a href="#">Обработка персональных данных</a>
+        <a href="#" class="hl">Вход для оргкомитета</a>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<!-- ============ 2. ГЛАВНАЯ КАБИНЕТА ============ -->
+<div class="screen is-active" id="s2">
+  <header class="site-header">
+    <div class="container">
+      <div class="box office-bar">
+        <div class="office-bar__title"><img src="../conference/static/conference/emblem.png" alt=""><div><b>Кабинет оргкомитета</b><small>«Эврика-2027»</small></div></div>
+        <div class="office-bar__user">Ольга Петровна <a class="btn btn--sm btn--ghost" href="#">Выйти</a></div>
+      </div>
+    </div>
+  </header>
+  <main class="container">
+    <h1>Секции</h1>
+    <div class="stats">
+      <div class="card stat stat--accent"><b>148</b><span>работ подано</span></div>
+      <div class="card stat"><b>161</b><span>участник (с соавторами)</span></div>
+      <div class="card stat"><b>139</b><span>свободных мест из 300</span></div>
+      <div class="card stat"><b>38</b><span>дней до конца приёма</span></div>
+    </div>
+
+    <section class="card exports">
+      <h2>Скачать всё сразу</h2>
+      <p>Нажмите кнопку — файл скачается на компьютер. Отдельные секции — ниже, кнопка «Открыть».</p>
+      <div class="exports__buttons">
+        <a class="btn btn--word" href="#">📄 Все секции — Word</a>
+        <a class="btn btn--excel" href="#">📊 Все секции — Excel</a>
+        <a class="btn btn--excel" href="#">👥 Все участники — Excel</a>
+        <a class="btn btn--zip" href="#">🗂 Все работы — архив</a>
+        <a class="btn btn--link" href="#" data-go="s4">🔗 Ссылка для проверяющего</a>
+      </div>
+    </section>
+
+    <div class="directions">
+      <section class="card direction">
+        <h3>Здоровое поколение</h3>
+        <div class="group"><span class="group__name">Здоровое поколение 1</span><div class="meter meter--full"><span style="width:100%"></span></div><span class="group__count">12 из 12</span><span class="chip chip--full">Мест нет</span><a class="btn btn--sm" href="#" data-go="s3">Открыть</a></div>
+        <div class="group"><span class="group__name">Здоровое поколение 2</span><div class="meter meter--almost"><span style="width:83%"></span></div><span class="group__count">10 из 12</span><span class="chip chip--almost">Почти заполнена</span><a class="btn btn--sm" href="#" data-go="s3">Открыть</a></div>
+        <div class="group"><span class="group__name">Здоровое поколение 3</span><div class="meter meter--free"><span style="width:0%"></span></div><span class="group__count">0 из 12</span><span class="chip chip--free">Есть места</span><a class="btn btn--sm" href="#" data-go="s3">Открыть</a></div>
+      </section>
+      <section class="card direction">
+        <h3>Региональное краеведение</h3>
+        <div class="group"><span class="group__name">Региональное краеведение 1</span><div class="meter meter--free"><span style="width:58%"></span></div><span class="group__count">7 из 12</span><span class="chip chip--free">Есть места</span><a class="btn btn--sm" href="#" data-go="s3">Открыть</a></div>
+        <div class="group"><span class="group__name">Региональное краеведение 2</span><div class="meter meter--free"><span style="width:0%"></span></div><span class="group__count">0 из 12</span><span class="chip chip--free">Есть места</span><a class="btn btn--sm" href="#" data-go="s3">Открыть</a></div>
+        <div class="group"><span class="group__name">Региональное краеведение 3</span><div class="meter meter--free"><span style="width:0%"></span></div><span class="group__count">0 из 12</span><span class="chip chip--free">Есть места</span><a class="btn btn--sm" href="#" data-go="s3">Открыть</a></div>
+      </section>
+      <section class="card direction">
+        <h3>Навыки XXI века</h3>
+        <div class="group"><span class="group__name">Навыки XXI века</span><div class="meter meter--almost"><span style="width:92%"></span></div><span class="group__count">11 из 12</span><span class="chip chip--almost">Почти заполнена</span><a class="btn btn--sm" href="#" data-go="s3">Открыть</a></div>
+      </section>
+      <section class="card direction">
+        <h3>Азбучные истины: эпоха ЭВМ</h3>
+        <div class="group"><span class="group__name">Азбучные истины: эпоха ЭВМ</span><div class="meter meter--free"><span style="width:25%"></span></div><span class="group__count">3 из 12</span><span class="chip chip--free">Есть места</span><a class="btn btn--sm" href="#" data-go="s3">Открыть</a></div>
+      </section>
+      <p class="muted">…и так все 13 направлений.</p>
+    </div>
+  </main>
+</div>
+
+<!-- ============ 3. СЕКЦИЯ ============ -->
+<div class="screen" id="s3">
+  <header class="site-header">
+    <div class="container">
+      <div class="box office-bar">
+        <div class="office-bar__title"><img src="../conference/static/conference/emblem.png" alt=""><div><b>Кабинет оргкомитета</b><small>«Эврика-2027»</small></div></div>
+        <div class="office-bar__user">Ольга Петровна <a class="btn btn--sm btn--ghost" href="#">Выйти</a></div>
+      </div>
+    </div>
+  </header>
+  <main class="container">
+    <a class="back" href="#" data-go="s2">← Все секции</a>
+    <div class="section-head">
+      <div>
+        <h1>Здоровое поколение 2</h1>
+        <p class="lead"><b>10 из 12</b> мест занято · <span class="chip chip--almost">Почти заполнена</span></p>
+      </div>
+    </div>
+    <section class="card exports">
+      <h2>Скачать эту секцию</h2>
+      <div class="exports__buttons">
+        <a class="btn btn--word" href="#">📄 Список — Word</a>
+        <a class="btn btn--excel" href="#">📊 Список — Excel</a>
+        <a class="btn btn--zip" href="#">🗂 Работы — архив</a>
+        <a class="btn btn--link" href="#" data-go="s4">🔗 Ссылка для проверяющего</a>
+      </div>
+    </section>
+    <div class="table-wrap">
+      <table class="people">
+        <thead><tr><th>№</th><th>Участник</th><th>Класс</th><th>Школа</th><th>Работа</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><b>Алексеева Дарья</b></td><td>9</td><td>МАОУ «Гимназия № 87»</td><td>Влияние режима сна на успеваемость<small>Руководитель: Петрова А. С.</small></td><td><a class="btn btn--sm" href="#">Скачать работу</a></td></tr>
+          <tr><td>2</td><td><b>Борисов Илья</b><small>соавтор: Котов Максим, 9 кл.</small></td><td>9</td><td>МОУ «СОШ № 12»</td><td>Энергетические напитки: польза или вред<small>Руководитель: Иванова Е. В.</small></td><td><a class="btn btn--sm" href="#">Скачать работу</a></td></tr>
+          <tr><td>3</td><td><b>Васильева Анна</b></td><td>10</td><td>МАОУ «Лицей № 2»</td><td>Осанка и рюкзак школьника<small>Руководитель: Смирнова О. Н.</small></td><td><a class="btn btn--sm" href="#">Скачать работу</a></td></tr>
+          <tr><td>…</td><td colspan="5" class="muted">ещё 7 работ</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- ============ 4. ССЫЛКА ДЛЯ ПРОВЕРЯЮЩЕГО ============ -->
+<div class="screen" id="s4">
+  <header class="site-header">
+    <div class="container">
+      <div class="box office-bar">
+        <div class="office-bar__title"><img src="../conference/static/conference/emblem.png" alt=""><div><b>Кабинет оргкомитета</b><small>«Эврика-2027»</small></div></div>
+        <div class="office-bar__user">Ольга Петровна <a class="btn btn--sm btn--ghost" href="#">Выйти</a></div>
+      </div>
+    </div>
+  </header>
+  <main class="container">
+    <a class="back" href="#" data-go="s3">← Здоровое поколение 2</a>
+    <section class="card share">
+      <h1>Ссылка для проверяющего</h1>
+      <p class="lead">Секция «Здоровое поколение 2»</p>
+      <p>Скопируйте ссылку и отправьте проверяющему в мессенджере или по почте. По ссылке скачается архив с работами этой секции.</p>
+      <div class="share__row">
+        <input type="text" readonly value="https://эврика-гимназия87.рф/check/7Hq2-Lm9x-Rt4K/">
+        <button class="btn" type="button" id="copy">Скопировать ссылку</button>
+      </div>
+      <p class="note">Ссылка работает до <b>13 ноября 2026</b> (30 дней). Если в секции появятся новые работы — проверяющий скачает и их.</p>
+      <p><b>Проверяющий увидит:</b> файлы работ и список — ФИО, класс, школа, руководитель, название работы.<br>
+         <b>Не увидит:</b> телефоны, почту, СНИЛС и сканы согласий. Войти в кабинет по ссылке нельзя.</p>
+      <button class="btn btn--ghost" type="button">Отключить ссылку</button>
+
+      <h2 class="h3" style="margin-top:28px">Все выданные ссылки</h2>
+      <div class="table-wrap" style="margin:0">
+        <table class="links">
+          <tr><th>Что</th><th>Действует до</th><th></th></tr>
+          <tr><td>Здоровое поколение 2</td><td>13 ноября</td><td><a href="#">Отключить</a></td></tr>
+          <tr><td>Все работы</td><td>2 ноября</td><td><a href="#">Отключить</a></td></tr>
+          <tr><td class="muted">Навыки XXI века</td><td class="muted">отключена</td><td></td></tr>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+  const show = (id) => {
+    document.querySelectorAll(".screen").forEach((el) => el.classList.toggle("is-active", el.id === id));
+    document.querySelectorAll("[data-screen]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.screen === id)));
+    scrollTo(0, 0);
+  };
+  document.querySelectorAll("[data-screen]").forEach((b) => b.addEventListener("click", () => show(b.dataset.screen)));
+  document.querySelectorAll("[data-go]").forEach((a) => a.addEventListener("click", (e) => { e.preventDefault(); show(a.dataset.go); }));
+  document.getElementById("copy").addEventListener("click", (e) => { e.target.textContent = "Скопировано ✓"; });
+  if (/^#s[1-4]$/.test(location.hash)) show(location.hash.slice(1));
+</script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+{% extends "conference/office/base.html" %}
+
+{% block title %}Кабинет оргкомитета — {{ conf.title }}{% endblock %}
+
+{% block content %}
+<div class="container">
+  <h1 class="office-h1">Секции</h1>
+
+  {% for message in messages %}<div class="alert alert--success" role="status">{{ message }}</div>{% endfor %}
+
+  <div class="stats">
+    <div class="card stat stat--accent"><b>{{ works }}</b><span>работ подано</span></div>
+    <div class="card stat"><b>{{ people }}</b><span>участников (с соавторами)</span></div>
+    <div class="card stat"><b>{{ free }}</b><span>свободных мест из {{ capacity }}</span></div>
+    <div class="card stat">
+      {% if days_left is not None %}<b>{{ days_left }}</b><span>дней до конца приёма</span>
+      {% elif conf.is_submission_open %}<b>—</b><span>срок приёма не задан</span>
+      {% else %}<b>0</b><span>приём работ закрыт</span>{% endif %}
+    </div>
+  </div>
+
+  <section class="card exports">
+    <h2>Скачать всё сразу</h2>
+    <p>Нажмите кнопку — файл скачается на компьютер. Отдельная секция — ниже, кнопка «Открыть».</p>
+    <div class="exports__buttons">
+      <a class="btn btn--word" href="{% url 'conference:office_word' %}"><span aria-hidden="true">📄</span> Все секции — Word</a>
+      <a class="btn btn--excel" href="{% url 'conference:office_excel' %}"><span aria-hidden="true">📊</span> Все секции — Excel</a>
+      <a class="btn btn--excel" href="{% url 'conference:office_participants' %}"><span aria-hidden="true">👥</span> Все участники — Excel</a>
+      <a class="btn btn--zip" href="{% url 'conference:office_archive' %}"><span aria-hidden="true">🗂</span> Все работы — архив</a>
+      <form method="post" action="{% url 'conference:office_link_create' %}">{% csrf_token %}
+        <button type="submit" class="btn btn--link"><span aria-hidden="true">🔗</span> Ссылка для проверяющего</button>
+      </form>
+    </div>
+  </section>
+
+  <div class="directions">
+    {% for direction in directions %}
+      <section class="card direction">
+        <h2 class="h3">{{ direction.section.name }}</h2>
+        {% for g in direction.groups %}
+          <div class="group">
+            <span class="group__name">{{ g.label }}</span>
+            <div class="meter meter--{{ g.state }}" role="img" aria-label="Занято {{ g.taken }} из {{ g.capacity }}"><span style="width: {{ g.percent }}%"></span></div>
+            <span class="group__count">{{ g.taken }} из {{ g.capacity }}</span>
+            <span class="chip chip--{{ g.state }}">{{ g.state_label }}</span>
+            <a class="btn btn--sm" href="{% url 'conference:office_section' g.section.pk g.number %}">Открыть</a>
+          </div>
+        {% endfor %}
+      </section>
+    {% empty %}
+      <div class="card empty">Направления ещё не созданы. Их добавляет администратор сайта.</div>
+    {% endfor %}
+  </div>
+
+  {% if user.is_superuser %}
+    <p class="office-admin-link"><a href="{% url 'admin:index' %}">Расширенные настройки сайта (для администратора)</a></p>
+  {% endif %}
+</div>
+{% endblock %}

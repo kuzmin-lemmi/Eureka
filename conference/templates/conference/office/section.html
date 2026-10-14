@@ -1,0 +1,47 @@
+{% extends "conference/office/base.html" %}
+
+{% block title %}{{ info.label }} — кабинет оргкомитета{% endblock %}
+
+{% block content %}
+<div class="container">
+  <a class="back" href="{% url 'conference:office' %}">← Все секции</a>
+  <h1 class="office-h1">{{ info.label }}</h1>
+  <p class="lead"><b>{{ info.taken }} из {{ info.capacity }}</b> мест занято · <span class="chip chip--{{ info.state }}">{{ info.state_label }}</span></p>
+
+  <section class="card exports">
+    <h2>Скачать эту секцию</h2>
+    <div class="exports__buttons">
+      <a class="btn btn--word" href="{% url 'conference:office_section_word' info.section.pk info.number %}"><span aria-hidden="true">📄</span> Список — Word</a>
+      <a class="btn btn--excel" href="{% url 'conference:office_section_excel' info.section.pk info.number %}"><span aria-hidden="true">📊</span> Список — Excel</a>
+      <a class="btn btn--zip" href="{% url 'conference:office_section_archive' info.section.pk info.number %}"><span aria-hidden="true">🗂</span> Работы — архив</a>
+      <form method="post" action="{% url 'conference:office_link_create' %}">{% csrf_token %}
+        <input type="hidden" name="section" value="{{ info.section.pk }}">
+        <input type="hidden" name="number" value="{{ info.number }}">
+        <button type="submit" class="btn btn--link"><span aria-hidden="true">🔗</span> {% if link %}Ссылка для проверяющего (уже есть){% else %}Ссылка для проверяющего{% endif %}</button>
+      </form>
+    </div>
+  </section>
+
+  {% if submissions %}
+    <div class="table-wrap">
+      <table class="people">
+        <thead><tr><th>№</th><th>Участник</th><th>Класс</th><th>Школа</th><th>Работа</th><th></th></tr></thead>
+        <tbody>
+          {% for s in submissions %}
+            <tr>
+              <td>{{ forloop.counter }}</td>
+              <td><b>{{ s.full_name }}</b>{% if s.coauthor %}<small>соавтор: {{ s.coauthor }}</small>{% endif %}<small>{{ s.number }}</small></td>
+              <td>{{ s.grade }}</td>
+              <td>{{ s.school }}</td>
+              <td>{{ s.title }}<small>Руководитель: {{ s.supervisor }}</small></td>
+              <td><a class="btn btn--sm" href="{% url 'conference:download_submission' s.pk %}">Скачать работу</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="card empty">В этой секции пока нет работ.</div>
+  {% endif %}
+</div>
+{% endblock %}

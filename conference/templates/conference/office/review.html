@@ -1,0 +1,22 @@
+{% extends "conference/base.html" %}
+
+{% block body_attrs %} class="office"{% endblock %}
+
+{% block title %}Работы для проверки — {{ conf.title }}{% endblock %}
+
+{% block content %}
+<div class="container container--narrow">
+  <section class="card share review">
+    {% if expired %}
+      <h1 class="office-h1">Ссылка больше не работает</h1>
+      <p>Срок действия ссылки закончился или её отключили. Попросите в оргкомитете новую ссылку{% if conf.contact_email %}: <a href="mailto:{{ conf.contact_email }}">{{ conf.contact_email }}</a>{% endif %}.</p>
+    {% else %}
+      <h1 class="office-h1">Работы для проверки</h1>
+      <p class="lead">{% if link.section %}Секция «{{ link.scope_label }}»{% else %}Все секции конференции{% endif %} — {{ works_label }}</p>
+      <p>Нажмите кнопку — скачается архив. В нём папка на каждую секцию с файлами работ и список «Список работ.xlsx» (участник, класс, школа, руководитель, название работы).</p>
+      <a class="btn btn--lg" href="{% url 'conference:review_download' link.token %}"><span aria-hidden="true">🗂</span> Скачать архив с работами</a>
+      <p class="help">Ссылка действует до {{ link.expires_at|date:"j E Y" }}. Если архив большой, скачивание может занять несколько минут.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

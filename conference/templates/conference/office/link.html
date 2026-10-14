@@ -1,0 +1,67 @@
+{% extends "conference/office/base.html" %}
+
+{% block title %}Ссылка для проверяющего — кабинет оргкомитета{% endblock %}
+
+{% block content %}
+<div class="container">
+  {% if link.section %}
+    <a class="back" href="{% url 'conference:office_section' link.section.pk link.section_number %}">← {{ link.scope_label }}</a>
+  {% else %}
+    <a class="back" href="{% url 'conference:office' %}">← Все секции</a>
+  {% endif %}
+
+  <section class="card share">
+    <h1 class="office-h1">Ссылка для проверяющего</h1>
+    <p class="lead">{% if link.section %}Секция «{{ link.scope_label }}»{% else %}Все работы, все секции{% endif %}</p>
+
+    {% for message in messages %}<div class="alert alert--success" role="status">{{ message }}</div>{% endfor %}
+
+    {% if link.is_valid %}
+      <p>Скопируйте ссылку и отправьте проверяющему в мессенджере или по почте. По ссылке скачается архив с работами.</p>
+      <div class="share__row">
+        <input type="text" readonly value="{{ url }}" id="share-url" aria-label="Ссылка для проверяющего">
+        <button class="btn" type="button" data-copy="share-url">Скопировать ссылку</button>
+      </div>
+      <p class="note">Ссылка работает до <b>{{ link.expires_at|date:"j E Y" }}</b>. Если появятся новые работы — проверяющий скачает и их.</p>
+      <p><b>Проверяющий увидит:</b> файлы работ и список — ФИО, класс, школа, руководитель, название работы.<br>
+         <b>Не увидит:</b> телефоны, почту, СНИЛС и сканы согласий. Войти в кабинет по ссылке нельзя.</p>
+      <form method="post" action="{% url 'conference:office_link_disable' link.pk %}">{% csrf_token %}
+        <button class="btn btn--ghost" type="submit">Отключить ссылку</button>
+      </form>
+    {% else %}
+      <div class="alert">Эта ссылка больше не работает{% if not link.is_active %}: её отключили{% else %}: закончился срок{% endif %}. Чтобы выдать новую, вернитесь к секции и нажмите «Ссылка для проверяющего».</div>
+    {% endif %}
+
+    <h2 class="h3 share__list-title">Все выданные ссылки</h2>
+    <div class="table-wrap">
+      <table class="links">
+        <thead><tr><th>Что</th><th>Действует до</th><th></th></tr></thead>
+        <tbody>
+          {% for l in links %}
+            <tr{% if not l.is_valid %} class="muted"{% endif %}>
+              <td>{{ l.scope_label }}</td>
+              <td>{% if l.is_valid %}{{ l.expires_at|date:"j E" }}{% elif not l.is_active %}отключена{% else %}срок истёк{% endif %}</td>
+              <td>{% if l.is_valid %}<a href="{% url 'conference:office_link' l.pk %}">Открыть</a>{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+<script>
+  document.querySelectorAll("[data-copy]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const input = document.getElementById(button.dataset.copy);
+      try {
+        await navigator.clipboard.writeText(input.value);
+      } catch {
+        input.select();
+        document.execCommand("copy");
+      }
+      button.textContent = "Скопировано ✓";
+      setTimeout(() => (button.textContent = "Скопировать ссылку"), 3000);
+    });
+  });
+</script>
+{% endblock %}

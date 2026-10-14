@@ -11,7 +11,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .apps import ORGANIZERS_GROUP
-from .models import ConferenceSettings, Document, NewsPost, Section, Submission
+from .models import ConferenceSettings, Document, NewsPost, ReviewLink, Section, Submission
 
 MEDIA_ROOT = tempfile.mkdtemp()
 
@@ -656,3 +656,121 @@ class SectionsExportTests(TestCase):
     def test_my_page_shows_submitted_instead_of_new(self):
         submission = Submission.objects.filter(status="new").first()
         self.assertEqual(submission.public_status, "Подана")
+
+
+@override_settings(MEDIA_ROOT=MEDIA_ROOT, MAX_UPLOAD_MB=1)
+class OfficeTests(TestCase):
+    def setUp(self):
+        from django.core.cache import cache
+        from django.core.files.base import ContentFile
+
+        cache.clear()
+        self.section = Section.objects.create(name="Здоровое поколение", groups=2, capacity=3)
+        self.other = Section.objects.create(name="Краеведение")
+        for i, (section, number, status) in enumerate(
+            ((self.section, 1, "new"), (self.section, 1, "new"), (self.section, 2, "new"), (self.other, 1, "rejected"))
+        ):
+            s = Submission(
+                section=section, section_number=number, status=status, snils=make_snils(400000000 + i),
+                last_name=f"Фамилия{i}", first_name="Имя", grade=9, email=f"p{i}@example.ru", links_email="l@example.ru",
+                school="Гимназия № 87", district="Ленинский", title=f"Работа номер {i}",
+                supervisor_last_name="Петрова", supervisor_first_name="Анна", supervisor_position="учитель",
+                supervisor_phone="+79001234567",
+            )
+            s.file.save("работа.docx", ContentFile(f"содержимое {i}".encode()), save=False)
+            s.original_filename = "работа.docx"
+            s.save()
+        self.organizer = User.objects.create_user("olga", password="Pass-1234!", is_staff=True)
+        self.organizer.groups.add(Group.objects.get(name=ORGANIZERS_GROUP))
+
+    def test_footer_has_office_login_link(self):
+        self.assertContains(self.client.get(reverse("conference:home")), reverse("conference:office_login"))
+
+    def test_office_requires_login(self):
+        response = self.client.get(reverse("conference:office"))
+        self.assertRedirects(response, reverse("conference:office_login") + "?next=/office/")
+
+    def test_login_and_dashboard_counts(self):
+        response = self.client.post(reverse("conference:office_login"), {"username": "olga", "password": "Pass-1234!"})
+        self.assertRedirects(response, reverse("conference:office"))
+        response = self.client.get(reverse("conference:office"))
+        self.assertContains(response, "Здоровое поколение 1")
+        self.assertContains(response, "2 из 3")
+        self.assertContains(response, "1 из 3")
+        self.assertContains(response, "<b>3</b><span>работ подано</span>", html=False)
+
+    def test_wrong_password_and_lockout(self):
+        for _ in range(10):
+            response = self.client.post(reverse("conference:office_login"), {"username": "olga", "password": "нет"})
+        self.assertContains(response, "Неверный логин или пароль")
+        response = self.client.post(reverse("conference:office_login"), {"username": "olga", "password": "Pass-1234!"})
+        self.assertContains(response, "Слишком много неудачных попыток")
+
+    def test_non_staff_cannot_enter(self):
+        User.objects.create_user("pupil", password="Pass-1234!")
+        response = self.client.post(reverse("conference:office_login"), {"username": "pupil", "password": "Pass-1234!"})
+        self.assertContains(response, "нет доступа к кабинету")
+
+    def test_section_page_and_exports(self):
+        from docx import Document
+        from openpyxl import load_workbook
+
+        self.client.force_login(self.organizer)
+        response = self.client.get(reverse("conference:office_section", args=[self.section.pk, 1]))
+        self.assertContains(response, "Фамилия0 Имя")
+        self.assertNotContains(response, "Фамилия2 Имя")  # она во второй секции
+
+        docx = self.client.get(reverse("conference:office_section_word", args=[self.section.pk, 1]))
+        text = "\n".join(cell.text for t in Document(BytesIO(docx.getvalue())).tables for row in t.rows for cell in row.cells)
+        self.assertIn("Фамилия1 Имя", text)
+        self.assertEqual(self.client.get(reverse("conference:office_word")).status_code, 200)
+
+        wb = load_workbook(BytesIO(b"".join(self.client.get(reverse("conference:office_participants")).streaming_content)))
+        names = [row[3] for row in wb.active.iter_rows(min_row=2, values_only=True)]
+        self.assertEqual(sorted(names), ["Фамилия0 Имя", "Фамилия1 Имя", "Фамилия2 Имя"])  # без отклонённой
+
+    def test_archive_contains_works_and_list(self):
+        import zipfile
+
+        self.client.force_login(self.organizer)
+        response = self.client.get(reverse("conference:office_archive"))
+        self.assertIn("attachment", response["Content-Disposition"])
+        archive = zipfile.ZipFile(BytesIO(b"".join(response.streaming_content)))
+        names = archive.namelist()
+        self.assertIn("Список работ.xlsx", names)
+        works = [n for n in names if n.endswith(".docx")]
+        self.assertEqual(len(works), 3)
+        self.assertTrue(any(n.startswith("Здоровое поколение 2/") for n in works))
+        first = next(n for n in works if "Фамилия0" in n)
+        self.assertEqual(archive.read(first).decode(), "содержимое 0")
+
+    def test_review_link_flow(self):
+        import zipfile
+
+        self.client.force_login(self.organizer)
+        response = self.client.post(reverse("conference:office_link_create"), {"section": self.section.pk, "number": 1})
+        link = ReviewLink.objects.get()
+        self.assertRedirects(response, reverse("conference:office_link", args=[link.pk]))
+        # повторное нажатие не создаёт вторую ссылку
+        self.client.post(reverse("conference:office_link_create"), {"section": self.section.pk, "number": 1})
+        self.assertEqual(ReviewLink.objects.count(), 1)
+
+        self.client.logout()
+        page = self.client.get(reverse("conference:review", args=[link.token]))
+        self.assertContains(page, "2 работы")
+        archive = zipfile.ZipFile(BytesIO(b"".join(self.client.get(reverse("conference:review_download", args=[link.token])).streaming_content)))
+        self.assertEqual(len([n for n in archive.namelist() if n.endswith(".docx")]), 2)
+        from openpyxl import load_workbook
+
+        sheet = load_workbook(BytesIO(archive.read("Список работ.xlsx"))).active
+        self.assertNotIn("p0@example.ru", str(list(sheet.values)))  # без контактов
+
+        link.is_active = False
+        link.save()
+        self.assertEqual(self.client.get(reverse("conference:review", args=[link.token])).status_code, 410)
+        self.assertEqual(self.client.get(reverse("conference:review_download", args=[link.token])).status_code, 404)
+
+    def test_expired_link_does_not_work(self):
+        link = ReviewLink.objects.create(expires_at=timezone.now() - timedelta(minutes=1))
+        self.assertEqual(self.client.get(reverse("conference:review_download", args=[link.token])).status_code, 404)
+        self.assertEqual(ReviewLink.objects.create().expires_at.date(), (timezone.now() + timedelta(days=30)).date())

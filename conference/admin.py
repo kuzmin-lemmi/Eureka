@@ -11,7 +11,7 @@ from django.utils.html import format_html
 
 from .exports import build_sections_workbook
 
-from .models import ConferenceSettings, Document, NewsPost, Section, Submission
+from .models import ConferenceSettings, Document, NewsPost, ReviewLink, Section, Submission
 
 
 @admin.register(ConferenceSettings)
@@ -206,3 +206,20 @@ class DocumentAdmin(admin.ModelAdmin):
     list_display = ("title", "description", "order", "is_published", "uploaded_at")
     list_editable = ("order", "is_published")
     search_fields = ("title", "description")
+
+
+@admin.register(ReviewLink)
+class ReviewLinkAdmin(admin.ModelAdmin):
+    """Ссылки создают в кабинете оргкомитета (/office/); здесь — просмотр, срок и отключение."""
+
+    list_display = ("scope_label", "created_by", "created_at", "expires_at", "is_active")
+    list_editable = ("is_active",)
+    readonly_fields = ("token", "section", "section_number", "created_by", "created_at")
+    fields = ("section", "section_number", "token", "created_by", "created_at", "expires_at", "is_active")
+
+    def has_add_permission(self, request):
+        return False
+
+    @admin.display(description="что открывает")
+    def scope_label(self, obj):
+        return obj.scope_label

@@ -1,4 +1,5 @@
 import uuid
+from datetime import timedelta
 from pathlib import Path
 
 from django.core.validators import FileExtensionValidator, MaxValueValidator, MinValueValidator
@@ -379,3 +380,58 @@ class Document(models.Model):
         if size < 1024 * 1024:
             return f"{max(1, round(size / 1024))} КБ"
         return f"{size / 1024 / 1024:.1f}".replace(".", ",") + " МБ"
+
+
+REVIEW_LINK_DAYS = 30
+
+
+def new_review_token():
+    import secrets
+
+    return secrets.token_urlsafe(18)
+
+
+class ReviewLink(models.Model):
+    """Ссылка для проверяющего: скачать архив работ секции (или всех) без входа в кабинет."""
+
+    token = models.CharField("код ссылки", max_length=40, unique=True, default=new_review_token, editable=False)
+    section = models.ForeignKey(
+        Section, on_delete=models.CASCADE, null=True, blank=True, related_name="review_links",
+        verbose_name="направление", help_text="Пусто — все работы.",
+    )
+    section_number = models.PositiveSmallIntegerField("номер секции", null=True, blank=True)
+    created_by = models.ForeignKey(
+        "auth.User", on_delete=models.SET_NULL, null=True, blank=True, verbose_name="создал"
+    )
+    created_at = models.DateTimeField("создана", auto_now_add=True)
+    expires_at = models.DateTimeField("действует до")
+    is_active = models.BooleanField("включена", default=True)
+
+    class Meta:
+        verbose_name = "ссылка для проверяющего"
+        verbose_name_plural = "ссылки для проверяющих"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.scope_label
+
+    def save(self, *args, **kwargs):
+        if not self.expires_at:
+            self.expires_at = timezone.now() + timedelta(days=REVIEW_LINK_DAYS)
+        super().save(*args, **kwargs)
+
+    @property
+    def scope_label(self):
+        if not self.section_id:
+            return "Все работы"
+        return self.section.group_label(self.section_number or 1)
+
+    @property
+    def is_valid(self):
+        return self.is_active and timezone.now() <= self.expires_at
+
+    def groups(self):
+        """[(направление, номер секции)], которые открывает ссылка."""
+        if self.section_id:
+            return [(self.section, self.section_number or 1)]
+        return [(s, n) for s in Section.objects.all() for n in range(1, s.groups + 1)]

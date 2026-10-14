@@ -11,8 +11,9 @@
   <link rel="stylesheet" href="{% static 'conference/style.css' %}">
   <script src="{% static 'conference/app.js' %}" defer></script>
 </head>
-<body>
+<body{% block body_attrs %}{% endblock %}>
   <a class="skip-link" href="#main">К содержимому</a>
+  {% block header %}
   <header class="site-header">
     <div class="container">
       <div class="box site-header__inner">
@@ -33,6 +34,7 @@
       </div>
     </div>
   </header>
+  {% endblock %}
 
   <main id="main">
     {% block content %}{% endblock %}
@@ -48,6 +50,11 @@
         {% if conf.contact_email %}<a href="mailto:{{ conf.contact_email }}">{{ conf.contact_email }}</a>{% endif %}
         {% if conf.contact_phone %}<a href="tel:{{ conf.contact_phone|cut:' ' }}">{{ conf.contact_phone }}</a>{% endif %}
         <a href="{% url 'conference:privacy' %}">Обработка персональных данных</a>
+        {% if user.is_authenticated and user.is_staff %}
+          <a class="footer-office" href="{% url 'conference:office' %}">Кабинет оргкомитета</a>
+        {% else %}
+          <a class="footer-office" href="{% url 'conference:office_login' %}">Вход для оргкомитета</a>
+        {% endif %}
       </div>
     </div>
   </footer>

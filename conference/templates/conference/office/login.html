@@ -1,0 +1,28 @@
+{% extends "conference/office/base.html" %}
+
+{% block title %}Вход для оргкомитета — {{ conf.title }}{% endblock %}
+
+{% block content %}
+<div class="container">
+  <form method="post" class="card office-login" novalidate>
+    {% csrf_token %}
+    <h1>Вход для оргкомитета</h1>
+    <p class="muted">Введите логин и пароль, которые вам выдал администратор сайта.</p>
+    {% if form.non_field_errors %}
+      <div class="alert alert--error" role="alert">{% for error in form.non_field_errors %}{{ error }}{% endfor %}</div>
+    {% endif %}
+    {% include "conference/_field.html" with field=form.username %}
+    {% include "conference/_field.html" with field=form.password %}
+    <label class="check check--small"><input type="checkbox" data-show-password> <span>Показать пароль</span></label>
+    <input type="hidden" name="next" value="{{ next }}">
+    <button class="btn btn--lg" type="submit">Войти</button>
+    <p class="help">Забыли пароль? Обратитесь к администратору сайта — он задаст новый.</p>
+  </form>
+  <p class="office-login__back"><a href="{% url 'conference:home' %}">← На главную сайта</a></p>
+</div>
+<script>
+  document.querySelector("[data-show-password]").addEventListener("change", (e) => {
+    document.getElementById("{{ form.password.id_for_label }}").type = e.target.checked ? "text" : "password";
+  });
+</script>
+{% endblock %}

@@ -1,20 +1,34 @@
-"""Выгрузка сформированных секций в Excel: сводка и по листу на каждую секцию."""
+"""Выгрузки для оргкомитета: Excel, Word и архив с работами.
+
+groups — список (направление, номер секции); None — все секции всех направлений.
+Отклонённые заявки никуда не попадают. СНИЛС не выгружается: файлы пересылают по почте.
+"""
 
 import re
+import zipfile
 from io import BytesIO
+from pathlib import Path
 
 from django.utils import timezone
+from docx import Document
+from docx.enum.section import WD_ORIENT
+from docx.shared import Cm, Pt
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
-from .models import Section, Submission
+from .models import ConferenceSettings, Section, Submission
 
 HEADER_FILL = PatternFill("solid", fgColor="FFF3B0")
 TITLE_FONT = Font(bold=True, size=14)
 BOLD = Font(bold=True)
 
-# (заголовок, ширина колонки, значение из заявки). СНИЛС в выгрузку не попадает: файл пересылают по почте.
+
+def _created(s):
+    return timezone.localtime(s.created_at).strftime("%d.%m.%Y %H:%M")
+
+
+# (заголовок, ширина колонки, значение из заявки)
 COLUMNS = [
     ("№", 5, None),
     ("Заявка", 9, lambda s: s.number),
@@ -31,8 +45,46 @@ COLUMNS = [
     ("Почта участника", 26, lambda s: s.email),
     ("Почта для ссылок", 26, lambda s: s.links_email),
     ("Статус", 13, lambda s: s.public_status),
-    ("Подана", 17, lambda s: timezone.localtime(s.created_at).strftime("%d.%m.%Y %H:%M")),
+    ("Подана", 17, _created),
 ]
+PARTICIPANT_COLUMNS = COLUMNS[:2] + [("Секция", 34, lambda s: s.section_label)] + COLUMNS[2:]
+# Список для проверяющего: без телефонов и почты.
+REVIEWER_COLUMNS = [
+    ("№", 5, None),
+    ("Заявка", 9, lambda s: s.number),
+    ("Участник", 26, lambda s: s.full_name),
+    ("Класс", 7, lambda s: s.grade),
+    ("Соавтор", 26, lambda s: s.coauthor),
+    ("Образовательная организация", 40, lambda s: s.school),
+    ("Руководитель", 28, lambda s: s.supervisor),
+    ("Название работы", 45, lambda s: s.title),
+    ("Файл в архиве", 45, lambda s: work_filename(s)),
+]
+
+
+def all_groups():
+    return [(s, n) for s in Section.objects.all() for n in range(1, s.groups + 1)]
+
+
+def group_submissions(section, number):
+    return list(
+        Submission.objects.exclude(status=Submission.Status.REJECTED)
+        .filter(section=section, section_number=number)
+        .select_related("section")
+        .order_by("last_name", "first_name", "pk")
+    )
+
+
+def _clean_name(text, limit):
+    """Строка, годная для имени файла или папки в Windows."""
+    text = re.sub(r'[\\/:*?"<>|\r\n\t]+', " ", text)
+    text = re.sub(r"\s+", " ", text).strip(" .")
+    return text[:limit].rstrip(" .") or "без названия"
+
+
+def work_filename(s):
+    ext = Path(s.original_filename or s.file.name).suffix.lower()
+    return f"{s.pk:04d} {_clean_name(s.full_name, 60)} — {_clean_name(s.title, 70)}{ext}"
 
 
 def _sheet_title(name, number, groups, used):
@@ -48,8 +100,32 @@ def _sheet_title(name, number, groups, used):
     return candidate
 
 
-def build_sections_workbook():
-    """Возвращает xlsx (bytes). Отклонённые заявки не включаются."""
+def _fill_sheet(ws, submissions, columns, header_row):
+    ws.append([title for title, *_ in columns])
+    for cell in ws[header_row]:
+        cell.font, cell.fill = BOLD, HEADER_FILL
+        cell.alignment = Alignment(wrap_text=True, vertical="top")
+    for i, submission in enumerate(submissions, start=1):
+        ws.append([i if get is None else get(submission) for _, _, get in columns])
+    for col, (_, width, _) in enumerate(columns, start=1):
+        ws.column_dimensions[get_column_letter(col)].width = width
+    for row in ws.iter_rows(min_row=header_row + 1):
+        for cell in row:
+            cell.alignment = Alignment(wrap_text=True, vertical="top")
+    ws.freeze_panes = f"C{header_row + 1}"
+    if submissions:
+        ws.auto_filter.ref = f"A{header_row}:{get_column_letter(len(columns))}{ws.max_row}"
+
+
+def _save(wb):
+    buffer = BytesIO()
+    wb.save(buffer)
+    return buffer.getvalue()
+
+
+def build_sections_workbook(groups=None, columns=COLUMNS):
+    """Excel: лист «Сводка» и по листу на каждую секцию."""
+    groups = all_groups() if groups is None else groups
     wb = Workbook()
     summary = wb.active
     summary.title = "Сводка"
@@ -60,34 +136,146 @@ def build_sections_workbook():
         summary.column_dimensions[letter].width = width
 
     used = {"Сводка"}
-    active = Submission.objects.exclude(status=Submission.Status.REJECTED).select_related("section")
-    for section in Section.objects.all():
-        rows = active.filter(section=section).order_by("section_number", "last_name", "first_name")
-        for number in range(1, section.groups + 1):
-            group = [s for s in rows if s.section_number == number]
-            label = section.group_label(number)
-            people = sum(s.people for s in group)
-            summary.append([section.name, label, len(group), people, section.capacity])
+    for section, number in groups:
+        submissions = group_submissions(section, number)
+        label = section.group_label(number)
+        people = sum(s.people for s in submissions)
+        summary.append([section.name, label, len(submissions), people, section.capacity])
 
-            ws = wb.create_sheet(_sheet_title(section.name, number, section.groups, used))
-            ws.append([label])
-            ws["A1"].font = TITLE_FONT
-            ws.append([f"Работ: {len(group)}, участников: {people} из {section.capacity}"])
-            ws.append([title for title, *_ in COLUMNS])
-            for cell in ws[3]:
-                cell.font, cell.fill = BOLD, HEADER_FILL
-                cell.alignment = Alignment(wrap_text=True, vertical="top")
-            for i, submission in enumerate(group, start=1):
-                ws.append([i if get is None else get(submission) for _, _, get in COLUMNS])
-            for col, (_, width, _) in enumerate(COLUMNS, start=1):
-                ws.column_dimensions[get_column_letter(col)].width = width
-            for row in ws.iter_rows(min_row=4):
-                for cell in row:
-                    cell.alignment = Alignment(wrap_text=True, vertical="top")
-            ws.freeze_panes = "C4"
-            if group:
-                ws.auto_filter.ref = f"A3:{get_column_letter(len(COLUMNS))}{ws.max_row}"
+        ws = wb.create_sheet(_sheet_title(section.name, number, section.groups, used))
+        ws.append([label])
+        ws["A1"].font = TITLE_FONT
+        ws.append([f"Работ: {len(submissions)}, участников: {people} из {section.capacity}"])
+        _fill_sheet(ws, submissions, columns, header_row=3)
+    return _save(wb)
 
+
+def build_participants_workbook():
+    """Excel: все участники, подавшие работы, на одном листе."""
+    submissions = [s for section, number in all_groups() for s in group_submissions(section, number)]
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Все участники"
+    _fill_sheet(ws, submissions, PARTICIPANT_COLUMNS, header_row=1)
+    return _save(wb)
+
+
+def build_reviewer_workbook(groups):
+    """Список для проверяющего: одним листом, без контактов."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Список работ"
+    rows = []
+    for section, number in groups:
+        rows.extend(group_submissions(section, number))
+    columns = REVIEWER_COLUMNS
+    if len(groups) > 1:
+        columns = REVIEWER_COLUMNS[:2] + [("Секция", 34, lambda s: s.section_label)] + REVIEWER_COLUMNS[2:]
+    _fill_sheet(ws, rows, columns, header_row=1)
+    return _save(wb)
+
+
+def build_sections_docx(groups=None):
+    """Word: каждая секция с новой страницы — заголовок и таблица участников, готово к печати."""
+    groups = all_groups() if groups is None else groups
+    doc = Document()
+    page = doc.sections[0]
+    page.orientation = WD_ORIENT.LANDSCAPE
+    page.page_width, page.page_height = page.page_height, page.page_width
+    for side in ("left_margin", "right_margin", "top_margin", "bottom_margin"):
+        setattr(page, side, Cm(1.5))
+    normal = doc.styles["Normal"]
+    normal.font.name = "Times New Roman"
+    normal.font.size = Pt(11)
+
+    conf_title = ConferenceSettings.load().title
+    headers = ["№", "Участник", "Класс", "Образовательная организация", "Руководитель", "Название работы"]
+    widths = [Cm(1), Cm(5), Cm(1.5), Cm(6.5), Cm(5), Cm(7.5)]
+    for index, (section, number) in enumerate(groups):
+        if index:
+            doc.add_page_break()
+        submissions = group_submissions(section, number)
+        doc.add_paragraph(conf_title).runs[0].italic = True
+        doc.add_heading(section.group_label(number), level=1)
+        people = sum(s.people for s in submissions)
+        doc.add_paragraph(f"Работ: {len(submissions)}, участников: {people} из {section.capacity}")
+        if not submissions:
+            doc.add_paragraph("Заявок пока нет.")
+            continue
+        table = doc.add_table(rows=1, cols=len(headers))
+        table.style = "Table Grid"
+        for cell, text in zip(table.rows[0].cells, headers):
+            cell.text = text
+            cell.paragraphs[0].runs[0].bold = True
+        for i, s in enumerate(submissions, start=1):
+            participant = s.full_name + (f"\nСоавтор: {s.coauthor}" if s.coauthor else "")
+            supervisor = s.supervisor + (f"\n{s.supervisor2}" if s.supervisor2 else "")
+            values = [str(i), participant, str(s.grade), s.school, supervisor, s.title]
+            for cell, text in zip(table.add_row().cells, values):
+                cell.text = text
+        for row in table.rows:
+            for cell, width in zip(row.cells, widths):
+                cell.width = width
     buffer = BytesIO()
-    wb.save(buffer)
+    doc.save(buffer)
     return buffer.getvalue()
+
+
+class _Sink:
+    """Приёмник для zipfile: копит записанное, отдаём кусками по мере готовности."""
+
+    def __init__(self):
+        self.chunks = []
+        self.position = 0
+
+    def write(self, data):
+        self.chunks.append(bytes(data))
+        self.position += len(data)
+        return len(data)
+
+    def tell(self):
+        return self.position
+
+    def flush(self):
+        pass
+
+    def take(self):
+        data = b"".join(self.chunks)
+        self.chunks.clear()
+        return data
+
+
+def stream_archive(groups):
+    """ZIP по частям, без сборки целиком в памяти: папка на секцию с работами и общий список.
+
+    Работы и так сжаты (docx, pdf), поэтому файлы кладутся без сжатия — архив собирается быстро.
+    """
+    sink = _Sink()
+    missing = []
+    with zipfile.ZipFile(sink, "w", zipfile.ZIP_STORED, allowZip64=True) as zf:
+        zf.writestr("Список работ.xlsx", build_reviewer_workbook(groups))
+        yield sink.take()
+        for section, number in groups:
+            folder = _clean_name(section.group_label(number), 90)
+            for s in group_submissions(section, number):
+                name = f"{folder}/{work_filename(s)}"
+                try:
+                    source = s.file.open("rb")
+                except (OSError, ValueError):
+                    missing.append(f"{s.number} {s.full_name}")
+                    continue
+                with source, zf.open(name, "w", force_zip64=True) as target:
+                    for chunk in iter(lambda: source.read(1024 * 1024), b""):
+                        target.write(chunk)
+                        yield sink.take()
+                yield sink.take()
+        if missing:
+            zf.writestr("Не найдены файлы.txt", "Файлы этих работ не найдены на сервере:\n" + "\n".join(missing))
+    yield sink.take()
+
+
+def archive_filename(groups):
+    if len(groups) == 1:
+        section, number = groups[0]
+        return f"Эврика — {_clean_name(section.group_label(number), 90)}.zip"
+    return f"Эврика — все работы {timezone.localdate():%d.%m.%Y}.zip"
