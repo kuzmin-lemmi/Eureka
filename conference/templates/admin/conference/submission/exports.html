@@ -1,0 +1,26 @@
+{% extends "admin/base_site.html" %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Главная</a> &rsaquo;
+  <a href="{% url 'admin:conference_submission_changelist' %}">Заявки</a> &rsaquo; Выгрузки
+</div>
+{% endblock %}
+
+{% block content %}
+{% for stage in stages %}
+  <div class="module">
+    <h2>{{ stage.title }}</h2>
+    <p style="padding: 0 10px;">{{ stage.text }}</p>
+    {% if stage.files %}
+      <p style="padding: 0 10px 10px;">
+        {% for label, url in stage.files %}<a class="button" href="{{ url }}">Скачать {{ label }}</a> {% endfor %}
+      </p>
+    {% endif %}
+  </div>
+{% endfor %}
+<div class="module">
+  <h2>Прочее</h2>
+  <p style="padding: 0 10px 10px;"><a href="{{ sections_url }}">Списки секций (Excel, лист на секцию)</a></p>
+</div>
+{% endblock %}

@@ -648,8 +648,30 @@ class SectionsExportTests(TestCase):
         organizer.groups.add(Group.objects.get(name=ORGANIZERS_GROUP))
         self.client.force_login(organizer)
         response = self.client.get(reverse("admin:conference_submission_changelist"))
-        self.assertContains(response, "Скачать списки секций (Excel)")
+        self.assertContains(response, reverse("admin:conference_submission_exports"))
         self.download()
+
+    def test_exports_page_has_four_stages_and_student_files(self):
+        from docx import Document as Docx
+        from openpyxl import load_workbook
+
+        Submission.objects.filter(status="new").update(coauthor_last_name="Соавтор", coauthor_first_name="Ира", coauthor_grade=8)
+        self.client.force_login(User.objects.create_superuser("admin", password="pass"))
+        page = self.client.get(reverse("admin:conference_submission_exports"))
+        for n in range(1, 5):
+            self.assertContains(page, f"Этап {n}")
+
+        response = self.client.get(reverse("admin:conference_submission_students_excel"))
+        ws = load_workbook(BytesIO(b"".join(response.streaming_content))).active
+        rows = list(ws.values)
+        self.assertEqual(rows[0][:4], ("№", "Секция", "ФИО", "Кл."))
+        self.assertEqual(len(rows), 1 + 4)  # две заявки по два ученика, отклонённая не в счёт
+        self.assertEqual(rows[2][2], "Соавтор Ира")
+        self.assertEqual(rows[2][3], 8)
+
+        response = self.client.get(reverse("admin:conference_submission_students_word"))
+        doc = Docx(BytesIO(b"".join(response.streaming_content)))
+        self.assertEqual(len(doc.tables[0].rows), 1 + 4)
 
     def test_my_page_shows_submitted_instead_of_new(self):
         submission = Submission.objects.filter(status="new").first()

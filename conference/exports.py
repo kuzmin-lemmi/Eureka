@@ -12,6 +12,7 @@ from pathlib import Path
 from django.utils import timezone
 from docx import Document
 from docx.enum.section import WD_ORIENT
+from docx.oxml import OxmlElement
 from docx.shared import Cm, Pt
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
@@ -172,6 +173,80 @@ def build_reviewer_workbook(groups):
         columns = REVIEWER_COLUMNS[:2] + [("Секция", 34, lambda s: s.section_label)] + REVIEWER_COLUMNS[2:]
     _fill_sheet(ws, rows, columns, header_row=1)
     return _save(wb)
+
+
+# Этап 1: список всех учеников по секциям — столбцы как в рабочей таблице оргкомитета.
+STUDENT_HEADERS = ["№", "Секция", "ФИО", "Кл.", "ОУ", "Название работы", "Руководитель", "Дата подачи, e-mail"]
+STUDENT_WIDTHS = [5, 28, 28, 6, 45, 45, 26, 28]
+
+
+def student_rows():
+    """Строка на каждого ученика: у работы с соавтором две строки. Порядок — по секциям, затем по фамилии."""
+    rows = []
+    for section, number in all_groups():
+        for s in group_submissions(section, number):
+            supervisor = s.supervisor + (f"\n{s.supervisor2}" if s.supervisor2 else "")
+            contact = f"{timezone.localtime(s.created_at):%d.%m.%Y}\n{s.email}"
+            people = [(s.full_name, s.grade)]
+            if s.coauthor_last_name:
+                people.append((f"{s.coauthor_last_name} {s.coauthor_first_name}", s.coauthor_grade))
+            for name, grade in people:
+                rows.append([len(rows) + 1, s.section_label, name, grade, s.school, s.title, supervisor, contact])
+    return rows
+
+
+def build_students_workbook():
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Все ученики"
+    ws.append(STUDENT_HEADERS)
+    for cell in ws[1]:
+        cell.font, cell.fill = BOLD, HEADER_FILL
+    for row in student_rows():
+        ws.append(row)
+    for col, width in enumerate(STUDENT_WIDTHS, start=1):
+        ws.column_dimensions[get_column_letter(col)].width = width
+    for row in ws.iter_rows():
+        for cell in row:
+            cell.alignment = Alignment(wrap_text=True, vertical="top")
+    ws.freeze_panes = "A2"
+    if ws.max_row > 1:
+        ws.auto_filter.ref = f"A1:{get_column_letter(len(STUDENT_HEADERS))}{ws.max_row}"
+    return _save(wb)
+
+
+def build_students_docx():
+    doc = Document()
+    page = doc.sections[0]
+    page.orientation = WD_ORIENT.LANDSCAPE
+    page.page_width, page.page_height = page.page_height, page.page_width
+    for side in ("left_margin", "right_margin", "top_margin", "bottom_margin"):
+        setattr(page, side, Cm(1.5))
+    normal = doc.styles["Normal"]
+    normal.font.name = "Times New Roman"
+    normal.font.size = Pt(10)
+
+    doc.add_paragraph(ConferenceSettings.load().title).runs[0].italic = True
+    doc.add_heading("Список учеников по секциям", level=1)
+    rows = student_rows()
+    doc.add_paragraph(f"Учеников: {len(rows)}")
+    table = doc.add_table(rows=1, cols=len(STUDENT_HEADERS))
+    table.style = "Table Grid"
+    for cell, text in zip(table.rows[0].cells, STUDENT_HEADERS):
+        cell.text = text
+        cell.paragraphs[0].runs[0].bold = True
+    for row in rows:
+        for cell, value in zip(table.add_row().cells, row):
+            cell.text = str(value)
+    widths = [Cm(1), Cm(3.6), Cm(3.6), Cm(1), Cm(5.5), Cm(5.5), Cm(3.6), Cm(3.6)]
+    for row in table.rows:
+        for cell, width in zip(row.cells, widths):
+            cell.width = width
+    # Шапка таблицы повторяется на каждой странице.
+    table.rows[0]._tr.get_or_add_trPr().append(OxmlElement("w:tblHeader"))
+    buffer = BytesIO()
+    doc.save(buffer)
+    return buffer.getvalue()
 
 
 def build_sections_docx(groups=None):

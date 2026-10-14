@@ -4,12 +4,12 @@ from django.contrib import admin
 from django.core.exceptions import PermissionDenied
 from django.db.models import Count
 from django.http import FileResponse
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render
 from django.urls import path, reverse
 from django.utils import timezone
 from django.utils.html import format_html
 
-from .exports import build_sections_workbook
+from . import exports
 
 from .models import ConferenceSettings, Document, NewsPost, ReviewLink, Section, Submission
 
@@ -65,19 +65,60 @@ class SubmissionAdmin(admin.ModelAdmin):
     change_list_template = "admin/conference/submission/change_list.html"
 
     def get_urls(self):
-        export = path(
-            "export-sections/",
-            self.admin_site.admin_view(self.export_sections),
-            name="conference_submission_export_sections",
-        )
-        return [export, *super().get_urls()]
+        wrap = self.admin_site.admin_view
+        custom = [
+            path("exports/", wrap(self.exports_page), name="conference_submission_exports"),
+            path("export-sections/", wrap(self.export_sections), name="conference_submission_export_sections"),
+            path("export/students-excel/", wrap(self.export_students_excel), name="conference_submission_students_excel"),
+            path("export/students-word/", wrap(self.export_students_word), name="conference_submission_students_word"),
+        ]
+        return [*custom, *super().get_urls()]
+
+    def _check_view(self, request):
+        if not self.has_view_permission(request):
+            raise PermissionDenied
+
+    def exports_page(self, request):
+        """Страница «Выгрузки»: четыре этапа, по каждому свои файлы."""
+        self._check_view(request)
+        stages = [
+            {
+                "title": "Этап 1. Все ученики по секциям",
+                "text": "Строка на каждого ученика (соавтор — отдельной строкой): секция, ФИО, класс, школа, "
+                        "название работы, руководитель, дата подачи и почта. Отклонённые заявки не входят.",
+                "files": [
+                    ("Excel", reverse("admin:conference_submission_students_excel")),
+                    ("Word", reverse("admin:conference_submission_students_word")),
+                ],
+            },
+            {"title": "Этап 2", "text": "Состав выгрузок будет определён.", "files": []},
+            {"title": "Этап 3", "text": "Состав выгрузок будет определён.", "files": []},
+            {"title": "Этап 4", "text": "Состав выгрузок будет определён.", "files": []},
+        ]
+        context = {
+            **self.admin_site.each_context(request),
+            "title": "Выгрузки",
+            "opts": self.model._meta,
+            "stages": stages,
+            "sections_url": reverse("admin:conference_submission_export_sections"),
+        }
+        return render(request, "admin/conference/submission/exports.html", context)
 
     def export_sections(self, request):
         """Списки секций в Excel: сводка и по листу на секцию, без отклонённых заявок."""
-        if not self.has_view_permission(request):
-            raise PermissionDenied
+        self._check_view(request)
         filename = f"Эврика — списки секций {timezone.localdate():%d.%m.%Y}.xlsx"
-        return FileResponse(BytesIO(build_sections_workbook()), as_attachment=True, filename=filename)
+        return FileResponse(BytesIO(exports.build_sections_workbook()), as_attachment=True, filename=filename)
+
+    def export_students_excel(self, request):
+        self._check_view(request)
+        filename = f"Эврика — все ученики по секциям {timezone.localdate():%d.%m.%Y}.xlsx"
+        return FileResponse(BytesIO(exports.build_students_workbook()), as_attachment=True, filename=filename)
+
+    def export_students_word(self, request):
+        self._check_view(request)
+        filename = f"Эврика — все ученики по секциям {timezone.localdate():%d.%m.%Y}.docx"
+        return FileResponse(BytesIO(exports.build_students_docx()), as_attachment=True, filename=filename)
 
     list_display = (
         "number_display",
