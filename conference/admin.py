@@ -1,8 +1,15 @@
+from io import BytesIO
+
 from django.contrib import admin
+from django.core.exceptions import PermissionDenied
 from django.db.models import Count
+from django.http import FileResponse
 from django.shortcuts import redirect
-from django.urls import reverse
+from django.urls import path, reverse
+from django.utils import timezone
 from django.utils.html import format_html
+
+from .exports import build_sections_workbook
 
 from .models import ConferenceSettings, Document, NewsPost, Section, Submission
 
@@ -55,6 +62,23 @@ class SectionAdmin(admin.ModelAdmin):
 
 @admin.register(Submission)
 class SubmissionAdmin(admin.ModelAdmin):
+    change_list_template = "admin/conference/submission/change_list.html"
+
+    def get_urls(self):
+        export = path(
+            "export-sections/",
+            self.admin_site.admin_view(self.export_sections),
+            name="conference_submission_export_sections",
+        )
+        return [export, *super().get_urls()]
+
+    def export_sections(self, request):
+        """Списки секций в Excel: сводка и по листу на секцию, без отклонённых заявок."""
+        if not self.has_view_permission(request):
+            raise PermissionDenied
+        filename = f"Эврика — списки секций {timezone.localdate():%d.%m.%Y}.xlsx"
+        return FileResponse(BytesIO(build_sections_workbook()), as_attachment=True, filename=filename)
+
     list_display = (
         "number_display",
         "created_at",

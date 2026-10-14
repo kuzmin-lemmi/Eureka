@@ -272,6 +272,11 @@ class Submission(models.Model):
         ]
 
     @property
+    def public_status(self):
+        """Статус для участника: оргкомитет может не принимать заявки вручную, поэтому «Новая» — это «Подана»."""
+        return "Подана" if self.status == self.Status.NEW else self.get_status_display()
+
+    @property
     def is_editable(self):
         return self.status in self.EDITABLE_STATUSES and ConferenceSettings.load().is_submission_open
 

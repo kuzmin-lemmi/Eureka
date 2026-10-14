@@ -1,4 +1,4 @@
-from io import StringIO
+from io import BytesIO, StringIO
 import os
 import shutil
 import tempfile
@@ -608,3 +608,51 @@ class ParticipantAccessTests(TestCase):
         self.client.post(reverse("conference:my_logout"))
         response = self.client.get(reverse("conference:my_edit", args=[submission.pk]))
         self.assertRedirects(response, reverse("conference:my"))
+
+
+@override_settings(MEDIA_ROOT=MEDIA_ROOT, MAX_UPLOAD_MB=1)
+class SectionsExportTests(TestCase):
+    def setUp(self):
+        self.section = Section.objects.create(name="Искусство слова и лингвистика. Язык в современном мире", groups=2)
+        for i, (number, status) in enumerate(((1, "new"), (2, "new"), (1, "rejected"))):
+            Submission.objects.create(
+                section=self.section, section_number=number, status=status, snils=make_snils(300000000 + i),
+                last_name=f"Участник{i}", first_name="Имя", grade=9, email="p@example.ru", links_email="p@example.ru",
+                school="Гимназия № 87", district="Ленинский", title=f"Работа {i}",
+                supervisor_last_name="Петрова", supervisor_first_name="Анна", supervisor_position="учитель",
+                supervisor_phone="+79001234567", file="x.docx",
+            )
+
+    def download(self):
+        from openpyxl import load_workbook
+
+        response = self.client.get(reverse("admin:conference_submission_export_sections"))
+        self.assertEqual(response.status_code, 200)
+        return load_workbook(BytesIO(b"".join(response.streaming_content)))
+
+    def test_export_has_sheet_per_group_without_rejected(self):
+        self.client.force_login(User.objects.create_superuser("admin", password="pass"))
+        wb = self.download()
+        self.assertEqual(len(wb.sheetnames), 3)
+        self.assertTrue(all(len(name) <= 31 for name in wb.sheetnames))
+        first = wb[wb.sheetnames[1]]
+        names = [row[2] for row in first.iter_rows(min_row=4, values_only=True)]
+        self.assertEqual(names, ["Участник0 Имя"])  # отклонённый Участник2 не попал
+        self.assertNotIn("300-000-000", str(list(first.values)))  # СНИЛС не выгружается
+        self.assertEqual(wb["Сводка"]["C2"].value, 1)
+
+    def test_export_requires_staff(self):
+        response = self.client.get(reverse("admin:conference_submission_export_sections"))
+        self.assertEqual(response.status_code, 302)
+
+    def test_organizer_sees_export_button(self):
+        organizer = User.objects.create_user("org", password="pass", is_staff=True)
+        organizer.groups.add(Group.objects.get(name=ORGANIZERS_GROUP))
+        self.client.force_login(organizer)
+        response = self.client.get(reverse("admin:conference_submission_changelist"))
+        self.assertContains(response, "Скачать списки секций (Excel)")
+        self.download()
+
+    def test_my_page_shows_submitted_instead_of_new(self):
+        submission = Submission.objects.filter(status="new").first()
+        self.assertEqual(submission.public_status, "Подана")
