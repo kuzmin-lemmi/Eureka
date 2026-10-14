@@ -53,3 +53,15 @@ Django-сайт приёма работ на конференцию школьн
 Выкладка: закоммитить и отправить в `main`, затем на сервере `bash ~/eureka-gymnasium87/app/deploy/beget/update.sh`
 (git pull, зависимости, миграции, статика, перезапуск). Скрипты — `deploy/beget/`.
 Docker + gunicorn + Caddy (`Dockerfile`, `docker-compose.yml`, `Caddyfile`) — запасной вариант для VPS.
+
+SSH с компьютера владельца (ключ добавлен в `~/.ssh/authorized_keys` на сервере с пометкой `claude-eureka-deploy`):
+
+```bash
+ssh -i ~/.ssh/eureka_beget -o BatchMode=yes kuzmingv@urdak.beget.com 'bash ~/eureka-gymnasium87/app/deploy/beget/update.sh'
+```
+
+Команды Django на сервере: `cd ~/eureka-gymnasium87/app && ../venv/bin/python manage.py …`.
+Учётные записи с паролями и суперпользователей на сервере создаёт владелец, не Claude.
+
+Тестовые заявки для обучения оргкомитета: `manage.py test_submissions` (создать) / `--delete` (удалить только их).
+Сейчас на сервере они есть — перед открытием приёма работ удалить.
