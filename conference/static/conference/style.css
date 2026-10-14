@@ -272,6 +272,10 @@ fieldset.card > legend + * { clear: both; }
 .grid--name { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 110px; }
 
 .field { margin-bottom: 18px; }
+/* Поля в одном ряду выравниваются по полю ввода: строка подписей общая на ряд (subgrid),
+   короткая подпись прижимается к полю, подсказки и ошибки — под полем. */
+.grid > .field { display: grid; grid-row: span 3; grid-template-rows: subgrid; align-content: start; }
+.grid > .field > label { align-self: end; }
 .field > label, .choices legend { display: block; margin-bottom: 6px; font-weight: 800; font-size: .95rem; }
 .field--required > label::after { content: " *"; color: var(--coral); }
 .req { color: var(--coral); }

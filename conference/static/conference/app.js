@@ -144,7 +144,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const error = document.createElement("p");
       error.className = "error";
       error.textContent = messageFor(input);
-      field.append(error);
+      (field.querySelector(".field__notes") || field).append(error);
     }
     return valid;
   }
