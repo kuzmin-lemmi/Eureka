@@ -51,6 +51,7 @@ urlpatterns = [
     path("check/<str:token>/", office.review, name="review"),
     path("check/<str:token>/download/", office.review_download, name="review_download"),
     path("news/", views.news_redirect, name="news"),
+    path("files/news-photo/<int:pk>/", views.news_photo, name="news_photo"),
     path("documents/", views.documents_redirect, name="documents"),
     path("files/document/<int:pk>/", views.download_document, name="download_document"),
     path("files/blank/<slug:kind>/", views.blank, name="blank"),

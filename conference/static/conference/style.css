@@ -429,6 +429,14 @@ fieldset.card > legend + * { clear: both; }
 .news__body { padding: 0 20px 18px; }
 .news__body p { margin: 0 0 1em; color: var(--ink); }
 .news__body p:last-child { margin-bottom: 0; }
+.news__photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-top: 14px; }
+.news__photos a { display: block; aspect-ratio: 4 / 3; overflow: hidden; border: 2px solid var(--ink); border-radius: 10px; background: var(--grid); }
+.news__photos img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .15s; }
+.news__photos a:hover img { transform: scale(1.04); }
+.photo-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin: 6px 0; }
+.photo-pick label { display: grid; gap: 4px; font-size: .85rem; font-weight: 700; cursor: pointer; }
+.photo-pick img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border: 2px solid var(--ink); border-radius: 8px; }
+.photo-pick input:checked + img { opacity: .35; border-color: var(--coral); }
 
 .docs { display: flex; flex-direction: column; gap: 14px; margin: 8px 0 0; padding: 0; list-style: none; }
 .docs li { display: flex; align-items: center; gap: 16px; padding: 16px 20px; background: #fff; border: var(--border); border-radius: 14px; box-shadow: 3px 3px 0 var(--ink); }

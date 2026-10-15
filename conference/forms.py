@@ -9,7 +9,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.html import format_html, format_html_join
 
-from .models import GRADE_MAX, GRADE_MIN, ConferenceSettings, Document, NewsPost, Section, Submission
+from .models import GRADE_MAX, GRADE_MIN, ConferenceSettings, Document, NewsPhoto, NewsPost, Section, Submission
 
 # Текст работы — только документы: без презентаций и видео.
 ALLOWED_EXTENSIONS = (".pdf", ".doc", ".docx", ".odt", ".rtf")
@@ -176,7 +176,57 @@ class SectionForm(forms.ModelForm):
         return groups
 
 
+PHOTO_MAX_SIDE = 1600
+PHOTO_MAX_MB = 25
+PHOTOS_PER_NEWS = 30
+
+
+def prepare_photo(upload):
+    """Фото с телефона → JPEG не больше 1600 px, повёрнутый как надо и без EXIF."""
+    from io import BytesIO
+
+    from django.core.files.base import ContentFile
+    from PIL import Image, ImageOps, UnidentifiedImageError
+
+    if upload.size > PHOTO_MAX_MB * 1024 * 1024:
+        raise forms.ValidationError(f"«{upload.name}» больше {PHOTO_MAX_MB} МБ.")
+    try:
+        image = Image.open(upload)
+        image = ImageOps.exif_transpose(image)
+    except (UnidentifiedImageError, OSError):
+        raise forms.ValidationError(f"«{upload.name}» — не фото или формат не поддерживается. Загрузите JPG или PNG.")
+    if image.mode != "RGB":
+        background = Image.new("RGB", image.size, "white")  # прозрачный PNG — на белом фоне
+        background.paste(image, mask=image.convert("RGBA").getchannel("A"))
+        image = background
+    image.thumbnail((PHOTO_MAX_SIDE, PHOTO_MAX_SIDE))
+    buffer = BytesIO()
+    image.save(buffer, "JPEG", quality=85, optimize=True, progressive=True)  # EXIF не сохраняется
+    return ContentFile(buffer.getvalue(), name="photo.jpg")
+
+
+class MultipleFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+
+class MultiplePhotoField(forms.FileField):
+    widget = MultipleFileInput
+
+    def clean(self, data, initial=None):
+        files = data if isinstance(data, (list, tuple)) else [data] if data else []
+        return [prepare_photo(super(MultiplePhotoField, self).clean(f, initial)) for f in files]
+
+
 class NewsPostForm(forms.ModelForm):
+    remove_photos = forms.ModelMultipleChoiceField(
+        label="Фото новости", queryset=NewsPhoto.objects.none(), required=False,
+        widget=forms.CheckboxSelectMultiple, help_text="Отметьте фото, которые нужно удалить.",
+    )
+    photos = MultiplePhotoField(
+        label="Добавить фото", required=False,
+        help_text=f"Можно выбрать несколько сразу. JPG или PNG; большие фото уменьшатся автоматически. До {PHOTOS_PER_NEWS} фото в новости.",
+    )
+
     class Meta:
         model = NewsPost
         fields = ["title", "text", "published_at", "is_published"]
@@ -184,6 +234,29 @@ class NewsPostForm(forms.ModelForm):
             "text": forms.Textarea(attrs={"rows": 10}),
             "published_at": forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["photos"].widget.attrs["accept"] = "image/jpeg,image/png,image/webp"
+        if self.instance.pk and self.instance.photos.exists():
+            self.fields["remove_photos"].queryset = self.instance.photos.all()
+        else:
+            del self.fields["remove_photos"]
+
+    def clean(self):
+        cleaned = super().clean()
+        kept = self.instance.photos.count() - len(cleaned.get("remove_photos") or []) if self.instance.pk else 0
+        if kept + len(cleaned.get("photos") or []) > PHOTOS_PER_NEWS:
+            self.add_error("photos", f"В новости может быть не больше {PHOTOS_PER_NEWS} фото.")
+        return cleaned
+
+    def save(self, commit=True):
+        post = super().save(commit)
+        for photo in self.cleaned_data.get("remove_photos") or []:
+            photo.delete()  # файл удаляет сигнал post_delete
+        for content in self.cleaned_data.get("photos") or []:
+            NewsPhoto.objects.create(news=post, image=content)
+        return post
 
 
 class DocumentForm(forms.ModelForm):

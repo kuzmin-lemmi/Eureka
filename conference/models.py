@@ -378,6 +378,26 @@ class NewsPost(models.Model):
         return cls.objects.filter(is_published=True, published_at__lte=timezone.now())
 
 
+def news_photo_upload_to(instance, filename):
+    return f"news/{timezone.now():%Y}/{uuid.uuid4().hex}.jpg"
+
+
+class NewsPhoto(models.Model):
+    """Фото к новости. При загрузке уменьшается до 1600 px и сохраняется в JPEG без EXIF (там бывают GPS-координаты)."""
+
+    news = models.ForeignKey(NewsPost, on_delete=models.CASCADE, related_name="photos", verbose_name="новость")
+    image = models.FileField("фото", upload_to=news_photo_upload_to)
+    uploaded_at = models.DateTimeField("загружено", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "фото"
+        verbose_name_plural = "фото"
+        ordering = ["pk"]
+
+    def __str__(self):
+        return f"Фото к новости «{self.news}»"
+
+
 DOCUMENT_EXTENSIONS = ["pdf", "doc", "docx", "odt", "rtf", "xls", "xlsx", "ods", "ppt", "pptx", "zip", "jpg", "jpeg", "png"]
 
 
@@ -471,6 +491,12 @@ class ReviewLink(models.Model):
         if self.section_id:
             return [(self.section, self.section_number or 1)]
         return [(s, n) for s in Section.objects.all() for n in range(1, s.groups + 1)]
+
+
+@receiver(post_delete, sender=NewsPhoto)
+def delete_news_photo_file(sender, instance, **kwargs):
+    if instance.image:
+        transaction.on_commit(lambda: instance.image.delete(save=False))
 
 
 @receiver(post_delete, sender=Document)

@@ -12,7 +12,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from .forms import REPEAT_FIELDS, LookupForm, SectionFull, SubmissionForm, duplicate_message
-from .models import ConferenceSettings, Document, NewsPost, Section, Submission
+from .models import ConferenceSettings, Document, NewsPhoto, NewsPost, Section, Submission
 
 THANKS_SESSION_KEY = "conference_thanks"
 FRESH_NEWS_DAYS = 7
@@ -62,7 +62,7 @@ def home(request):
     sections = list(Section.objects.filter(is_active=True))
     for section in sections:
         section.free_total = sum(section.free_places().values())
-    news = list(NewsPost.visible())
+    news = list(NewsPost.visible().prefetch_related("photos"))
     context = {
         "sections": sections,
         "news": news,
@@ -142,6 +142,19 @@ def download_submission(request, pk, kind="work"):
     else:
         filename = f"{submission.pk:04d}_{submission.last_name}_{original}"
     return FileResponse(file.open("rb"), as_attachment=True, filename=filename)
+
+
+def news_photo(request, pk):
+    """Фото опубликованной новости — всем; фото черновика — только оргкомитету."""
+    photo = get_object_or_404(NewsPhoto.objects.select_related("news"), pk=pk)
+    visible = NewsPost.visible().filter(pk=photo.news_id).exists()
+    if not visible and not request.user.has_perm("conference.view_newspost"):
+        raise Http404
+    if not photo.image.storage.exists(photo.image.name):
+        raise Http404("Фото не найдено")
+    response = FileResponse(photo.image.open("rb"), content_type="image/jpeg")
+    response["Cache-Control"] = "public, max-age=86400" if visible else "private, no-store"
+    return response
 
 
 def news_redirect(request):

@@ -15,6 +15,16 @@
     {% for field in form %}
       {% if field.widget_type == "clearablefile" %}
         {% include "conference/office/_file_field.html" with field=field download_url=file_url %}
+      {% elif field.name == "remove_photos" %}
+        <div class="field">
+          <span class="field__label">{{ field.label }}</span>
+          <div class="photo-pick">
+            {% for choice in field %}
+              <label>{{ choice.tag }}<img src="{% url 'conference:news_photo' choice.data.value %}" alt="Фото {{ forloop.counter }}"><span>удалить</span></label>
+            {% endfor %}
+          </div>
+          <div class="field__notes"><p class="help">{{ field.help_text }}</p></div>
+        </div>
       {% else %}
         {% include "conference/_field.html" with field=field %}
       {% endif %}

@@ -950,6 +950,56 @@ class OfficeTests(TestCase):
         self.assertFalse(Document.objects.exists())
         self.assertFalse(new_path.exists())
 
+    def test_news_photos_resized_without_exif_and_removable(self):
+        from PIL import Image
+
+        def image_file(name, size, fmt, mode="RGB", gps=False):
+            buffer = BytesIO()
+            image = Image.new(mode, size, (200, 30, 30, 128) if mode == "RGBA" else (200, 30, 30))
+            kwargs = {}
+            if gps:
+                exif = Image.Exif()
+                exif[0x8825] = {2: (55.0, 45.0, 0.0)}  # GPSInfo: широта
+                kwargs["exif"] = exif
+            image.save(buffer, fmt, **kwargs)
+            return SimpleUploadedFile(name, buffer.getvalue())
+
+        self.client.force_login(self.organizer)
+        data = {"title": "Открытие конференции", "text": "Фоторепортаж.", "published_at": "2026-10-01T09:00", "is_published": "on"}
+        self.client.post(reverse("conference:office_site_add", args=["news"]), {
+            **data, "photos": [image_file("большое.jpg", (4000, 3000), "JPEG", gps=True), image_file("прозрачное.png", (300, 200), "PNG", "RGBA")],
+        })
+        post = NewsPost.objects.get()
+        big, small = post.photos.all()
+        with Image.open(big.image.path) as image:
+            self.assertEqual(image.size, (1600, 1200))
+            self.assertEqual(image.format, "JPEG")
+            self.assertFalse(image.getexif())  # без EXIF и GPS
+        with Image.open(small.image.path) as image:
+            self.assertEqual((image.size, image.mode), ((300, 200), "RGB"))
+
+        home = self.client.get(reverse("conference:home"))
+        self.assertContains(home, reverse("conference:news_photo", args=[big.pk]))
+        self.client.logout()
+        response = self.client.get(reverse("conference:news_photo", args=[big.pk]))
+        self.assertEqual(response["Content-Type"], "image/jpeg")
+        response.close()  # иначе Windows не даст удалить открытый файл
+        NewsPost.objects.update(is_published=False)
+        self.assertEqual(self.client.get(reverse("conference:news_photo", args=[big.pk])).status_code, 404)  # черновик
+
+        self.client.force_login(self.organizer)
+        response = self.client.get(reverse("conference:news_photo", args=[big.pk]))
+        self.assertEqual(response.status_code, 200)
+        response.close()
+        edit_url = reverse("conference:office_site_edit", args=["news", post.pk])
+        response = self.client.post(edit_url, {**data, "photos": [SimpleUploadedFile("текст.jpg", b"not an image")]})
+        self.assertContains(response, "не фото")
+        path = Path(big.image.path)
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(edit_url, {**data, "remove_photos": [big.pk]})
+        self.assertEqual(list(post.photos.all()), [small])
+        self.assertFalse(path.exists())
+
     def test_office_site_pages_require_permissions(self):
         viewer = User.objects.create_user("viewer", password="Pass-1234!", is_staff=True)
         viewer.user_permissions.add(Permission.objects.get(codename="view_submission"))

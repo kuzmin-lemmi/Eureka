@@ -56,6 +56,7 @@ SITE = {
         "columns": [
             ("Дата", lambda n: f"{timezone.localtime(n.published_at):%d.%m.%Y %H:%M}"),
             ("Заголовок", lambda n: n.title),
+            ("Фото", lambda n: n.photos.count() or "—"),
             ("Опубликована", lambda n: _yes_no(n.is_published)),
         ],
     },

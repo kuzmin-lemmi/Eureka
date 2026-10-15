@@ -3,5 +3,6 @@ gunicorn==26.2.0
 openpyxl==3.1.5
 python-docx==1.1.2
 reportlab==5.0.1
+pillow==12.3.0
 python-dotenv==1.2.4
 whitenoise==6.12.0

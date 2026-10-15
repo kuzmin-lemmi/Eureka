@@ -145,7 +145,16 @@
         {% for post in news %}
           <details class="card" id="news-{{ post.pk }}"{% if forloop.first %} open{% endif %}>
             <summary><span class="news__summary"><small>{{ post.published_at|date:"j E Y" }}</small>{{ post.title }}</span></summary>
-            <div class="news__body">{{ post.text|linebreaks }}</div>
+            <div class="news__body">
+              {{ post.text|linebreaks }}
+              {% if post.photos.all %}
+                <div class="news__photos">
+                  {% for photo in post.photos.all %}
+                    <a href="{% url 'conference:news_photo' photo.pk %}" target="_blank" rel="noopener"><img src="{% url 'conference:news_photo' photo.pk %}" alt="Фото {{ forloop.counter }} к новости «{{ post.title }}»" loading="lazy"></a>
+                  {% endfor %}
+                </div>
+              {% endif %}
+            </div>
           </details>
         {% endfor %}
       </div>
