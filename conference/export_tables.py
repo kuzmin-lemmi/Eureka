@@ -40,6 +40,7 @@ FIELDS = {
     "name": ("ФИО", 28, lambda s: s.full_name),
     "authors": ("ФИО (все авторы)", 28, _authors),
     "grade": ("Класс", 7, lambda s: s.grade),
+    "grades": ("Класс", 7, lambda s: f"{s.grade}\n{s.coauthor_grade}" if s.coauthor_last_name else s.grade),
     "coauthor": ("Соавтор", 28, lambda s: s.coauthor),
     "school": ("Образовательная организация", 45, lambda s: s.school),
     "district": ("Муниципальный район", 24, lambda s: s.district),
@@ -55,6 +56,7 @@ FIELDS = {
     "award": ("Итог", 26, lambda s: s.get_award_display() if s.award else ""),
     "snils": ("СНИЛС", 18, lambda s: s.snils),
     "coauthor_snils": ("СНИЛС соавтора", 18, lambda s: s.coauthor_snils),
+    "snils_all": ("СНИЛС", 18, lambda s: s.snils + (f"\n{s.coauthor_snils}" if s.coauthor_last_name else "")),
 }
 # Поля, которые можно отметить в форме «своей выгрузки», и что отмечено сразу.
 CUSTOM_FIELD_ORDER = [
@@ -150,10 +152,11 @@ STUDENT_LABELS = {"number": "№", "grade": "Кл.", "school": "ОУ"}
 def students_spec():
     official = ConferenceSettings.load().official_title
     return Spec(
-        fields=["number", "section", "name", "grade", "school", "title", "supervisor", "contact"],
-        per_student=True, title="Список учеников по секциям", subtitle=official,
+        # Строка на работу: соавтор в той же ячейке ФИО, его класс под классом автора.
+        fields=["number", "section", "authors", "grades", "school", "title", "supervisor", "contact"],
+        title="Список учеников по секциям", subtitle=official,
         excel_title=f"Список учеников по секциям. {official}",
-        count_label="Учеников", sheet="Все ученики", labels=STUDENT_LABELS,
+        count_label="Работ", sheet="Все ученики", labels={**STUDENT_LABELS, "authors": "ФИО", "grades": "Кл."},
         cm_widths=[1, 3.6, 3.6, 1, 5.5, 5.5, 3.6, 3.6],
     )
 
@@ -165,9 +168,9 @@ def admitted_title():
 
 def admitted_spec():
     return Spec(
-        fields=["number", "section", "name", "grade", "school", "title", "supervisor"],
-        admissions=(Submission.Admission.ADMITTED,), per_student=True, sort="alpha",
-        title=admitted_title(), sheet="Допущенные", labels=STUDENT_LABELS,
+        fields=["number", "section", "authors", "grades", "school", "title", "supervisor"],
+        admissions=(Submission.Admission.ADMITTED,), sort="alpha",
+        title=admitted_title(), sheet="Допущенные", labels={**STUDENT_LABELS, "authors": "ФИО", "grades": "Кл."},
         cm_widths=[1, 3.6, 3.8, 1, 6.2, 6.2, 4],
     )
 
@@ -187,11 +190,12 @@ def winners_spec():
 
 
 def places_spec():
-    # Этап 4: только места 1–3, каждый ученик отдельной строкой — со своим СНИЛС (для наградных документов).
+    # Этап 4: только места 1–3, строка на работу; СНИЛС автора и соавтора в одной ячейке, в том же порядке, что ФИО.
     return Spec(
-        fields=["number", "name", "title", "section", "school", "award", "snils"],
-        per_student=True, sort="award", awards=tuple(value for value, _ in PLACES),
-        title=winners_title(), sheet="Призёры", labels={"number": "№", "school": "ОУ", "award": "Статус"},
+        fields=["number", "authors", "title", "section", "school", "award", "snils_all"],
+        sort="award", awards=tuple(value for value, _ in PLACES),
+        title=winners_title(), sheet="Призёры",
+        labels={"number": "№", "authors": "ФИО", "school": "ОУ", "award": "Статус"},
         cm_widths=[1, 4, 5.5, 4, 6.5, 2.5, 3.2],
     )
 
@@ -211,12 +215,12 @@ PRESETS = {
     for p in (
         Preset(
             "students", 1, "Все ученики по секциям",
-            "Каждый ученик отдельной строкой: секция, ФИО, класс, школа, работа, руководитель, дата и почта.",
+            "Каждая работа отдельной строкой (соавтор в той же строке): секция, ФИО, класс, школа, работа, руководитель, дата и почта.",
             "все ученики по секциям", students_spec,
         ),
         Preset(
             "admitted", 2, "Допущенные ко 2 этапу",
-            "Участники допущенных работ, секции по алфавиту. Допуск отмечают на странице секции после закрытия приёма.",
+            "Допущенные работы, секции по алфавиту; соавтор в одной строке с автором. Допуск отмечают на странице секции после закрытия приёма.",
             "допущенные ко 2 этапу", admitted_spec,
         ),
         Preset(
@@ -226,7 +230,7 @@ PRESETS = {
         ),
         Preset(
             "places", 4, "Призёры 1–3 места со СНИЛС",
-            "Только дети, занявшие 1, 2 и 3 места (без номинаций): каждый отдельной строкой, с его СНИЛС.",
+            "Только работы, занявшие 1, 2 и 3 места (без номинаций): авторы и их СНИЛС в одной строке.",
             "призёры 1-3 места со СНИЛС", places_spec,
         ),
     )

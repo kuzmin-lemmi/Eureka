@@ -712,9 +712,9 @@ class SectionsExportTests(TestCase):
         title, _, *rows = list(ws.values)
         self.assertEqual(title[0], "Список учеников по секциям. XII межрегиональная научно-практическая конференция школьников «Эврика», 2027")
         self.assertEqual(rows[0][:4], ("№", "Секция", "ФИО", "Кл."))
-        self.assertEqual(len(rows), 1 + 4)  # две заявки по два ученика
-        self.assertEqual(rows[2][2], "Соавтор Ира")
-        self.assertEqual(rows[2][3], 8)
+        self.assertEqual(len(rows), 1 + 2)  # две работы: соавтор в той же строке, а не отдельной
+        self.assertTrue(rows[1][2].endswith(","+"\n"+"Соавтор Ира"))
+        self.assertTrue(rows[1][3].endswith("\n8"))
 
         conf = ConferenceSettings.load()
         conf.edition, conf.year = "XIII", 2028
@@ -727,7 +727,7 @@ class SectionsExportTests(TestCase):
 
         response = self.client.get(reverse("conference:office_students_word"))
         doc = Docx(BytesIO(b"".join(response.streaming_content)))
-        self.assertEqual(len(doc.tables[0].rows), 1 + 4)
+        self.assertEqual(len(doc.tables[0].rows), 1 + 2)
 
 
 @override_settings(MEDIA_ROOT=MEDIA_ROOT, MAX_UPLOAD_MB=1)
@@ -880,7 +880,7 @@ class OfficeTests(TestCase):
         pdf = self.client.get(reverse("conference:office_winners_pdf"))
         self.assertTrue(pdf.getvalue().startswith(b"%PDF"))
 
-    def test_places_export_has_children_with_snils_and_only_places(self):
+    def test_places_export_has_works_with_snils_and_only_places(self):
         from docx import Document
         from openpyxl import load_workbook
 
@@ -897,13 +897,13 @@ class OfficeTests(TestCase):
         rows = list(load_workbook(BytesIO(response.getvalue())).active.values)
         self.assertEqual(rows[2], ("№", "ФИО", "Название работы", "Секция", "ОУ", "Статус", "СНИЛС"))
         data = rows[3:]
-        self.assertEqual([(r[1], r[5]) for r in data], [
-            ("Фамилия1 Имя", "2 место"), ("Соавторова Ира", "2 место"), ("Фамилия2 Имя", "1 место"),
-        ])
-        self.assertEqual(data[1][6], "112-233-445 95")  # СНИЛС соавтора, а не основного автора
+        self.assertEqual(len(data), 2)  # две работы с местом, номинация не берётся
+        self.assertEqual([(r[1].split(",")[0], r[5]) for r in data], [("Фамилия1 Имя", "2 место"), ("Фамилия2 Имя", "1 место")])
+        self.assertTrue(data[0][1].endswith("Соавторова Ира"))
+        self.assertTrue(data[0][6].endswith("\n112-233-445 95"))  # СНИЛС соавтора под СНИЛС автора
         self.assertTrue(all(r[6] for r in data))
 
-        self.assertEqual(len(Document(BytesIO(self.client.get(reverse("conference:office_places_word")).getvalue())).tables[0].rows), 1 + 3)
+        self.assertEqual(len(Document(BytesIO(self.client.get(reverse("conference:office_places_word")).getvalue())).tables[0].rows), 1 + 2)
         self.assertTrue(self.client.get(reverse("conference:office_places_pdf")).getvalue().startswith(b"%PDF"))
 
     def test_settings_page_saves_fields_and_replaces_blank(self):
