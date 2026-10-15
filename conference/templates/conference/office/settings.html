@@ -5,7 +5,8 @@
 {% block content %}
 <div class="container settings">
   <a class="back" href="{% url 'conference:office' %}">← Все секции</a>
-  <h1 class="office-h1">Настройки конференции</h1>
+  <h1 class="office-h1">Сайт и конференция</h1>
+  {% include "conference/office/_site_tabs.html" with active="settings" %}
 
   {% for message in messages %}<div class="alert alert--success" role="status">{{ message }}</div>{% endfor %}
   {% if form.errors %}<div class="alert alert--error" role="alert">Проверьте поля, отмеченные красным.</div>{% endif %}
@@ -15,27 +16,9 @@
     {% for title, fields in fieldsets %}
       <fieldset class="card settings__block">
         <h2>{{ title }}</h2>
-        {% for field, blank_kind in fields %}
+        {% for field, download_url in fields %}
           {% if field.widget_type == "clearablefile" %}
-            <div class="field{% if field.errors %} field--error{% endif %}">
-              <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-              {% if field.value %}
-                <div class="settings__file">
-                  <span>Сейчас: <a href="{% url 'conference:blank' blank_kind %}">скачать загруженный файл</a></span>
-                  <label class="check check--small"><input type="checkbox" name="{{ field.html_name }}-clear" id="{{ field.html_name }}-clear_id"> <span>удалить</span></label>
-                </div>
-              {% else %}
-                <p class="help">Файл не загружен.</p>
-              {% endif %}
-              <div class="settings__file">
-                <span>{% if field.value %}Заменить:{% else %}Загрузить:{% endif %}</span>
-                <input type="file" name="{{ field.html_name }}" id="{{ field.id_for_label }}"{% if field.field.widget.attrs.accept %} accept="{{ field.field.widget.attrs.accept }}"{% endif %}>
-              </div>
-              <div class="field__notes">
-                {% if field.help_text %}<p class="help">{{ field.help_text }}</p>{% endif %}
-                {% for error in field.errors %}<p class="error">{{ error }}</p>{% endfor %}
-              </div>
-            </div>
+            {% include "conference/office/_file_field.html" with field=field download_url=download_url %}
           {% else %}
             {% include "conference/_field.html" with field=field %}
           {% endif %}

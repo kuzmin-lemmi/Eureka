@@ -1,0 +1,36 @@
+{% extends "conference/office/base.html" %}
+
+{% block title %}{{ config.title }} — кабинет оргкомитета{% endblock %}
+
+{% block content %}
+<div class="container settings">
+  <a class="back" href="{% url 'conference:office' %}">← Все секции</a>
+  <h1 class="office-h1">Сайт и конференция</h1>
+  {% include "conference/office/_site_tabs.html" with active=kind %}
+
+  {% for message in messages %}<div class="alert alert--{% if message.level_tag == 'error' %}error{% else %}success{% endif %}" role="status">{{ message }}</div>{% endfor %}
+
+  <div class="toolbar">
+    <p class="office-lead">{{ config.lead }}</p>
+    {% if can_add %}<a class="btn btn--sm" href="{% url 'conference:office_site_add' kind %}">+ {{ config.add }}</a>{% endif %}
+  </div>
+
+  {% if rows %}
+    <div class="table-wrap">
+      <table class="people">
+        <thead><tr>{% for header in headers %}<th>{{ header }}</th>{% endfor %}<th></th></tr></thead>
+        <tbody>
+          {% for obj, cells in rows %}
+            <tr>
+              {% for cell in cells %}<td>{% if forloop.counter == 2 %}<b>{{ cell }}</b>{% else %}{{ cell }}{% endif %}</td>{% endfor %}
+              <td><a class="btn btn--sm btn--ghost" href="{% url 'conference:office_site_edit' kind obj.pk %}">Изменить</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="card empty">{{ config.empty }}</div>
+  {% endif %}
+</div>
+{% endblock %}

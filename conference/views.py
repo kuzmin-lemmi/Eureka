@@ -154,7 +154,10 @@ def documents_redirect(request):
 
 def download_document(request, pk):
     """Опубликованные документы открыты всем; файлы не раздаются через MEDIA_URL напрямую."""
-    document = get_object_or_404(Document, pk=pk, is_published=True)
+    document = get_object_or_404(Document, pk=pk)
+    # Скрытый документ может скачать только оргкомитет — например, чтобы проверить файл перед публикацией.
+    if not document.is_published and not request.user.has_perm("conference.view_document"):
+        raise Http404
     if not document.file or not document.file.storage.exists(document.file.name):
         raise Http404("Файл не найден")
     filename = f"{document.title}{Path(document.file.name).suffix}"

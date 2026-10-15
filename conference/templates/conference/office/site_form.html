@@ -1,0 +1,35 @@
+{% extends "conference/office/base.html" %}
+
+{% block title %}{% if obj %}{{ obj }}{% else %}{{ config.new }}{% endif %} — кабинет оргкомитета{% endblock %}
+
+{% block content %}
+<div class="container settings">
+  <a class="back" href="{% url 'conference:office_site' kind %}">← {{ config.title }}</a>
+  <h1 class="office-h1">{% if obj %}{{ obj }}{% else %}{{ config.new }}{% endif %}</h1>
+
+  {% for message in messages %}<div class="alert alert--{% if message.level_tag == 'error' %}error{% else %}success{% endif %}" role="status">{{ message }}</div>{% endfor %}
+  {% if form.errors %}<div class="alert alert--error" role="alert">Проверьте поля, отмеченные красным.</div>{% endif %}
+
+  <form method="post" enctype="multipart/form-data" class="card settings__block" novalidate>
+    {% csrf_token %}
+    {% for field in form %}
+      {% if field.widget_type == "clearablefile" %}
+        {% include "conference/office/_file_field.html" with field=field download_url=file_url %}
+      {% else %}
+        {% include "conference/_field.html" with field=field %}
+      {% endif %}
+    {% endfor %}
+    <div class="settings__save">
+      <button type="submit" class="btn btn--lg">Сохранить</button>
+      <a href="{% url 'conference:office_site' kind %}">Отмена</a>
+    </div>
+  </form>
+
+  {% if can_delete %}
+    <form method="post" action="{% url 'conference:office_site_delete' kind obj.pk %}" onsubmit="return confirm('Удалить «{{ obj|escapejs }}»? Отменить это нельзя.')">
+      {% csrf_token %}
+      <button type="submit" class="btn btn--sm btn--danger">Удалить</button>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}

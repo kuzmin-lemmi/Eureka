@@ -256,9 +256,11 @@ def conference_settings(request):
         form.save()
         messages.success(request, "Настройки сохранены.")
         return redirect("conference:office_settings")
-    fieldsets = [
-        (title, [(form[name], SETTINGS_BLANK_KINDS.get(name)) for name in names]) for title, names in SETTINGS_FIELDSETS
-    ]
+    def download_url(name):
+        kind = SETTINGS_BLANK_KINDS.get(name)
+        return reverse("conference:blank", args=[kind]) if kind else None
+
+    fieldsets = [(title, [(form[name], download_url(name)) for name in names]) for title, names in SETTINGS_FIELDSETS]
     return render(request, "conference/office/settings.html", {"form": form, "fieldsets": fieldsets})
 
 

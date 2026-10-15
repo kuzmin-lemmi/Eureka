@@ -696,11 +696,21 @@ class SectionsExportTests(TestCase):
 
         response = self.client.get(reverse("admin:conference_submission_students_excel"))
         ws = load_workbook(BytesIO(b"".join(response.streaming_content))).active
-        rows = list(ws.values)
+        title, _, *rows = list(ws.values)
+        self.assertEqual(title[0], "Список учеников по секциям. XII межрегиональная научно-практическая конференция школьников «Эврика», 2027")
         self.assertEqual(rows[0][:4], ("№", "Секция", "ФИО", "Кл."))
         self.assertEqual(len(rows), 1 + 4)  # две заявки по два ученика
         self.assertEqual(rows[2][2], "Соавтор Ира")
         self.assertEqual(rows[2][3], 8)
+
+        conf = ConferenceSettings.load()
+        conf.edition, conf.year = "XIII", 2028
+        conf.save()
+        response = self.client.get(reverse("admin:conference_submission_students_word"))
+        self.assertIn("XIII межрегиональная", Docx(BytesIO(b"".join(response.streaming_content))).paragraphs[0].text)
+        response = self.client.get(reverse("admin:conference_submission_export_sections"))
+        sheet = load_workbook(BytesIO(b"".join(response.streaming_content))).worksheets[1]
+        self.assertTrue(sheet["A2"].value.startswith("XIII межрегиональная научно-практическая конференция школьников «Эврика», 2028"))
 
         response = self.client.get(reverse("admin:conference_submission_students_word"))
         doc = Docx(BytesIO(b"".join(response.streaming_content)))
@@ -888,6 +898,66 @@ class OfficeTests(TestCase):
         response = self.client.post(url, {**data, "contact_email": "не почта"})
         self.assertContains(response, "Проверьте поля")
 
+    def test_office_sections_crud(self):
+        self.client.force_login(self.organizer)
+        page = self.client.get(reverse("conference:office_site", args=["sections"]))
+        self.assertContains(page, "Здоровое поколение")
+        self.assertContains(page, "2/3 · 1/3")  # занято по секциям
+
+        data = {"name": "Робототехника", "description": "", "groups": "2", "capacity": "10", "order": "5", "is_active": "on"}
+        response = self.client.post(reverse("conference:office_site_add", args=["sections"]), data)
+        self.assertRedirects(response, reverse("conference:office_site", args=["sections"]))
+        new = Section.objects.get(name="Робототехника")
+        self.assertEqual((new.groups, new.capacity), (2, 10))
+
+        # Секций меньше, чем занято, — нельзя: во «Здоровом поколении 2» уже есть работа.
+        edit_url = reverse("conference:office_site_edit", args=["sections", self.section.pk])
+        response = self.client.post(edit_url, {"name": self.section.name, "groups": "1", "capacity": "3", "order": "0", "is_active": "on"})
+        self.assertContains(response, "секций не может быть меньше 2")
+
+        response = self.client.post(reverse("conference:office_site_delete", args=["sections", self.section.pk]))
+        self.assertRedirects(response, edit_url)
+        self.assertTrue(Section.objects.filter(pk=self.section.pk).exists())  # с работами не удаляется
+        self.client.post(reverse("conference:office_site_delete", args=["sections", new.pk]))
+        self.assertFalse(Section.objects.filter(pk=new.pk).exists())
+
+    def test_office_news_and_documents(self):
+        self.client.force_login(self.organizer)
+        self.client.post(reverse("conference:office_site_add", args=["news"]), {
+            "title": "Приём работ открыт", "text": "Ждём ваши работы.", "published_at": "2026-10-01T09:00", "is_published": "on",
+        })
+        self.assertContains(self.client.get(reverse("conference:home")), "Приём работ открыт")
+
+        self.client.post(reverse("conference:office_site_add", args=["documents"]), {
+            "title": "Положение", "description": "", "order": "1",
+            "file": SimpleUploadedFile("положение.pdf", b"%PDF-1 old"),
+        })
+        document = Document.objects.get(title="Положение")
+        self.assertFalse(document.is_published)  # галочка не стояла
+        old = Path(document.file.path)
+        # Скрытый документ скачивает оргкомитет, но не посетитель.
+        self.assertEqual(self.client.get(reverse("conference:download_document", args=[document.pk])).status_code, 200)
+
+        edit_url = reverse("conference:office_site_edit", args=["documents", document.pk])
+        self.client.post(edit_url, {"title": "Положение", "description": "", "order": "1", "is_published": "on",
+                                    "file": SimpleUploadedFile("новое.pdf", b"%PDF-1 new")})
+        document.refresh_from_db()
+        self.assertFalse(old.exists())
+        self.assertTrue(document.is_published)
+        new_path = Path(document.file.path)
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(reverse("conference:office_site_delete", args=["documents", document.pk]))
+        self.assertFalse(Document.objects.exists())
+        self.assertFalse(new_path.exists())
+
+    def test_office_site_pages_require_permissions(self):
+        viewer = User.objects.create_user("viewer", password="Pass-1234!", is_staff=True)
+        viewer.user_permissions.add(Permission.objects.get(codename="view_submission"))
+        self.client.force_login(viewer)
+        for kind in ("sections", "news", "documents"):
+            self.assertEqual(self.client.get(reverse("conference:office_site", args=[kind])).status_code, 403)
+        self.assertEqual(self.client.get(reverse("conference:office_site", args=["users"])).status_code, 404)
+
     def test_settings_page_requires_permission(self):
         viewer = User.objects.create_user("viewer", password="Pass-1234!", is_staff=True)
         viewer.user_permissions.add(Permission.objects.get(codename="view_submission"))
@@ -935,7 +1005,7 @@ class OfficeTests(TestCase):
         self.assertContains(dashboard, reverse("conference:office_students_word"))
         response = self.client.get(reverse("conference:office_students_excel"))
         rows = list(load_workbook(BytesIO(b"".join(response.streaming_content))).active.values)
-        self.assertEqual(len(rows), 1 + 3)
+        self.assertEqual(len(rows), 2 + 1 + 3)  # заголовок, пустая строка, шапка, ученики
         response = self.client.get(reverse("conference:office_students_word"))
         self.assertEqual(len(Document(BytesIO(response.getvalue())).tables[0].rows), 1 + 3)
 

@@ -36,7 +36,9 @@ Django-сайт приёма работ на конференцию школьн
   черновик в localStorage). Форма обязана работать и без JS: всё проверяет сервер.
 - `conference/office.py` + `templates/conference/office/` — «Кабинет оргкомитета» (`/office/`): простой интерфейс
   для сотрудников без опыта (вход по ссылке в подвале, заполненность секций, выгрузки, ссылки для проверяющих,
-  все настройки конференции — `/office/settings/`, форма `ConferenceSettingsForm`, право `change_conferencesettings`).
+  все настройки конференции — `/office/settings/`, форма `ConferenceSettingsForm`, право `change_conferencesettings`;
+  направления, новости и документы — `office_site.py`, `/office/site/<sections|news|documents>/`).
+  Номер и год конференции (`edition`, `year`) подставляются во все выгрузки через `official_title` / `full_name`.
   Доступ: `is_staff` + право `view_submission` (группа «Оргкомитет»). Крупный шрифт — класс `office` на body.
 - `conference/exports.py` — выгрузки: Excel (секции, все участники, список для проверяющего), Word (python-docx),
   ZIP с работами потоком (`stream_archive`, без сборки в памяти). СНИЛС не выгружается; проверяющему — без контактов.

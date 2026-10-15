@@ -105,6 +105,13 @@ class ConferenceSettings(models.Model):
         """«XII межрегиональной научно-практической конференции» — для заголовков официальных списков."""
         return " ".join(part for part in (self.edition, "межрегиональной научно-практической конференции") if part)
 
+    @property
+    def official_title(self):
+        """«XII межрегиональная научно-практическая конференция школьников «Эврика», 2027» — подзаголовок выгрузок.
+        Собирается из номера и года, поэтому меняется во всех документах вместе с настройками."""
+        name = " ".join(part for part in (self.edition, "межрегиональная научно-практическая конференция") if part)
+        return f"{name[0].upper()}{name[1:]} школьников «Эврика», {self.year}"
+
     @classmethod
     def load(cls):
         obj, _ = cls.objects.get_or_create(pk=1)
@@ -464,6 +471,13 @@ class ReviewLink(models.Model):
         if self.section_id:
             return [(self.section, self.section_number or 1)]
         return [(s, n) for s in Section.objects.all() for n in range(1, s.groups + 1)]
+
+
+@receiver(post_delete, sender=Document)
+def delete_document_file(sender, instance, **kwargs):
+    """Файл удалённого документа убираем с диска."""
+    if instance.file:
+        transaction.on_commit(lambda: instance.file.delete(save=False))
 
 
 @receiver(post_delete, sender=Submission)

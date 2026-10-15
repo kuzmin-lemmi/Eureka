@@ -9,7 +9,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.html import format_html, format_html_join
 
-from .models import GRADE_MAX, GRADE_MIN, ConferenceSettings, Section, Submission
+from .models import GRADE_MAX, GRADE_MIN, ConferenceSettings, Document, NewsPost, Section, Submission
 
 # Текст работы — только документы: без презентаций и видео.
 ALLOWED_EXTENSIONS = (".pdf", ".doc", ".docx", ".odt", ".rtf")
@@ -155,6 +155,52 @@ class ConferenceSettingsForm(forms.ModelForm):
             if path and getattr(conf, name).name != path:
                 getattr(conf, name).storage.delete(path)
         return conf
+
+
+class SectionForm(forms.ModelForm):
+    class Meta:
+        model = Section
+        fields = ["name", "description", "groups", "capacity", "order", "is_active"]
+        widgets = {"description": forms.Textarea(attrs={"rows": 3})}
+
+    def clean_groups(self):
+        groups = self.cleaned_data["groups"]
+        if self.instance.pk:
+            used = self.instance.submissions.filter(section_number__gt=groups).order_by("-section_number").first()
+            if used:
+                self.add_error(
+                    "groups",
+                    f"В секции {self.instance.group_label(used.section_number)} уже есть работы — "
+                    f"секций не может быть меньше {used.section_number}.",
+                )
+        return groups
+
+
+class NewsPostForm(forms.ModelForm):
+    class Meta:
+        model = NewsPost
+        fields = ["title", "text", "published_at", "is_published"]
+        widgets = {
+            "text": forms.Textarea(attrs={"rows": 10}),
+            "published_at": forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
+        }
+
+
+class DocumentForm(forms.ModelForm):
+    class Meta:
+        model = Document
+        fields = ["title", "description", "file", "order", "is_published"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.old_file = self.instance.file.name if self.instance.pk else ""
+
+    def save(self, commit=True):
+        document = super().save(commit)
+        # Заменённый файл убираем с диска.
+        if self.old_file and document.file.name != self.old_file:
+            document.file.storage.delete(self.old_file)
+        return document
 
 
 class LookupForm(forms.Form):

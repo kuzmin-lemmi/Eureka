@@ -135,6 +135,7 @@ def build_sections_workbook(groups=None, columns=COLUMNS):
         summary.column_dimensions[letter].width = width
 
     used = {"Сводка"}
+    conf_title = ConferenceSettings.load().official_title
     for section, number in groups:
         submissions = group_submissions(section, number)
         label = section.group_label(number)
@@ -144,7 +145,7 @@ def build_sections_workbook(groups=None, columns=COLUMNS):
         ws = wb.create_sheet(_sheet_title(section.name, number, section.groups, used))
         ws.append([label])
         ws["A1"].font = TITLE_FONT
-        ws.append([f"Работ: {len(submissions)} из {section.capacity}, участников: {people}"])
+        ws.append([f"{conf_title}. Работ: {len(submissions)} из {section.capacity}, участников: {people}"])
         _fill_sheet(ws, submissions, columns, header_row=3)
     return _save(wb)
 
@@ -301,14 +302,15 @@ def _table_docx(title, headers, widths_cm, rows, note=None, subtitle=None):
 
 
 def build_students_workbook():
-    return _table_workbook("Все ученики", STUDENT_HEADERS, STUDENT_WIDTHS, student_rows())
+    title = f"Список учеников по секциям. {ConferenceSettings.load().official_title}"
+    return _table_workbook("Все ученики", STUDENT_HEADERS, STUDENT_WIDTHS, student_rows(), title=title)
 
 
 def build_students_docx():
     rows = student_rows()
     return _table_docx(
         "Список учеников по секциям", STUDENT_HEADERS, STUDENT_DOCX_WIDTHS, rows,
-        note=f"Учеников: {len(rows)}", subtitle=ConferenceSettings.load().title,
+        note=f"Учеников: {len(rows)}", subtitle=ConferenceSettings.load().official_title,
     )
 
 
@@ -390,7 +392,7 @@ def build_sections_docx(groups=None):
     normal.font.name = "Times New Roman"
     normal.font.size = Pt(11)
 
-    conf_title = ConferenceSettings.load().title
+    conf_title = ConferenceSettings.load().official_title
     headers = ["№", "Участник", "Класс", "Образовательная организация", "Руководитель", "Название работы"]
     widths = [Cm(1), Cm(5), Cm(1.5), Cm(6.5), Cm(5), Cm(7.5)]
     for index, (section, number) in enumerate(groups):
