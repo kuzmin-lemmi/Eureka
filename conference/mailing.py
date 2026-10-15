@@ -25,7 +25,7 @@ DEFAULT_BODY = """Здравствуйте, {name}!
 Место проведения: {venue}.
 
 Новости и подробности — на сайте: {site}
-Если появятся вопросы, напишите нам: {contact}
+Если появятся вопросы, пишите {contact}.
 
 С уважением,
 оргкомитет конференции «Эврика»
@@ -39,7 +39,7 @@ PLACEHOLDERS = {
     "dates": "даты проведения",
     "venue": "место проведения",
     "site": "адрес сайта",
-    "contact": "почта и чат поддержки",
+    "contact": "куда писать с вопросами: чат поддержки в Max (если чата нет — почта)",
 }
 
 
@@ -61,8 +61,12 @@ def check_template(text):
 
 
 def _contact(conf):
-    parts = [p for p in (conf.contact_email, conf.support_chat_url) if p]
-    return ", ".join(parts) if parts else "ответьте на это письмо"
+    """Куда писать с вопросами: в первую очередь чат поддержки в Max."""
+    if conf.support_chat_url:
+        return f"в чат поддержки в Max: {conf.support_chat_url}"
+    if conf.contact_email:
+        return f"на почту {conf.contact_email}"
+    return "ответным письмом"
 
 
 def _values(conf, submission, site):

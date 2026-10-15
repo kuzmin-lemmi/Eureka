@@ -1014,6 +1014,19 @@ class OfficeTests(TestCase):
         self.client.post(reverse("conference:office_mailing_test"), {"to": "me@example.ru"})
         self.assertEqual([m.to for m in mail.outbox], [["me@example.ru"]])
         self.assertIn("Название вашей работы", mail.outbox[0].body)
+        # Вопросы направляем в чат поддержки; пока чата нет — на почту.
+        conf = ConferenceSettings.load()
+        conf.mail_admitted_body = "Вопросы: пишите {contact}"
+        conf.contact_email = "help@example.ru"
+        conf.save()
+        self.client.post(reverse("conference:office_mailing_test"), {"to": "me@example.ru"})
+        self.assertIn("на почту help@example.ru", mail.outbox[-1].body)
+        conf.support_chat_url = "https://max.ru/join/test"
+        conf.save()
+        self.client.post(reverse("conference:office_mailing_test"), {"to": "me@example.ru"})
+        self.assertIn("в чат поддержки в Max: https://max.ru/join/test", mail.outbox[-1].body)
+        self.assertNotIn("help@example.ru", mail.outbox[-1].body)
+        del mail.outbox[1:]
         self.client.post(reverse("conference:office_mailing_test"), {"to": "не-почта"})
         self.assertEqual(len(mail.outbox), 1)
 
