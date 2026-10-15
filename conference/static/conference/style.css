@@ -590,6 +590,11 @@ fieldset.card > legend + * { clear: both; }
 .admission__clear { margin-left: 4px; padding: 0 4px; background: none; border: 0; font: inherit; font-size: 1.15rem; font-weight: 800; line-height: 1; color: var(--muted); cursor: pointer; }
 .admission__clear:hover { color: var(--coral); }
 .admission__clear[hidden] { display: inline-block; visibility: hidden; }
+.admission-summary__gap { margin-left: 12px; }
+.award { display: flex; gap: 6px; }
+.award__select { width: 190px; padding: 3px 6px; border: 2px solid var(--ink); border-radius: 8px; background: #fff; font: inherit; font-size: .8rem; font-weight: 700; color: var(--ink); }
+.award__select:disabled { border-color: var(--grid); color: var(--muted); }
+.award__select.award__select--set { background: var(--tint-yellow); }
 .admission--busy { opacity: .6; pointer-events: none; }
 .people__row--admitted td { background: #f0fbf4; }
 .people__row--not_admitted td { background: #fff4f2; }

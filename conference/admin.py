@@ -100,7 +100,15 @@ class SubmissionAdmin(admin.ModelAdmin):
                     ("PDF", reverse("conference:office_admitted_pdf")),
                 ],
             },
-            {"title": "Этап 3", "text": "Состав выгрузок будет определён.", "files": []},
+            {
+                "title": "Этап 3. Победители и призёры",
+                "text": "Работы с местом или номинацией: секции по алфавиту, сначала места, затем номинации.",
+                "files": [
+                    ("Word", reverse("conference:office_winners_word")),
+                    ("Excel", reverse("conference:office_winners_excel")),
+                    ("PDF", reverse("conference:office_winners_pdf")),
+                ],
+            },
             {"title": "Этап 4", "text": "Состав выгрузок будет определён.", "files": []},
         ]
         context = {
@@ -140,7 +148,7 @@ class SubmissionAdmin(admin.ModelAdmin):
         "files_display",
     )
     list_display_links = ("number_display", "full_name_display")
-    list_filter = ("admission", "section", "section_number", "grade", "created_at", ("edited_by_participant_at", admin.EmptyFieldListFilter))
+    list_filter = ("admission", "award", "section", "section_number", "grade", "created_at", ("edited_by_participant_at", admin.EmptyFieldListFilter))
     list_editable = ("admission",)
     list_select_related = ("section",)
     search_fields = (
@@ -165,7 +173,7 @@ class SubmissionAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "number_display",
-                    "admission",
+                    ("admission", "award"),
                     "participant_message",
                     "admin_comment",
                     ("created_at", "updated_at", "edited_by_participant_at"),

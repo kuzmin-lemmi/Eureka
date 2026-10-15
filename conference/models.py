@@ -181,6 +181,19 @@ def document_upload_to(instance, filename):
     return f"documents/{timezone.now():%Y}/{uuid.uuid4().hex}{ext}"
 
 
+# Итог конференции (этап 3): место или номинация. Порядок — как в списке победителей.
+PLACES = [("place1", "1 место"), ("place2", "2 место"), ("place3", "3 место")]
+NOMINATIONS = [
+    ("interdisciplinary", "номинация: за лучшее межпредметное исследование"),
+    ("rural", "номинация: за лучшую работу, представленную сельской школой"),
+    ("presentation", "номинация: за лучшее представление исследования"),
+    ("experiment", "номинация: за лучшее экспериментальное исследование"),
+    ("social", "номинация: за изучение социально значимых объектов"),
+]
+AWARD_CHOICES = [("Место", PLACES), ("Номинация", NOMINATIONS)]
+AWARD_ORDER = [value for value, _ in PLACES + NOMINATIONS]
+
+
 class Submission(models.Model):
     # Пока приём открыт, у заявки нет статуса: участник может её изменить или удалить.
     # После закрытия приёма оргкомитет решает, допущена ли работа ко 2 этапу.
@@ -244,6 +257,10 @@ class Submission(models.Model):
     # Оргкомитет
     admission = models.CharField(
         "допуск ко 2 этапу", max_length=12, choices=Admission, default=Admission.PENDING, blank=True
+    )
+    award = models.CharField(
+        "итог (место или номинация)", max_length=20, choices=AWARD_CHOICES, blank=True,
+        help_text="Ставят после конференции только допущенным ко 2 этапу. Попадает в список победителей и призёров.",
     )
     admin_comment = models.TextField("комментарий оргкомитета", blank=True, help_text="Виден только оргкомитету.")
     participant_message = models.TextField(

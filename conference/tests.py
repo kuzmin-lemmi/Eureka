@@ -797,11 +797,65 @@ class OfficeTests(TestCase):
         submission.refresh_from_db()
         self.assertEqual(submission.admission, "not_admitted")
         response = self.client.post(url, {"admission": "not_admitted"}, headers={"Accept": "application/json"})
-        self.assertEqual(response.json(), {"admission": "not_admitted", "admitted": 0, "not_admitted": 1, "pending": 1})
+        self.assertEqual(response.json(), {"admission": "not_admitted", "award": "", "admitted": 0, "not_admitted": 1, "pending": 1})
         self.client.post(url, {"admission": ""})  # «Снять отметку»
         submission.refresh_from_db()
         self.assertEqual(submission.admission, "")
         self.assertEqual(self.client.post(url, {"admission": "maybe"}).status_code, 404)
+
+    def test_award_only_for_admitted_and_cleared_with_admission(self):
+        self.client.force_login(self.organizer)
+        conf = ConferenceSettings.load()
+        conf.submissions_open = False
+        conf.save()
+        submission = Submission.objects.get(last_name="Фамилия0")
+        award_url = reverse("conference:office_award", args=[submission.pk])
+        self.client.post(award_url, {"award": "place1"})
+        submission.refresh_from_db()
+        self.assertEqual(submission.award, "")  # не допущен — итог не ставится
+
+        self.client.post(reverse("conference:office_admission", args=[submission.pk]), {"admission": "admitted"})
+        response = self.client.post(award_url, {"award": "social"}, headers={"Accept": "application/json"})
+        self.assertEqual(response.json(), {"award": "social"})
+        self.assertEqual(self.client.post(award_url, {"award": "place9"}).status_code, 404)
+        self.assertContains(self.client.get(reverse("conference:office_section", args=[self.section.pk, 1])),
+                            'value="social" selected', html=False)
+
+        response = self.client.post(reverse("conference:office_admission", args=[submission.pk]), {"admission": ""},
+                                    headers={"Accept": "application/json"})
+        self.assertEqual(response.json()["award"], "")
+        submission.refresh_from_db()
+        self.assertEqual(submission.award, "")
+
+    def test_winners_exports(self):
+        from docx import Document
+        from openpyxl import load_workbook
+
+        Submission.objects.filter(last_name="Фамилия0").update(admission="admitted", award="social")
+        Submission.objects.filter(last_name="Фамилия1").update(
+            admission="admitted", award="place2", coauthor_last_name="Соавторова", coauthor_first_name="Ира", coauthor_grade=9,
+        )
+        Submission.objects.filter(last_name="Фамилия2").update(admission="admitted", award="place1")
+        self.client.force_login(self.organizer)
+        self.assertContains(self.client.get(reverse("conference:office")), "Отмечено работ: 3")
+
+        response = self.client.get(reverse("conference:office_winners_excel"))
+        rows = list(load_workbook(BytesIO(response.getvalue())).active.values)
+        self.assertIn("Победители и призеры", rows[0][0])
+        self.assertEqual(rows[2], ("№", "ФИО", "Название работы", "Секция", "ОУ", "Статус"))
+        data = rows[3:]
+        # Секции по алфавиту, внутри — места, затем номинации; соавтор в той же строке.
+        self.assertEqual([(r[3], r[5]) for r in data], [
+            ("Здоровое поколение 1", "2 место"),
+            ("Здоровое поколение 1", "номинация: за изучение социально значимых объектов"),
+            ("Здоровое поколение 2", "1 место"),
+        ])
+        self.assertEqual(data[0][1], "Фамилия1 Имя,\nСоавторова Ира")
+
+        word = self.client.get(reverse("conference:office_winners_word"))
+        self.assertEqual(len(Document(BytesIO(word.getvalue())).tables[0].rows), 1 + 3)
+        pdf = self.client.get(reverse("conference:office_winners_pdf"))
+        self.assertTrue(pdf.getvalue().startswith(b"%PDF"))
 
     def test_admission_requires_change_permission(self):
         viewer = User.objects.create_user("viewer", password="Pass-1234!", is_staff=True)

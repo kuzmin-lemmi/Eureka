@@ -52,7 +52,17 @@
         <a class="btn btn--sm btn--zip" href="{% url 'conference:office_admitted_pdf' %}">📕 PDF</a>
       </div>
     </div>
-    {% for n in "34" %}
+    <div class="stage">
+      <h2 class="stage__title"><span class="stage__num">3</span> Победители и призёры</h2>
+      <p class="stage__text">Места 1–3 и номинации по итогам конференции. Ставят на странице секции в столбце «Итог».</p>
+      <p class="stage__text"><b>Отмечено работ: {{ awarded }}</b></p>
+      <div class="stage__btns">
+        <a class="btn btn--sm btn--word" href="{% url 'conference:office_winners_word' %}">📄 Word</a>
+        <a class="btn btn--sm btn--excel" href="{% url 'conference:office_winners_excel' %}">📊 Excel</a>
+        <a class="btn btn--sm btn--zip" href="{% url 'conference:office_winners_pdf' %}">📕 PDF</a>
+      </div>
+    </div>
+    {% for n in "4" %}
       <div class="stage stage--empty">
         <h2 class="stage__title"><span class="stage__num">{{ n }}</span> Этап {{ n }}</h2>
         <p class="stage__text">Выгрузки появятся позже.</p>

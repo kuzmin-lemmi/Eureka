@@ -23,6 +23,8 @@
       <span class="chip chip--free">допущено <span data-count="admitted">{{ admission.admitted }}</span></span>
       <span class="chip chip--full">не допущено <span data-count="not_admitted">{{ admission.not_admitted }}</span></span>
       <span class="chip">не решено <span data-count="pending">{{ admission.pending }}</span></span>
+      <b class="admission-summary__gap">Итоги:</b>
+      <span class="chip chip--almost">мест и номинаций <span data-count="awarded">{{ awarded }}</span></span>
       {% if not can_decide %}<span class="muted">{% if conf.is_submission_open %}Отмечать допуск можно после закрытия приёма работ.{% else %}Отмечать допуск может только сотрудник с правом изменять заявки.{% endif %}</span>{% endif %}
     </p>
   {% endif %}
@@ -42,7 +44,7 @@
   {% if submissions %}
     <div class="table-wrap">
       <table class="people">
-        <thead><tr><th>№</th><th>Участник</th><th>Класс</th><th>Школа</th><th>Работа</th><th></th><th>2 этап</th></tr></thead>
+        <thead><tr><th>№</th><th>Участник</th><th>Класс</th><th>Школа</th><th>Работа</th><th></th><th>2 этап</th><th>Итог</th></tr></thead>
         <tbody>
           {% for s in submissions %}
             <tr id="s{{ s.pk }}" class="people__row--{{ s.admission|default:'pending' }}">
@@ -61,6 +63,25 @@
                   </form>
                 {% elif s.admission %}
                   <span class="chip {% if s.admission == 'admitted' %}chip--free{% else %}chip--full{% endif %}">{{ s.get_admission_display }}</span>
+                {% else %}
+                  <span class="muted">—</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if can_decide %}
+                  <form method="post" action="{% url 'conference:office_award' s.pk %}" class="award" data-award>{% csrf_token %}
+                    <select name="award" class="award__select{% if s.award %} award__select--set{% endif %}" aria-label="Итог: место или номинация" title="{{ s.get_award_display }}"{% if s.admission != 'admitted' %} disabled{% endif %}>
+                      <option value="">{% if s.admission == 'admitted' %}— нет —{% else %}только допущенным{% endif %}</option>
+                      {% for group, options in award_choices %}
+                        <optgroup label="{{ group }}">
+                          {% for value, label in options %}<option value="{{ value }}"{% if s.award == value %} selected{% endif %}>{{ label|cut:"номинация: " }}</option>{% endfor %}
+                        </optgroup>
+                      {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn--sm award__save">Сохранить</button>
+                  </form>
+                {% elif s.award %}
+                  <span class="chip chip--almost">{{ s.get_award_display }}</span>
                 {% else %}
                   <span class="muted">—</span>
                 {% endif %}

@@ -18,7 +18,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
-from .models import ConferenceSettings, Section, Submission
+from .models import AWARD_ORDER, ConferenceSettings, Section, Submission
 
 HEADER_FILL = PatternFill("solid", fgColor="FFF3B0")
 TITLE_FONT = Font(bold=True, size=14)
@@ -186,6 +186,12 @@ ADMITTED_TITLE = (
 ADMITTED_HEADERS = STUDENT_HEADERS[:-1]
 ADMITTED_WIDTHS = STUDENT_WIDTHS[:-1]
 ADMITTED_DOCX_WIDTHS = [1, 3.6, 3.8, 1, 6.2, 6.2, 4]
+
+# Этап 3: по образцу списка оргкомитета — строка на работу, соавторы через запятую.
+WINNERS_TITLE = "Победители и призеры XII межрегиональной научно-практической конференции «Эврика»"
+WINNERS_HEADERS = ["№", "ФИО", "Название работы", "Секция", "ОУ", "Статус"]
+WINNERS_WIDTHS = [5, 28, 40, 28, 50, 26]
+WINNERS_DOCX_WIDTHS = [1, 4, 5.5, 4, 7.5, 4.5]
 FONT_DIR = Path(__file__).resolve().parent / "fonts"
 
 
@@ -217,6 +223,17 @@ def admitted_rows():
     """Этап 2: ученики допущенных работ; секции — по алфавиту."""
     groups = sorted(all_groups(), key=lambda g: g[0].group_label(g[1]).casefold())
     return _student_rows(groups, contact=False)
+
+
+def winners_rows():
+    """Этап 3: работы с местом или номинацией; секции по алфавиту, внутри — места, затем номинации."""
+    works = Submission.objects.exclude(award="").select_related("section")
+    works = sorted(works, key=lambda s: (s.section_label.casefold(), AWARD_ORDER.index(s.award), s.last_name, s.pk))
+    rows = []
+    for s in works:
+        names = s.full_name + (f",\n{s.coauthor_last_name} {s.coauthor_first_name}" if s.coauthor_last_name else "")
+        rows.append([len(rows) + 1, names, s.title, s.section_label, s.school, s.get_award_display()])
+    return rows
 
 
 def _table_workbook(sheet_title, headers, widths, rows, title=None):
@@ -300,6 +317,22 @@ def build_admitted_docx():
 
 
 def build_admitted_pdf():
+    return _table_pdf(ADMITTED_TITLE, ADMITTED_HEADERS, ADMITTED_DOCX_WIDTHS, admitted_rows())
+
+
+def build_winners_workbook():
+    return _table_workbook("Победители и призёры", WINNERS_HEADERS, WINNERS_WIDTHS, winners_rows(), title=WINNERS_TITLE)
+
+
+def build_winners_docx():
+    return _table_docx(WINNERS_TITLE, WINNERS_HEADERS, WINNERS_DOCX_WIDTHS, winners_rows())
+
+
+def build_winners_pdf():
+    return _table_pdf(WINNERS_TITLE, WINNERS_HEADERS, WINNERS_DOCX_WIDTHS, winners_rows())
+
+
+def _table_pdf(heading, headers, widths_cm, rows):
     from reportlab.lib import colors
     from reportlab.lib.enums import TA_CENTER
     from reportlab.lib.pagesizes import A4, landscape
@@ -322,9 +355,9 @@ def build_admitted_pdf():
     def para(value, style=cell):
         return Paragraph(escape(str(value)).replace("\n", "<br/>"), style)
 
-    data = [[para(h, head) for h in ADMITTED_HEADERS]]
-    data += [[para(v) for v in row] for row in admitted_rows()]
-    widths = [w * cm for w in ADMITTED_DOCX_WIDTHS]
+    data = [[para(h, head) for h in headers]]
+    data += [[para(v) for v in row] for row in rows]
+    widths = [w * cm for w in widths_cm]
     table = Table(data, colWidths=widths, repeatRows=1)
     table.setStyle(TableStyle([
         ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
@@ -334,9 +367,9 @@ def build_admitted_pdf():
     buffer = BytesIO()
     pdf = SimpleDocTemplate(
         buffer, pagesize=landscape(A4), leftMargin=1.5 * cm, rightMargin=1.5 * cm,
-        topMargin=1.5 * cm, bottomMargin=1.5 * cm, title=ADMITTED_TITLE,
+        topMargin=1.5 * cm, bottomMargin=1.5 * cm, title=heading,
     )
-    pdf.build([Paragraph(escape(ADMITTED_TITLE), title), Spacer(1, 0.4 * cm), table])
+    pdf.build([Paragraph(escape(heading), title), Spacer(1, 0.4 * cm), table])
     return buffer.getvalue()
 
 

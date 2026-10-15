@@ -21,7 +21,7 @@ from django.utils.http import content_disposition_header
 from django.views.decorators.http import require_POST
 
 from . import exports
-from .models import ConferenceSettings, ReviewLink, Section, Submission
+from .models import AWARD_CHOICES, AWARD_ORDER, ConferenceSettings, ReviewLink, Section, Submission
 
 LOGIN_LIMIT = 10
 LOGIN_WINDOW = 15 * 60
@@ -154,6 +154,7 @@ def dashboard(request):
         days_left = max(0, (timezone.localdate(conf.submissions_deadline) - timezone.localdate()).days)
     context = {
         "admission": _admission_counts(Submission.objects.values_list("admission", flat=True)),
+        "awarded": Submission.objects.exclude(award="").count(),
         "can_switch_intake": request.user.has_perm("conference.change_conferencesettings"),
         "directions": directions,
         "works": works,
@@ -189,6 +190,8 @@ def section_detail(request, pk, number):
         "submissions": submissions,
         "people": sum(s.people for s in submissions),
         "admission": _admission_counts(s.admission for s in submissions),
+        "award_choices": AWARD_CHOICES,
+        "awarded": sum(1 for s in submissions if s.award),
         "can_decide": not ConferenceSettings.load().is_submission_open
         and request.user.has_perm("conference.change_submission"),
         "link": _active_link(section, number),
@@ -211,11 +214,34 @@ def set_admission(request, pk):
     if value not in Submission.Admission.values:
         raise Http404
     submission.admission = value
-    submission.save(update_fields=["admission", "updated_at"])
+    if value != Submission.Admission.ADMITTED:
+        submission.award = ""  # место или номинация бывают только у допущенных
+    submission.save(update_fields=["admission", "award", "updated_at"])
     if request.headers.get("Accept") == "application/json":
         # office.js меняет строку на месте, без перезагрузки и прыжка страницы.
         groups = Submission.objects.filter(section=submission.section, section_number=submission.section_number)
-        return JsonResponse({"admission": value, **_admission_counts(groups.values_list("admission", flat=True))})
+        return JsonResponse({"admission": value, "award": submission.award, **_admission_counts(groups.values_list("admission", flat=True))})
+    return redirect(f"{url}#s{submission.pk}")
+
+
+@office_required
+@require_POST
+def set_award(request, pk):
+    """Итог конференции: место или номинация. Только для допущенных ко 2 этапу."""
+    if not request.user.has_perm("conference.change_submission"):
+        raise PermissionDenied
+    submission = get_object_or_404(Submission, pk=pk)
+    value = request.POST.get("award", "")
+    if value not in AWARD_ORDER + [""]:
+        raise Http404
+    url = reverse("conference:office_section", args=[submission.section_id, submission.section_number])
+    if submission.admission != Submission.Admission.ADMITTED:
+        messages.error(request, "Место или номинацию можно поставить только допущенному ко 2 этапу.")
+        return redirect(url)
+    submission.award = value
+    submission.save(update_fields=["award", "updated_at"])
+    if request.headers.get("Accept") == "application/json":
+        return JsonResponse({"award": value})
     return redirect(f"{url}#s{submission.pk}")
 
 
@@ -294,6 +320,21 @@ def export_admitted_word(request):
 @office_required
 def export_admitted_excel(request):
     return _file(exports.build_admitted_workbook(), f"Эврика — допущенные ко 2 этапу {_today()}.xlsx", XLSX)
+
+
+@office_required
+def export_winners_word(request):
+    return _file(exports.build_winners_docx(), f"Эврика — победители и призёры {_today()}.docx", DOCX)
+
+
+@office_required
+def export_winners_excel(request):
+    return _file(exports.build_winners_workbook(), f"Эврика — победители и призёры {_today()}.xlsx", XLSX)
+
+
+@office_required
+def export_winners_pdf(request):
+    return _file(exports.build_winners_pdf(), f"Эврика — победители и призёры {_today()}.pdf", "application/pdf")
 
 
 @office_required
