@@ -13,7 +13,7 @@ from django.contrib.auth import views as auth_views
 from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm, SetPasswordForm
 from django.core.cache import cache
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.http import FileResponse, Http404, StreamingHttpResponse
+from django.http import FileResponse, Http404, JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -206,12 +206,15 @@ def set_admission(request, pk):
     if ConferenceSettings.load().is_submission_open:
         messages.error(request, "Допуск отмечают после закрытия приёма работ.")
         return redirect(url)
-    value = request.POST.get("admission", "")
+    value = request.POST.get("admission", "")  # пустое значение — «Снять отметку»
     if value not in Submission.Admission.values:
         raise Http404
-    # Повторное нажатие на выбранную кнопку снимает решение.
-    submission.admission = "" if submission.admission == value else value
+    submission.admission = value
     submission.save(update_fields=["admission", "updated_at"])
+    if request.headers.get("Accept") == "application/json":
+        # office.js меняет строку на месте, без перезагрузки и прыжка страницы.
+        groups = Submission.objects.filter(section=submission.section, section_number=submission.section_number)
+        return JsonResponse({"admission": value, **_admission_counts(groups.values_list("admission", flat=True))})
     return redirect(f"{url}#s{submission.pk}")
 
 

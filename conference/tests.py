@@ -794,11 +794,13 @@ class OfficeTests(TestCase):
         self.assertRedirects(response, f"{section_url}#s{submission.pk}", fetch_redirect_response=False)
         submission.refresh_from_db()
         self.assertEqual(submission.admission, "admitted")
-        self.assertContains(self.client.get(section_url), "допущено 1")
+        self.assertContains(self.client.get(section_url), 'допущено <span data-count="admitted">1</span>', html=False)
         self.client.post(url, {"admission": "not_admitted"})
         submission.refresh_from_db()
         self.assertEqual(submission.admission, "not_admitted")
-        self.client.post(url, {"admission": "not_admitted"})  # повторное нажатие снимает решение
+        response = self.client.post(url, {"admission": "not_admitted"}, headers={"Accept": "application/json"})
+        self.assertEqual(response.json(), {"admission": "not_admitted", "admitted": 0, "not_admitted": 1, "pending": 1})
+        self.client.post(url, {"admission": ""})  # «Снять отметку»
         submission.refresh_from_db()
         self.assertEqual(submission.admission, "")
         self.assertEqual(self.client.post(url, {"admission": "maybe"}).status_code, 404)

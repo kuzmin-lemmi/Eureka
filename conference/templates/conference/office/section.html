@@ -1,4 +1,5 @@
 {% extends "conference/office/base.html" %}
+{% load static %}
 
 {% block title %}{{ info.label }} — кабинет оргкомитета{% endblock %}
 
@@ -19,9 +20,9 @@
   {% if submissions %}
     <p class="admission-summary">
       <b>Допуск ко 2 этапу:</b>
-      <span class="chip chip--free">допущено {{ admission.admitted }}</span>
-      <span class="chip chip--full">не допущено {{ admission.not_admitted }}</span>
-      <span class="chip">не решено {{ admission.pending }}</span>
+      <span class="chip chip--free">допущено <span data-count="admitted">{{ admission.admitted }}</span></span>
+      <span class="chip chip--full">не допущено <span data-count="not_admitted">{{ admission.not_admitted }}</span></span>
+      <span class="chip">не решено <span data-count="pending">{{ admission.pending }}</span></span>
       {% if not can_decide %}<span class="muted">{% if conf.is_submission_open %}Отмечать допуск можно после закрытия приёма работ.{% else %}Отмечать допуск может только сотрудник с правом изменять заявки.{% endif %}</span>{% endif %}
     </p>
   {% endif %}
@@ -53,9 +54,10 @@
               <td><a class="btn btn--sm" href="{% url 'conference:download_submission' s.pk %}">Скачать работу</a></td>
               <td>
                 {% if can_decide %}
-                  <form method="post" action="{% url 'conference:office_admission' s.pk %}" class="admission">{% csrf_token %}
+                  <form method="post" action="{% url 'conference:office_admission' s.pk %}" class="admission" data-admission>{% csrf_token %}
                     <button type="submit" name="admission" value="admitted" class="admission__btn admission__btn--yes" aria-pressed="{% if s.admission == 'admitted' %}true{% else %}false{% endif %}">Допущен</button>
                     <button type="submit" name="admission" value="not_admitted" class="admission__btn admission__btn--no" aria-pressed="{% if s.admission == 'not_admitted' %}true{% else %}false{% endif %}">Не допущен</button>
+                    <button type="submit" name="admission" value="" class="admission__clear"{% if not s.admission %} hidden{% endif %}>Снять отметку</button>
                   </form>
                 {% elif s.admission %}
                   <span class="chip {% if s.admission == 'admitted' %}chip--free{% else %}chip--full{% endif %}">{{ s.get_admission_display }}</span>
@@ -72,4 +74,5 @@
     <div class="card empty">В этой секции пока нет работ.</div>
   {% endif %}
 </div>
+<script src="{% static 'conference/office.js' %}" defer></script>
 {% endblock %}
