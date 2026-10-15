@@ -9,10 +9,11 @@ import zipfile
 from io import BytesIO
 from pathlib import Path
 
+from django.http import StreamingHttpResponse
 from django.utils import timezone
+from django.utils.http import content_disposition_header
 from docx import Document
 from docx.enum.section import WD_ORIENT
-from docx.oxml import OxmlElement
 from docx.shared import Cm, Pt
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
@@ -175,274 +176,7 @@ def build_reviewer_workbook(groups):
     return _save(wb)
 
 
-# Этапы 1 и 2: таблицы учеников в формате рабочих документов оргкомитета.
-STUDENT_HEADERS = ["№", "Секция", "ФИО", "Кл.", "ОУ", "Название работы", "Руководитель", "Дата подачи, e-mail"]
-STUDENT_WIDTHS = [5, 28, 28, 6, 45, 45, 26, 28]
-STUDENT_DOCX_WIDTHS = [1, 3.6, 3.6, 1, 5.5, 5.5, 3.6, 3.6]
-
-ADMITTED_HEADERS = STUDENT_HEADERS[:-1]
-ADMITTED_WIDTHS = STUDENT_WIDTHS[:-1]
-ADMITTED_DOCX_WIDTHS = [1, 3.6, 3.8, 1, 6.2, 6.2, 4]
-
-# Этап 3: по образцу списка оргкомитета — строка на работу, соавторы через запятую.
-WINNERS_HEADERS = ["№", "ФИО", "Название работы", "Секция", "ОУ", "Статус"]
-WINNERS_WIDTHS = [5, 28, 40, 28, 50, 26]
-WINNERS_DOCX_WIDTHS = [1, 4, 5.5, 4, 7.5, 4.5]
 FONT_DIR = Path(__file__).resolve().parent / "fonts"
-
-
-def _student_rows(groups, contact):
-    """Строка на каждого ученика: у работы с соавтором две строки."""
-    rows = []
-    for section, number in groups:
-        for s in group_submissions(section, number):
-            if not contact and s.admission != Submission.Admission.ADMITTED:
-                continue
-            supervisor = s.supervisor + (f"\n{s.supervisor2}" if s.supervisor2 else "")
-            people = [(s.full_name, s.grade)]
-            if s.coauthor_last_name:
-                people.append((f"{s.coauthor_last_name} {s.coauthor_first_name}", s.coauthor_grade))
-            for name, grade in people:
-                row = [len(rows) + 1, s.section_label, name, grade, s.school, s.title, supervisor]
-                if contact:
-                    row.append(f"{timezone.localtime(s.created_at):%d.%m.%Y}\n{s.email}")
-                rows.append(row)
-    return rows
-
-
-def student_rows():
-    """Этап 1: все ученики; секции — в порядке направлений."""
-    return _student_rows(all_groups(), contact=True)
-
-
-def admitted_rows():
-    """Этап 2: ученики допущенных работ; секции — по алфавиту."""
-    groups = sorted(all_groups(), key=lambda g: g[0].group_label(g[1]).casefold())
-    return _student_rows(groups, contact=False)
-
-
-def admitted_title():
-    conf = ConferenceSettings.load()
-    return f"Список участников, допущенных ко 2 этапу {conf.full_name} школьников «Эврика» в {conf.year} году"
-
-
-def winners_title():
-    return f"Победители и призеры {ConferenceSettings.load().full_name} «Эврика»"
-
-
-def winners_rows():
-    """Этап 3: работы с местом или номинацией; секции по алфавиту, внутри — места, затем номинации."""
-    works = Submission.objects.exclude(award="").select_related("section")
-    works = sorted(works, key=lambda s: (s.section_label.casefold(), AWARD_ORDER.index(s.award), s.last_name, s.pk))
-    rows = []
-    for s in works:
-        names = s.full_name + (f",\n{s.coauthor_last_name} {s.coauthor_first_name}" if s.coauthor_last_name else "")
-        rows.append([len(rows) + 1, names, s.title, s.section_label, s.school, s.get_award_display()])
-    return rows
-
-
-def _table_workbook(sheet_title, headers, widths, rows, title=None):
-    wb = Workbook()
-    ws = wb.active
-    ws.title = sheet_title
-    header_row = 1
-    if title:
-        ws.append([title])
-        ws["A1"].font = TITLE_FONT
-        header_row = 3
-        ws.append([])
-    ws.append(headers)
-    for cell in ws[header_row]:
-        cell.font, cell.fill = BOLD, HEADER_FILL
-    for row in rows:
-        ws.append(row)
-    for col, width in enumerate(widths, start=1):
-        ws.column_dimensions[get_column_letter(col)].width = width
-    for row in ws.iter_rows(min_row=header_row):
-        for cell in row:
-            cell.alignment = Alignment(wrap_text=True, vertical="top")
-    ws.freeze_panes = f"A{header_row + 1}"
-    if rows:
-        ws.auto_filter.ref = f"A{header_row}:{get_column_letter(len(headers))}{ws.max_row}"
-    return _save(wb)
-
-
-def _table_docx(title, headers, widths_cm, rows, note=None, subtitle=None):
-    doc = Document()
-    page = doc.sections[0]
-    page.orientation = WD_ORIENT.LANDSCAPE
-    page.page_width, page.page_height = page.page_height, page.page_width
-    for side in ("left_margin", "right_margin", "top_margin", "bottom_margin"):
-        setattr(page, side, Cm(1.5))
-    normal = doc.styles["Normal"]
-    normal.font.name = "Times New Roman"
-    normal.font.size = Pt(10)
-
-    if subtitle:
-        doc.add_paragraph(subtitle).runs[0].italic = True
-    heading = doc.add_heading(title, level=1)
-    if note:
-        doc.add_paragraph(note)
-    table = doc.add_table(rows=1, cols=len(headers))
-    table.style = "Table Grid"
-    for cell, text in zip(table.rows[0].cells, headers):
-        cell.text = text
-        cell.paragraphs[0].runs[0].bold = True
-    for row in rows:
-        for cell, value in zip(table.add_row().cells, row):
-            cell.text = str(value)
-    for row in table.rows:
-        for cell, width in zip(row.cells, widths_cm):
-            cell.width = Cm(width)
-    # Шапка таблицы повторяется на каждой странице.
-    table.rows[0]._tr.get_or_add_trPr().append(OxmlElement("w:tblHeader"))
-    buffer = BytesIO()
-    doc.save(buffer)
-    return buffer.getvalue()
-
-
-def build_students_workbook():
-    title = f"Список учеников по секциям. {ConferenceSettings.load().official_title}"
-    return _table_workbook("Все ученики", STUDENT_HEADERS, STUDENT_WIDTHS, student_rows(), title=title)
-
-
-def build_students_docx():
-    rows = student_rows()
-    return _table_docx(
-        "Список учеников по секциям", STUDENT_HEADERS, STUDENT_DOCX_WIDTHS, rows,
-        note=f"Учеников: {len(rows)}", subtitle=ConferenceSettings.load().official_title,
-    )
-
-
-def build_admitted_workbook():
-    return _table_workbook("Допущенные", ADMITTED_HEADERS, ADMITTED_WIDTHS, admitted_rows(), title=admitted_title())
-
-
-def build_admitted_docx():
-    return _table_docx(admitted_title(), ADMITTED_HEADERS, ADMITTED_DOCX_WIDTHS, admitted_rows())
-
-
-def build_admitted_pdf():
-    return _table_pdf(admitted_title(), ADMITTED_HEADERS, ADMITTED_DOCX_WIDTHS, admitted_rows())
-
-
-def build_winners_workbook():
-    return _table_workbook("Победители и призёры", WINNERS_HEADERS, WINNERS_WIDTHS, winners_rows(), title=winners_title())
-
-
-def build_winners_docx():
-    return _table_docx(winners_title(), WINNERS_HEADERS, WINNERS_DOCX_WIDTHS, winners_rows())
-
-
-def build_winners_pdf():
-    return _table_pdf(winners_title(), WINNERS_HEADERS, WINNERS_DOCX_WIDTHS, winners_rows())
-
-
-def _table_pdf(heading, headers, widths_cm, rows):
-    from reportlab.lib import colors
-    from reportlab.lib.enums import TA_CENTER
-    from reportlab.lib.pagesizes import A4, landscape
-    from reportlab.lib.styles import ParagraphStyle
-    from reportlab.lib.units import cm
-    from reportlab.pdfbase import pdfmetrics
-    from reportlab.pdfbase.ttfonts import TTFont
-    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
-    from xml.sax.saxutils import escape
-
-    if "EurekaSerif" not in pdfmetrics.getRegisteredFontNames():
-        pdfmetrics.registerFont(TTFont("EurekaSerif", str(FONT_DIR / "DejaVuSerifCondensed.ttf")))
-        pdfmetrics.registerFont(TTFont("EurekaSerif-Bold", str(FONT_DIR / "DejaVuSerifCondensed-Bold.ttf")))
-        pdfmetrics.registerFontFamily("EurekaSerif", normal="EurekaSerif", bold="EurekaSerif-Bold")
-
-    cell = ParagraphStyle("cell", fontName="EurekaSerif", fontSize=8.5, leading=10.5)
-    head = ParagraphStyle("head", parent=cell, fontName="EurekaSerif-Bold")
-    title = ParagraphStyle("title", parent=cell, fontName="EurekaSerif-Bold", fontSize=13, leading=17, alignment=TA_CENTER)
-
-    def para(value, style=cell):
-        return Paragraph(escape(str(value)).replace("\n", "<br/>"), style)
-
-    data = [[para(h, head) for h in headers]]
-    data += [[para(v) for v in row] for row in rows]
-    widths = [w * cm for w in widths_cm]
-    table = Table(data, colWidths=widths, repeatRows=1)
-    table.setStyle(TableStyle([
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#FFF3B0")),
-    ]))
-    buffer = BytesIO()
-    pdf = SimpleDocTemplate(
-        buffer, pagesize=landscape(A4), leftMargin=1.5 * cm, rightMargin=1.5 * cm,
-        topMargin=1.5 * cm, bottomMargin=1.5 * cm, title=heading,
-    )
-    pdf.build([Paragraph(escape(heading), title), Spacer(1, 0.4 * cm), table])
-    return buffer.getvalue()
-
-
-# Настраиваемая выгрузка: оргкомитет сам выбирает поля, секции, допуск и формат.
-# (ключ, название столбца, ширина в Excel, значение из заявки, по умолчанию отмечено)
-CUSTOM_FIELDS = [
-    ("number", "№ п/п", 5, None, True),
-    ("app_number", "Номер заявки", 10, lambda s: s.number, False),
-    ("section", "Секция", 28, lambda s: s.section_label, True),
-    ("name", "ФИО", 28, lambda s: s.full_name, True),
-    ("grade", "Класс", 7, lambda s: s.grade, True),
-    ("coauthor", "Соавтор", 28, lambda s: s.coauthor, False),
-    ("school", "Образовательная организация", 45, lambda s: s.school, True),
-    ("district", "Муниципальный район", 24, lambda s: s.district, False),
-    ("title", "Название работы", 45, lambda s: s.title, True),
-    ("supervisor", "Руководитель", 26, lambda s: s.supervisor, True),
-    ("supervisor_position", "Должность руководителя", 24, lambda s: s.supervisor_position, False),
-    ("supervisor_phone", "Телефон руководителя", 18, lambda s: s.supervisor_phone, False),
-    ("supervisor2", "Второй руководитель", 26, lambda s: s.supervisor2, False),
-    ("email", "Почта участника", 26, lambda s: s.email, False),
-    ("created", "Дата подачи", 12, lambda s: f"{timezone.localtime(s.created_at):%d.%m.%Y}", False),
-    ("admission", "Допуск ко 2 этапу", 16, lambda s: s.get_admission_display(), False),
-    ("award", "Итог", 26, lambda s: s.get_award_display() if s.award else "", False),
-]
-CUSTOM_FIELD_KEYS = [f[0] for f in CUSTOM_FIELDS]
-CUSTOM_FORMATS = {"word": "Word", "excel": "Excel", "pdf": "PDF"}
-CUSTOM_PAGE_CM = 26.7  # ширина альбомной страницы A4 за вычетом полей
-
-
-def custom_rows(keys, groups, admissions, per_student):
-    """Строки выгрузки. admissions — допустимые значения допуска; per_student — строка на ученика, а не на работу."""
-    fields = [f for f in CUSTOM_FIELDS if f[0] in keys]
-    rows = []
-    for section, number in groups:
-        for s in group_submissions(section, number):
-            if s.admission not in admissions:
-                continue
-            people = [(s.full_name, s.grade)]
-            if per_student and s.coauthor_last_name:
-                people.append((f"{s.coauthor_last_name} {s.coauthor_first_name}", s.coauthor_grade))
-            for name, grade in people:
-                row = []
-                for key, _, _, get, _ in fields:
-                    if key == "number":
-                        row.append(len(rows) + 1)
-                    elif key == "name":
-                        row.append(name)
-                    elif key == "grade":
-                        row.append(grade)
-                    elif key == "coauthor" and per_student:
-                        row.append("")
-                    else:
-                        row.append(get(s))
-                rows.append(row)
-    return fields, rows
-
-
-def build_custom(fmt, keys, groups, admissions, per_student, title):
-    fields, rows = custom_rows(keys, groups, admissions, per_student)
-    headers = [f[1] for f in fields]
-    widths = [f[2] for f in fields]
-    cm_widths = [w / sum(widths) * CUSTOM_PAGE_CM for w in widths]
-    if fmt == "excel":
-        return _table_workbook("Выгрузка", headers, widths, rows, title=title or None)
-    if fmt == "word":
-        return _table_docx(title or "Выгрузка", headers, cm_widths, rows, note=f"Строк: {len(rows)}")
-    return _table_pdf(title or "Выгрузка", headers, cm_widths, rows)
 
 
 def build_sections_docx(groups=None):
@@ -549,3 +283,9 @@ def archive_filename(groups):
         section, number = groups[0]
         return f"Эврика — {_clean_name(section.group_label(number), 90)}.zip"
     return f"Эврика — все работы {timezone.localdate():%d.%m.%Y}.zip"
+
+
+def archive_response(groups):
+    response = StreamingHttpResponse(stream_archive(groups), content_type="application/zip")
+    response["Content-Disposition"] = content_disposition_header(True, archive_filename(groups))
+    return response

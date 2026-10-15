@@ -651,3 +651,20 @@ fieldset.card > legend + * { clear: both; }
 .custom__title { display: grid; gap: 4px; font-weight: 700; }
 .custom__title input { padding: 10px 12px; border: 2px solid var(--ink); border-radius: 10px; font: inherit; }
 .custom__form .btn { justify-self: start; }
+
+/* Кабинет: страница секции — больше места под данные, решение компактно */
+.office .container--wide { max-width: 1680px; }
+.people--section { font-size: .92rem; }
+.people--section th, .people--section td { padding: 8px 10px; }
+.people--section td:nth-child(5), .people--section td:nth-child(6), .people--section td:nth-child(7) { min-width: 190px; }
+.people__snils { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.people--section td:nth-child(4) { text-align: center; }
+.people__actions-head, .people__actions { width: 210px; }
+.people__actions { display: grid; gap: 6px; align-content: start; }
+.people__row2 { display: flex; align-items: center; gap: 6px; }
+.people__row2 .award { flex: 1; min-width: 0; }
+.people__row2 .award__select { width: 100%; }
+.people__download { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border: 2px solid var(--ink); border-radius: 8px; background: var(--yellow, #ffd84d); color: var(--ink); text-decoration: none; font-weight: 800; line-height: 1; }
+.people__download:hover { background: var(--tint-yellow); }
+.log-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0 0 12px; }
+.log__when { white-space: nowrap; color: var(--muted); }

@@ -1,0 +1,44 @@
+{% extends "conference/office/base.html" %}
+
+{% block title %}Журнал действий — кабинет оргкомитета{% endblock %}
+
+{% block content %}
+<div class="container">
+  <a class="back" href="{% if submission %}{% url 'conference:office_submission' submission.pk %}{% else %}{% url 'conference:office' %}{% endif %}">← {% if submission %}{{ submission.full_name }}{% else %}Все секции{% endif %}</a>
+  <h1 class="office-h1">Журнал действий{% if submission %}: заявка {{ submission.number }}{% endif %}</h1>
+
+  <form method="get" class="log-filter">
+    {% if submission %}<input type="hidden" name="s" value="{{ submission.pk }}">{% endif %}
+    <label>Показать:
+      <select name="action" onchange="this.form.submit()">
+        <option value="">всё</option>
+        {% for value, label in actions %}<option value="{{ value }}"{% if action == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+    <noscript><button type="submit" class="btn btn--sm">Показать</button></noscript>
+    {% if submission %}<a href="{% url 'conference:office_log' %}">показать все заявки</a>{% endif %}
+  </form>
+
+  {% if entries %}
+    <div class="table-wrap">
+      <table class="people log">
+        <thead><tr><th>Когда</th><th>Кто</th><th>Заявка</th><th>Действие</th><th>Что изменилось</th></tr></thead>
+        <tbody>
+          {% for e in entries %}
+            <tr>
+              <td class="log__when">{{ e.created_at|date:"d.m.Y H:i" }}</td>
+              <td>{{ e.user_name|default:"—" }}</td>
+              <td>{% if e.submission_id %}<a href="{% url 'conference:office_log' %}?s={{ e.submission_id }}">{{ e.submission_label }}</a>{% else %}{{ e.submission_label|default:"—" }}{% endif %}</td>
+              <td>{{ e.get_action_display }}</td>
+              <td>{{ e.details }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="muted">Показаны последние {{ limit }} записей. Значения персональных данных в журнал не пишутся — только названия изменённых полей.</p>
+  {% else %}
+    <div class="card empty">Записей пока нет.</div>
+  {% endif %}
+</div>
+{% endblock %}

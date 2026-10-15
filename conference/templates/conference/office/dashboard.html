@@ -33,37 +33,31 @@
 
   {% include "conference/office/_search_form.html" %}
 
+  {% if overfull %}
+    <div class="alert alert--error" role="alert">
+      <b>В секциях больше работ, чем мест:</b>
+      {% for g in overfull %}<a href="{% url 'conference:office_section' g.section.pk g.number %}">{{ g.label }} — {{ g.taken }} из {{ g.capacity }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}.
+      Перенесите лишние работы в другие секции (кнопка «изменить / перенести» у работы).
+    </div>
+  {% endif %}
+
   {% for message in messages %}<div class="alert alert--success" role="status">{{ message }}</div>{% endfor %}
 
   <div class="stages">
-    <div class="stage">
-      <h2 class="stage__title"><span class="stage__num">1</span> Все ученики по секциям</h2>
-      <p class="stage__text">Каждый ученик отдельной строкой: секция, ФИО, класс, школа, работа, руководитель, дата и почта.</p>
-      <div class="stage__btns">
-        <a class="btn btn--sm btn--word" href="{% url 'conference:office_students_word' %}">📄 Word</a>
-        <a class="btn btn--sm btn--excel" href="{% url 'conference:office_students_excel' %}">📊 Excel</a>
+    {% for stage in stages %}
+      <div class="stage">
+        <h2 class="stage__title"><span class="stage__num">{{ stage.number }}</span> {{ stage.heading }}</h2>
+        <p class="stage__text">{{ stage.text }}</p>
+        {% if stage.slug == "admitted" %}
+          <p class="stage__text"><b>Допущено: {{ admission.admitted }}</b> · не допущено: {{ admission.not_admitted }} · не решено: {{ admission.pending }}</p>
+        {% elif stage.slug == "winners" %}
+          <p class="stage__text"><b>Отмечено работ: {{ awarded }}</b></p>
+        {% endif %}
+        <div class="stage__btns">
+          {% for link in stage.links %}<a class="btn btn--sm {{ link.css }}" href="{{ link.url }}">{{ link.icon }} {{ link.label }}</a>{% endfor %}
+        </div>
       </div>
-    </div>
-    <div class="stage">
-      <h2 class="stage__title"><span class="stage__num">2</span> Допущенные ко 2 этапу</h2>
-      <p class="stage__text">Участники допущенных работ, секции по алфавиту. Допуск отмечают на странице секции после закрытия приёма.</p>
-      <p class="stage__text"><b>Допущено: {{ admission.admitted }}</b> · не допущено: {{ admission.not_admitted }} · не решено: {{ admission.pending }}</p>
-      <div class="stage__btns">
-        <a class="btn btn--sm btn--word" href="{% url 'conference:office_admitted_word' %}">📄 Word</a>
-        <a class="btn btn--sm btn--excel" href="{% url 'conference:office_admitted_excel' %}">📊 Excel</a>
-        <a class="btn btn--sm btn--zip" href="{% url 'conference:office_admitted_pdf' %}">📕 PDF</a>
-      </div>
-    </div>
-    <div class="stage">
-      <h2 class="stage__title"><span class="stage__num">3</span> Победители и призёры</h2>
-      <p class="stage__text">Места 1–3 и номинации по итогам конференции. Ставят на странице секции в столбце «Итог».</p>
-      <p class="stage__text"><b>Отмечено работ: {{ awarded }}</b></p>
-      <div class="stage__btns">
-        <a class="btn btn--sm btn--word" href="{% url 'conference:office_winners_word' %}">📄 Word</a>
-        <a class="btn btn--sm btn--excel" href="{% url 'conference:office_winners_excel' %}">📊 Excel</a>
-        <a class="btn btn--sm btn--zip" href="{% url 'conference:office_winners_pdf' %}">📕 PDF</a>
-      </div>
-    </div>
+    {% endfor %}
     {% for n in "4" %}
       <div class="stage stage--empty">
         <h2 class="stage__title"><span class="stage__num">{{ n }}</span> Этап {{ n }}</h2>

@@ -9,7 +9,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
 from .forms import OFFICE_SUBMISSION_FIELDSETS, SUBMISSION_FILE_FIELDS, MoveSubmissionForm, OfficeSubmissionForm
-from .models import Submission
+from .audit import log_action
+from .models import ActionLog, Section, Submission
 from .office import office_required
 
 SEARCH_LIMIT = 50
@@ -62,13 +63,18 @@ def submission_edit(request, pk):
         section, number = move_form.cleaned_data["slot"]
         old_label = submission.section_label
         with transaction.atomic():
-            submission.section, submission.section_number = section, number
-            submission.save(update_fields=["section", "section_number", "updated_at"])
-        taken = section.occupied().get(number, 0)
-        messages.success(request, f"Работа перенесена: {old_label} → {submission.section_label}.")
-        if taken > section.capacity:
-            messages.warning(request, f"В секции «{submission.section_label}» теперь {taken} работ при {section.capacity} местах.")
-        return redirect(url)
+            # Повторная проверка под блокировкой: пока выбирали секцию, место мог занять другой сотрудник или участник.
+            locked = Section.objects.select_for_update().get(pk=section.pk)
+            moved = (section.pk, number) != (submission.section_id, submission.section_number)
+            if moved and not locked.free_places(submission.pk).get(number, 0):
+                move_form.add_error("slot", "Пока вы выбирали, в этой секции закончились места. Выберите другую.")
+            else:
+                submission.section, submission.section_number = section, number
+                submission.save(update_fields=["section", "section_number", "updated_at"])
+                if moved:
+                    log_action(request, ActionLog.Action.MOVE, submission, f"{old_label} → {submission.section_label}")
+                messages.success(request, f"Работа перенесена: {old_label} → {submission.section_label}.")
+                return redirect(url)
 
     if request.method == "POST" and not is_move and form.is_valid():
         try:
@@ -77,6 +83,9 @@ def submission_edit(request, pk):
         except IntegrityError:
             form.add_error("snils", "У участника с этим СНИЛС уже есть работа в этом направлении.")
         else:
+            if form.changed_data:
+                fields = ", ".join(str(form.fields[name].label or name).lower() for name in form.changed_data)
+                log_action(request, ActionLog.Action.EDIT, submission, f"Изменены поля: {fields}")
             messages.success(request, "Данные заявки сохранены.")
             return redirect(url)
 

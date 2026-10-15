@@ -5,7 +5,6 @@
 """
 
 from functools import wraps
-from io import BytesIO
 
 from django.contrib import messages
 from django.contrib.auth import get_user_model, logout, update_session_auth_hash
@@ -13,21 +12,19 @@ from django.contrib.auth import views as auth_views
 from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm, SetPasswordForm
 from django.core.cache import cache
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.http import FileResponse, Http404, JsonResponse, StreamingHttpResponse
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.utils.http import content_disposition_header
 from django.views.decorators.http import require_POST
 
-from . import exports
+from . import export_tables, exports
 from .forms import SETTINGS_BLANK_KINDS, SETTINGS_FIELDSETS, ConferenceSettingsForm
-from .models import AWARD_CHOICES, AWARD_ORDER, ConferenceSettings, ReviewLink, Section, Submission
+from .audit import log_action
+from .models import AWARD_CHOICES, AWARD_ORDER, ActionLog, ConferenceSettings, ReviewLink, Section, Submission
 
 LOGIN_LIMIT = 10
 LOGIN_WINDOW = 15 * 60
-XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 
 def plural(n, one, few, many):
@@ -134,6 +131,23 @@ def _group_info(section, number, taken):
     }
 
 
+FORMAT_BUTTONS = {"word": ("btn--word", "📄"), "excel": ("btn--excel", "📊"), "pdf": ("btn--zip", "📕")}
+
+
+def _stages():
+    """Карточки выгрузок этапов для главной: названия и ссылки берутся из export_tables.PRESETS."""
+    return [
+        {
+            "number": p.stage, "slug": p.slug, "heading": p.heading, "text": p.text,
+            "links": [
+                {"label": label, "url": reverse(f"conference:office_{p.slug}_{fmt}"), "css": FORMAT_BUTTONS[fmt][0], "icon": FORMAT_BUTTONS[fmt][1]}
+                for fmt, label in export_tables.FORMATS.items()
+            ],
+        }
+        for p in export_tables.PRESETS.values()
+    ]
+
+
 @office_required
 def dashboard(request):
     conf = ConferenceSettings.load()
@@ -149,6 +163,7 @@ def dashboard(request):
         })
         capacity += section.capacity * section.groups
         taken_total += sum(taken.values())
+    overfull = [g for d in directions for g in d["groups"] if g["taken"] > g["capacity"]]
     works = Submission.objects.count()
     days_left = None
     if conf.is_submission_open and conf.submissions_deadline:
@@ -158,7 +173,9 @@ def dashboard(request):
         "awarded": Submission.objects.exclude(award="").count(),
         "can_switch_intake": request.user.has_perm("conference.change_conferencesettings"),
         "directions": directions,
-        "custom_fields": [{"key": f[0], "label": f[1], "checked": f[4]} for f in exports.CUSTOM_FIELDS],
+        "stages": _stages(),
+        "overfull": overfull,
+        "custom_fields": [{"key": key, "label": label, "checked": checked} for key, label, checked in export_tables.CUSTOM_FIELDS],
         "works": works,
         "people": sum(s.people for s in Submission.objects.only("coauthor_last_name")),
         "free": max(capacity - taken_total, 0),
@@ -215,10 +232,16 @@ def set_admission(request, pk):
     value = request.POST.get("admission", "")  # пустое значение — «Снять отметку»
     if value not in Submission.Admission.values:
         raise Http404
+    old_admission, old_award = submission.get_admission_display(), submission.get_award_display() if submission.award else ""
     submission.admission = value
     if value != Submission.Admission.ADMITTED:
         submission.award = ""  # место или номинация бывают только у допущенных
     submission.save(update_fields=["admission", "award", "updated_at"])
+    if old_admission != submission.get_admission_display():
+        details = f"Допуск: {old_admission.lower()} → {submission.get_admission_display().lower()}"
+        if old_award and not submission.award:
+            details += f". Итог «{old_award}» снят"
+        log_action(request, ActionLog.Action.ADMISSION, submission, details)
     if request.headers.get("Accept") == "application/json":
         # office.js меняет строку на месте, без перезагрузки и прыжка страницы.
         groups = Submission.objects.filter(section=submission.section, section_number=submission.section_number)
@@ -240,8 +263,11 @@ def set_award(request, pk):
     if submission.admission != Submission.Admission.ADMITTED:
         messages.error(request, "Место или номинацию можно поставить только допущенному ко 2 этапу.")
         return redirect(url)
+    old_award = submission.get_award_display() if submission.award else "нет"
     submission.award = value
     submission.save(update_fields=["award", "updated_at"])
+    if old_award != (submission.get_award_display() if value else "нет"):
+        log_action(request, ActionLog.Action.AWARD, submission, f"Итог: {old_award} → {submission.get_award_display() if value else 'нет'}")
     if request.headers.get("Accept") == "application/json":
         return JsonResponse({"award": value})
     return redirect(f"{url}#s{submission.pk}")
@@ -281,135 +307,8 @@ def switch_intake(request):
         conf.submissions_open = False
         messages.success(request, "Приём работ закрыт. Теперь на страницах секций можно отмечать допуск ко 2 этапу.")
     conf.save()
+    log_action(request, ActionLog.Action.INTAKE, details="Приём работ открыт" if conf.submissions_open else "Приём работ закрыт")
     return redirect("conference:office")
-
-
-# --- Выгрузки ---
-
-
-def _file(data, filename, content_type):
-    return FileResponse(BytesIO(data), as_attachment=True, filename=filename, content_type=content_type)
-
-
-def _today():
-    return f"{timezone.localdate():%d.%m.%Y}"
-
-
-def _groups(pk=None, number=None):
-    if pk is None:
-        return exports.all_groups()
-    return [(_group_or_404(pk, number), number)]
-
-
-def _title(groups):
-    return exports._clean_name(groups[0][0].group_label(groups[0][1]), 90) if len(groups) == 1 else "все секции"
-
-
-@office_required
-def export_word(request, pk=None, number=None):
-    groups = _groups(pk, number)
-    return _file(exports.build_sections_docx(groups), f"Эврика — {_title(groups)} {_today()}.docx", DOCX)
-
-
-@office_required
-def export_excel(request, pk=None, number=None):
-    groups = _groups(pk, number)
-    return _file(exports.build_sections_workbook(groups), f"Эврика — {_title(groups)} {_today()}.xlsx", XLSX)
-
-
-@office_required
-def export_participants(request):
-    return _file(exports.build_participants_workbook(), f"Эврика — все участники {_today()}.xlsx", XLSX)
-
-
-@office_required
-def export_students_excel(request):
-    return _file(exports.build_students_workbook(), f"Эврика — все ученики по секциям {_today()}.xlsx", XLSX)
-
-
-@office_required
-def export_students_word(request):
-    return _file(exports.build_students_docx(), f"Эврика — все ученики по секциям {_today()}.docx", DOCX)
-
-
-@office_required
-def export_admitted_word(request):
-    return _file(exports.build_admitted_docx(), f"Эврика — допущенные ко 2 этапу {_today()}.docx", DOCX)
-
-
-@office_required
-def export_admitted_excel(request):
-    return _file(exports.build_admitted_workbook(), f"Эврика — допущенные ко 2 этапу {_today()}.xlsx", XLSX)
-
-
-@office_required
-def export_winners_word(request):
-    return _file(exports.build_winners_docx(), f"Эврика — победители и призёры {_today()}.docx", DOCX)
-
-
-@office_required
-def export_winners_excel(request):
-    return _file(exports.build_winners_workbook(), f"Эврика — победители и призёры {_today()}.xlsx", XLSX)
-
-
-@office_required
-def export_winners_pdf(request):
-    return _file(exports.build_winners_pdf(), f"Эврика — победители и призёры {_today()}.pdf", "application/pdf")
-
-
-@office_required
-def export_admitted_pdf(request):
-    return _file(exports.build_admitted_pdf(), f"Эврика — допущенные ко 2 этапу {_today()}.pdf", "application/pdf")
-
-
-def _archive_response(groups):
-    response = StreamingHttpResponse(exports.stream_archive(groups), content_type="application/zip")
-    response["Content-Disposition"] = content_disposition_header(True, exports.archive_filename(groups))
-    return response
-
-
-@office_required
-def export_archive(request, pk=None, number=None):
-    return _archive_response(_groups(pk, number))
-
-
-CUSTOM_CONTENT_TYPES = {"word": DOCX, "excel": XLSX, "pdf": "application/pdf"}
-CUSTOM_EXTENSIONS = {"word": "docx", "excel": "xlsx", "pdf": "pdf"}
-CUSTOM_ADMISSIONS = {
-    "admitted": Submission.Admission.ADMITTED,
-    "not_admitted": Submission.Admission.NOT_ADMITTED,
-    "pending": Submission.Admission.PENDING,
-}
-
-
-@office_required
-def export_custom(request):
-    """Настраиваемая выгрузка: поля, секции, допуск, строка на работу или на ученика, формат."""
-    params = request.GET
-    fmt = params.get("format", "excel")
-    keys = [k for k in params.getlist("field") if k in exports.CUSTOM_FIELD_KEYS]
-    admissions = [CUSTOM_ADMISSIONS[k] for k in params.getlist("admission") if k in CUSTOM_ADMISSIONS]
-    chosen = set(params.getlist("group"))
-    groups = [(s, n) for s, n in exports.all_groups() if f"{s.pk}:{n}" in chosen]
-    problem = None
-    if fmt not in CUSTOM_CONTENT_TYPES:
-        problem = "Выберите формат файла."
-    elif not keys:
-        problem = "Отметьте хотя бы одно поле."
-    elif not groups:
-        problem = "Отметьте хотя бы одну секцию."
-    elif not admissions:
-        problem = "Отметьте, какие работы включить: допущенные, не допущенные или не рассмотренные."
-    if problem:
-        messages.error(request, problem)
-        return redirect(f"{reverse('conference:office')}#custom-export")
-    if params.get("sort") == "alpha":
-        groups.sort(key=lambda g: g[0].group_label(g[1]).casefold())
-    data = exports.build_custom(
-        fmt, keys, groups, admissions, params.get("rows") == "student", params.get("title", "").strip()[:200]
-    )
-    filename = f"Эврика — выгрузка {_today()}.{CUSTOM_EXTENSIONS[fmt]}"
-    return _file(data, filename, CUSTOM_CONTENT_TYPES[fmt])
 
 
 # --- Ссылки для проверяющих ---
@@ -478,7 +377,7 @@ def review_download(request, token):
     link = ReviewLink.objects.filter(token=token).select_related("section").first()
     if not link or not link.is_valid:
         raise Http404
-    return _archive_response(link.groups())
+    return exports.archive_response(link.groups())
 
 
 # --- Пароли ---

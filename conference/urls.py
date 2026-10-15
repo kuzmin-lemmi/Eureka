@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import office, office_site, office_submissions, views
+from . import export_tables, office, office_exports, office_log, office_site, office_submissions, views
 
 app_name = "conference"
 
@@ -21,6 +21,7 @@ urlpatterns = [
     path("office/staff/", office.staff_list, name="office_staff"),
     path("office/staff/<int:pk>/password/", office.staff_password, name="office_staff_password"),
     path("office/section/<int:pk>/<int:number>/", office.section_detail, name="office_section"),
+    path("office/log/", office_log.log_list, name="office_log"),
     path("office/search/", office_submissions.search, name="office_search"),
     path("office/submission/<int:pk>/", office_submissions.submission_edit, name="office_submission"),
     path("office/submission/<int:pk>/admission/", office.set_admission, name="office_admission"),
@@ -31,22 +32,19 @@ urlpatterns = [
     path("office/site/<slug:kind>/<int:pk>/", office_site.site_edit, name="office_site_edit"),
     path("office/site/<slug:kind>/<int:pk>/delete/", office_site.site_delete, name="office_site_delete"),
     path("office/intake/", office.switch_intake, name="office_intake"),
-    path("office/export/word/", office.export_word, name="office_word"),
-    path("office/export/excel/", office.export_excel, name="office_excel"),
-    path("office/export/participants/", office.export_participants, name="office_participants"),
-    path("office/export/students-excel/", office.export_students_excel, name="office_students_excel"),
-    path("office/export/students-word/", office.export_students_word, name="office_students_word"),
-    path("office/export/admitted-word/", office.export_admitted_word, name="office_admitted_word"),
-    path("office/export/admitted-excel/", office.export_admitted_excel, name="office_admitted_excel"),
-    path("office/export/admitted-pdf/", office.export_admitted_pdf, name="office_admitted_pdf"),
-    path("office/export/winners-word/", office.export_winners_word, name="office_winners_word"),
-    path("office/export/winners-excel/", office.export_winners_excel, name="office_winners_excel"),
-    path("office/export/winners-pdf/", office.export_winners_pdf, name="office_winners_pdf"),
-    path("office/export/custom/", office.export_custom, name="office_custom"),
-    path("office/export/archive/", office.export_archive, name="office_archive"),
-    path("office/section/<int:pk>/<int:number>/word/", office.export_word, name="office_section_word"),
-    path("office/section/<int:pk>/<int:number>/excel/", office.export_excel, name="office_section_excel"),
-    path("office/section/<int:pk>/<int:number>/archive/", office.export_archive, name="office_section_archive"),
+    path("office/export/word/", office_exports.export_word, name="office_word"),
+    path("office/export/excel/", office_exports.export_excel, name="office_excel"),
+    path("office/export/participants/", office_exports.export_participants, name="office_participants"),
+    path("office/export/archive/", office_exports.export_archive, name="office_archive"),
+    path("office/export/custom/", office_exports.export_custom, name="office_custom"),
+    path("office/section/<int:pk>/<int:number>/word/", office_exports.export_word, name="office_section_word"),
+    path("office/section/<int:pk>/<int:number>/excel/", office_exports.export_excel, name="office_section_excel"),
+    path("office/section/<int:pk>/<int:number>/archive/", office_exports.export_archive, name="office_section_archive"),
+    *[
+        path(f"office/export/{slug}-{fmt}/", office_exports.export_preset, {"slug": slug, "fmt": fmt}, name=f"office_{slug}_{fmt}")
+        for slug in export_tables.PRESETS
+        for fmt in export_tables.FORMATS
+    ],
     path("office/links/new/", office.link_create, name="office_link_create"),
     path("office/links/<int:pk>/", office.link_detail, name="office_link"),
     path("office/links/<int:pk>/disable/", office.link_disable, name="office_link_disable"),

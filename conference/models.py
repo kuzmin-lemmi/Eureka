@@ -2,6 +2,7 @@ import uuid
 from datetime import timedelta
 from pathlib import Path
 
+from django.core.exceptions import ValidationError
 from django.core.validators import FileExtensionValidator, MaxValueValidator, MinValueValidator
 from django.db import models, transaction
 from django.db.models.signals import post_delete
@@ -170,6 +171,19 @@ class Section(models.Model):
     def __str__(self):
         return self.name
 
+    def clean(self):
+        super().clean()
+        if not self.pk:
+            return
+        old = Section.objects.filter(pk=self.pk).values("capacity", "groups").first()
+        if not old:
+            return
+        taken = self.occupied()
+        if self.capacity < old["capacity"] and max(taken.values(), default=0) > self.capacity:
+            raise ValidationError({"capacity": f"В одной из секций уже {max(taken.values())} работ — мест не может быть меньше."})
+        if self.groups < old["groups"] and any(n > self.groups and count for n, count in taken.items()):
+            raise ValidationError({"groups": "В убираемых секциях уже есть работы. Сначала перенесите их."})
+
     def group_label(self, number):
         return f"{self.name} {number}" if self.groups > 1 else self.name
 
@@ -319,6 +333,18 @@ class Submission(models.Model):
 
     def __str__(self):
         return f"{self.number} {self.full_name} — {self.title}"
+
+    def clean(self):
+        super().clean()
+        if not self.section_id:
+            return
+        if not 1 <= self.section_number <= self.section.groups:
+            raise ValidationError({"section_number": f"В направлении «{self.section}» секций: {self.section.groups}."})
+        old = Submission.objects.filter(pk=self.pk).values_list("section_id", "section_number").first() if self.pk else None
+        if old == (self.section_id, self.section_number):
+            return  # секция не меняется: уже занятое место не отнимаем
+        if not self.section.free_places(self.pk).get(self.section_number, 0):
+            raise ValidationError(f"В секции «{self.section.group_label(self.section_number)}» нет свободных мест.")
 
     @property
     def number(self):
@@ -571,3 +597,33 @@ def delete_document_file(sender, instance, **kwargs):
 def delete_submission_files(sender, instance, **kwargs):
     """Файлы удалённой заявки (участником, в админке или командой) убираем с диска после записи в базу."""
     transaction.on_commit(instance.delete_files)
+
+
+class ActionLog(models.Model):
+    """Журнал действий оргкомитета: кто и когда поменял допуск, итог, секцию. Персональные данные сюда не пишем."""
+
+    class Action(models.TextChoices):
+        ADMISSION = "admission", "Допуск"
+        AWARD = "award", "Итог"
+        MOVE = "move", "Перенос в другую секцию"
+        EDIT = "edit", "Правка заявки"
+        INTAKE = "intake", "Приём работ"
+
+    created_at = models.DateTimeField("когда", auto_now_add=True)
+    user = models.ForeignKey("auth.User", on_delete=models.SET_NULL, null=True, blank=True, verbose_name="кто")
+    user_name = models.CharField("имя сотрудника", max_length=150, blank=True)
+    action = models.CharField("действие", max_length=12, choices=Action)
+    submission = models.ForeignKey(
+        Submission, on_delete=models.SET_NULL, null=True, blank=True, related_name="log", verbose_name="заявка"
+    )
+    submission_label = models.CharField("заявка (на момент действия)", max_length=300, blank=True)
+    details = models.TextField("что изменилось", blank=True)
+
+    class Meta:
+        verbose_name = "запись журнала"
+        verbose_name_plural = "журнал действий"
+        ordering = ["-created_at", "-pk"]
+        indexes = [models.Index(fields=["submission", "-created_at"])]
+
+    def __str__(self):
+        return f"{self.created_at:%d.%m.%Y %H:%M} {self.user_name}: {self.get_action_display()}"

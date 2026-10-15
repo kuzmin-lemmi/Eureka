@@ -707,7 +707,7 @@ class SectionsExportTests(TestCase):
         for n in range(1, 5):
             self.assertContains(page, f"Этап {n}")
 
-        response = self.client.get(reverse("admin:conference_submission_students_excel"))
+        response = self.client.get(reverse("conference:office_students_excel"))
         ws = load_workbook(BytesIO(b"".join(response.streaming_content))).active
         title, _, *rows = list(ws.values)
         self.assertEqual(title[0], "Список учеников по секциям. XII межрегиональная научно-практическая конференция школьников «Эврика», 2027")
@@ -719,13 +719,13 @@ class SectionsExportTests(TestCase):
         conf = ConferenceSettings.load()
         conf.edition, conf.year = "XIII", 2028
         conf.save()
-        response = self.client.get(reverse("admin:conference_submission_students_word"))
+        response = self.client.get(reverse("conference:office_students_word"))
         self.assertIn("XIII межрегиональная", Docx(BytesIO(b"".join(response.streaming_content))).paragraphs[0].text)
         response = self.client.get(reverse("admin:conference_submission_export_sections"))
         sheet = load_workbook(BytesIO(b"".join(response.streaming_content))).worksheets[1]
         self.assertTrue(sheet["A2"].value.startswith("XIII межрегиональная научно-практическая конференция школьников «Эврика», 2028"))
 
-        response = self.client.get(reverse("admin:conference_submission_students_word"))
+        response = self.client.get(reverse("conference:office_students_word"))
         doc = Docx(BytesIO(b"".join(response.streaming_content)))
         self.assertEqual(len(doc.tables[0].rows), 1 + 4)
 
@@ -1079,13 +1079,16 @@ class OfficeTests(TestCase):
         submission.refresh_from_db()
         self.assertEqual((submission.section, submission.section_number), (self.other, 1))
 
-        # Переполненная секция: переносим, но предупреждаем.
+        # Секция заполнена: перенести нельзя, место не создаётся.
         self.other.capacity = 1
         self.other.save()
         Submission.objects.filter(last_name="Фамилия2").update(section=self.other, section_number=1)
-        response = self.client.post(reverse("conference:office_submission", args=[Submission.objects.get(last_name="Фамилия1").pk]),
+        mover = Submission.objects.get(last_name="Фамилия1")
+        response = self.client.post(reverse("conference:office_submission", args=[mover.pk]),
                                     {"action": "move", "slot": f"{self.other.pk}:1"}, follow=True)
-        self.assertContains(response, "теперь 3 работ при 1 местах")
+        self.assertContains(response, "нет свободных мест")
+        mover.refresh_from_db()
+        self.assertNotEqual(mover.section, self.other)
 
         data = {name: value for name, value in page.context["form"].initial.items()
                 if value is not None and name not in ("file", "application_file", "consent_file")}
@@ -1230,6 +1233,50 @@ class OfficeTests(TestCase):
         response = self.client.get(reverse("conference:office_custom"), {"field": "name"})
         self.assertEqual(response.status_code, 302)
         self.assertIn("login", response["Location"])
+
+    def test_action_log_records_decisions_and_moves(self):
+        from conference.models import ActionLog
+
+        self.client.force_login(self.organizer)
+        Submission.objects.update(admission="")
+        conf = ConferenceSettings.load()
+        conf.submissions_open = False
+        conf.save()
+        submission = Submission.objects.get(last_name="Фамилия0")
+
+        self.client.post(reverse("conference:office_admission", args=[submission.pk]), {"admission": "admitted"})
+        self.client.post(reverse("conference:office_award", args=[submission.pk]), {"award": "place1"})
+        self.client.post(reverse("conference:office_admission", args=[submission.pk]), {"admission": "not_admitted"})
+        self.client.post(reverse("conference:office_submission", args=[submission.pk]), {"action": "move", "slot": f"{self.other.pk}:1"})
+
+        entries = list(ActionLog.objects.order_by("pk"))
+        self.assertEqual([e.action for e in entries], ["admission", "award", "admission", "move"])
+        self.assertIn("не решено → допущен", entries[0].details)
+        self.assertIn("нет → 1 место", entries[1].details)
+        self.assertIn("Итог «1 место» снят", entries[2].details)
+        self.assertEqual(entries[0].user_name, self.organizer.username)
+
+        page = self.client.get(reverse("conference:office_log"), {"s": submission.pk})
+        self.assertContains(page, "→")
+        self.assertEqual(len(page.context["entries"]), 4)
+
+    def test_model_blocks_full_section_and_lower_capacity(self):
+        from django.core.exceptions import ValidationError
+
+        full = Section.objects.create(name="Полная", capacity=1)
+        first = Submission.objects.get(last_name="Фамилия0")
+        Submission.objects.filter(pk=first.pk).update(section=full, section_number=1)
+        second = Submission.objects.get(last_name="Фамилия1")
+        second.section, second.section_number = full, 1
+        with self.assertRaises(ValidationError):
+            second.clean()
+        first.refresh_from_db()
+        first.clean()  # уже занятое место отнять нельзя
+        full.capacity = 5
+        full.save()
+        full.capacity = 0
+        with self.assertRaises(ValidationError):
+            full.clean()
 
     def test_archive_contains_works_and_list(self):
         import zipfile

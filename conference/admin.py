@@ -9,9 +9,9 @@ from django.urls import path, reverse
 from django.utils import timezone
 from django.utils.html import format_html
 
-from . import exports
+from . import export_tables, exports
 
-from .models import ConferenceSettings, Document, FaqItem, NewsPost, ReviewLink, Section, Submission
+from .models import ActionLog, ConferenceSettings, Document, FaqItem, NewsPost, ReviewLink, Section, Submission
 
 
 @admin.register(ConferenceSettings)
@@ -69,8 +69,6 @@ class SubmissionAdmin(admin.ModelAdmin):
         custom = [
             path("exports/", wrap(self.exports_page), name="conference_submission_exports"),
             path("export-sections/", wrap(self.export_sections), name="conference_submission_export_sections"),
-            path("export/students-excel/", wrap(self.export_students_excel), name="conference_submission_students_excel"),
-            path("export/students-word/", wrap(self.export_students_word), name="conference_submission_students_word"),
         ]
         return [*custom, *super().get_urls()]
 
@@ -83,34 +81,13 @@ class SubmissionAdmin(admin.ModelAdmin):
         self._check_view(request)
         stages = [
             {
-                "title": "Этап 1. Все ученики по секциям",
-                "text": "Строка на каждого ученика (соавтор — отдельной строкой): секция, ФИО, класс, школа, "
-                        "название работы, руководитель, дата подачи и почта. Отклонённые заявки не входят.",
-                "files": [
-                    ("Excel", reverse("admin:conference_submission_students_excel")),
-                    ("Word", reverse("admin:conference_submission_students_word")),
-                ],
-            },
-            {
-                "title": "Этап 2. Допущенные ко 2 этапу",
-                "text": "Участники допущенных работ, секции по алфавиту. Допуск отмечают в кабинете оргкомитета после закрытия приёма.",
-                "files": [
-                    ("Word", reverse("conference:office_admitted_word")),
-                    ("Excel", reverse("conference:office_admitted_excel")),
-                    ("PDF", reverse("conference:office_admitted_pdf")),
-                ],
-            },
-            {
-                "title": "Этап 3. Победители и призёры",
-                "text": "Работы с местом или номинацией: секции по алфавиту, сначала места, затем номинации.",
-                "files": [
-                    ("Word", reverse("conference:office_winners_word")),
-                    ("Excel", reverse("conference:office_winners_excel")),
-                    ("PDF", reverse("conference:office_winners_pdf")),
-                ],
-            },
-            {"title": "Этап 4", "text": "Состав выгрузок будет определён.", "files": []},
+                "title": f"Этап {p.stage}. {p.heading}",
+                "text": p.text,
+                "files": [(label, reverse(f"conference:office_{p.slug}_{fmt}")) for fmt, label in export_tables.FORMATS.items()],
+            }
+            for p in export_tables.PRESETS.values()
         ]
+        stages.append({"title": "Этап 4", "text": "Состав выгрузок будет определён.", "files": []})
         context = {
             **self.admin_site.each_context(request),
             "title": "Выгрузки",
@@ -125,16 +102,6 @@ class SubmissionAdmin(admin.ModelAdmin):
         self._check_view(request)
         filename = f"Эврика — списки секций {timezone.localdate():%d.%m.%Y}.xlsx"
         return FileResponse(BytesIO(exports.build_sections_workbook()), as_attachment=True, filename=filename)
-
-    def export_students_excel(self, request):
-        self._check_view(request)
-        filename = f"Эврика — все ученики по секциям {timezone.localdate():%d.%m.%Y}.xlsx"
-        return FileResponse(BytesIO(exports.build_students_workbook()), as_attachment=True, filename=filename)
-
-    def export_students_word(self, request):
-        self._check_view(request)
-        filename = f"Эврика — все ученики по секциям {timezone.localdate():%d.%m.%Y}.docx"
-        return FileResponse(BytesIO(exports.build_students_docx()), as_attachment=True, filename=filename)
 
     list_display = (
         "number_display",
@@ -284,3 +251,22 @@ class ReviewLinkAdmin(admin.ModelAdmin):
 class FaqItemAdmin(admin.ModelAdmin):
     list_display = ("question", "order", "is_published")
     list_editable = ("order", "is_published")
+
+
+@admin.register(ActionLog)
+class ActionLogAdmin(admin.ModelAdmin):
+    """Журнал действий оргкомитета — только для чтения."""
+
+    list_display = ("created_at", "user_name", "action", "submission_label", "details")
+    list_filter = ("action", "created_at")
+    search_fields = ("user_name", "submission_label", "details")
+    date_hierarchy = "created_at"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

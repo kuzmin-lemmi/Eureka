@@ -645,7 +645,7 @@ class OfficeSubmissionForm(SubmissionChecks, forms.ModelForm):
 
 
 class MoveSubmissionForm(forms.Form):
-    """Перенос работы в другую секцию. Заполненная секция не запрещена — решает оргкомитет."""
+    """Перенос работы в другую секцию. В заполненную секцию перенести нельзя: мест столько, сколько задано."""
 
     slot = forms.ChoiceField(label="Перенести в секцию")
 
@@ -657,6 +657,8 @@ class MoveSubmissionForm(forms.Form):
             taken = section.occupied(exclude=submission.pk)
             for number in range(1, section.groups + 1):
                 label = f"{section.group_label(number)} — занято {taken[number]} из {section.capacity}"
+                if taken[number] >= section.capacity and (section.pk, number) != (submission.section_id, submission.section_number):
+                    label += " — мест нет"
                 if not section.is_active:
                     label += " (скрыта в анкете)"
                 choices.append((f"{section.pk}:{number}", label))
@@ -666,6 +668,12 @@ class MoveSubmissionForm(forms.Form):
     def clean_slot(self):
         section_id, number = (int(part) for part in self.cleaned_data["slot"].split(":"))
         section = Section.objects.get(pk=section_id)
+        if (section_id, number) != (self.submission.section_id, self.submission.section_number) and not section.free_places(
+            self.submission.pk
+        ).get(number, 0):
+            raise forms.ValidationError(
+                f"В секции «{section.group_label(number)}» нет свободных мест. Выберите другую секцию или сначала освободите место."
+            )
         snils = self.submission.snils
         if (
             section_id != self.submission.section_id

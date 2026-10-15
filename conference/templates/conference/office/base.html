@@ -14,6 +14,7 @@
       {% if user.is_authenticated %}
         <div class="office-bar__user">
           <span>{{ user.get_full_name|default:user.username }}</span>
+          <a class="office-bar__link" href="{% url 'conference:office_log' %}">Журнал</a>
           {% if user.is_superuser %}<a class="office-bar__link" href="{% url 'conference:office_staff' %}">Сотрудники</a>{% endif %}
           {% if perms.conference.change_conferencesettings %}<a class="office-bar__link" href="{% url 'conference:office_settings' %}">Настройки сайта</a>
           {% elif perms.conference.view_section %}<a class="office-bar__link" href="{% url 'conference:office_site' 'sections' %}">Настройки сайта</a>{% endif %}
