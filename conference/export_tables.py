@@ -53,11 +53,12 @@ FIELDS = {
     "contact": ("Дата подачи, e-mail", 28, lambda s: f"{timezone.localtime(s.created_at):%d.%m.%Y}\n{s.email}"),
     "admission": ("Допуск ко 2 этапу", 16, lambda s: s.get_admission_display()),
     "award": ("Итог", 26, lambda s: s.get_award_display() if s.award else ""),
-    "snils": ("СНИЛС", 18, lambda s: s.snils),  # только для этапа 4; в «своей выгрузке» не предлагается
+    "snils": ("СНИЛС", 18, lambda s: s.snils),
+    "coauthor_snils": ("СНИЛС соавтора", 18, lambda s: s.coauthor_snils),
 }
 # Поля, которые можно отметить в форме «своей выгрузки», и что отмечено сразу.
 CUSTOM_FIELD_ORDER = [
-    "number", "app_number", "section", "name", "grade", "coauthor", "school", "district", "title", "supervisor",
+    "number", "app_number", "section", "name", "snils", "grade", "coauthor", "coauthor_snils", "school", "district", "title", "supervisor",
     "supervisor_position", "supervisor_phone", "supervisor2", "email", "created", "admission", "award",
 ]
 CUSTOM_DEFAULTS = {"number", "section", "name", "grade", "school", "title", "supervisor"}
@@ -117,8 +118,8 @@ def build_rows(spec, works):
                     row.append(grade)
                 elif key == "snils":
                     row.append(snils)
-                elif key == "coauthor" and spec.per_student:
-                    row.append("")  # соавтор и так отдельной строкой
+                elif key in ("coauthor", "coauthor_snils") and spec.per_student:
+                    row.append("")  # соавтор и так отдельной строкой, со своим СНИЛС
                 else:
                     row.append(get(s))
             rows.append(row)

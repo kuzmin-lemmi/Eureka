@@ -1247,6 +1247,11 @@ class OfficeTests(TestCase):
         self.assertTrue(all(len(r) == 3 for r in rows[3:]))
         self.assertNotIn("Фамилия2 Имя", [r[1] for r in rows[3:]])  # вторая секция не отмечена
 
+        with_snils = self.client.get(url, {**base, "field": ["name", "snils"], "format": "excel"})
+        rows = list(load_workbook(BytesIO(b"".join(with_snils.streaming_content))).active.values)
+        self.assertEqual(rows[0], ("ФИО", "СНИЛС"))
+        self.assertTrue(all(r[1] for r in rows[1:]))
+
         word = self.client.get(url, {**base, "format": "word"})
         self.assertGreater(len(Document(BytesIO(word.getvalue())).tables[0].rows), 1)
         pdf = self.client.get(url, {**base, "format": "pdf"})
