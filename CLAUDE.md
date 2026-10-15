@@ -37,7 +37,8 @@ Django-сайт приёма работ на конференцию школьн
 - `conference/office.py` + `templates/conference/office/` — «Кабинет оргкомитета» (`/office/`): простой интерфейс
   для сотрудников без опыта (вход по ссылке в подвале, заполненность секций, выгрузки, ссылки для проверяющих,
   все настройки конференции — `/office/settings/`, форма `ConferenceSettingsForm`, право `change_conferencesettings`;
-  направления, новости, частые вопросы и документы — `office_site.py`, `/office/site/<sections|news|faq|documents>/`).
+  направления, новости, частые вопросы и документы — `office_site.py`, `/office/site/<sections|news|faq|documents>/`;
+  поиск заявки по СНИЛС/фамилии/номеру, правка данных и перенос в другую секцию — `office_submissions.py`).
   Номер и год конференции (`edition`, `year`) подставляются во все выгрузки через `official_title` / `full_name`.
   Доступ: `is_staff` + право `view_submission` (группа «Оргкомитет»). Крупный шрифт — класс `office` на body.
 - `conference/exports.py` — выгрузки: Excel (секции, все участники, список для проверяющего), Word (python-docx),

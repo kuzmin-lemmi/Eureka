@@ -1,0 +1,39 @@
+{% extends "conference/office/base.html" %}
+
+{% block title %}Поиск заявки — кабинет оргкомитета{% endblock %}
+
+{% block content %}
+<div class="container">
+  <a class="back" href="{% url 'conference:office' %}">← Все секции</a>
+  <h1 class="office-h1">Поиск заявки</h1>
+  {% include "conference/office/_search_form.html" %}
+  <p class="help">СНИЛС ищется и у участника, и у соавтора — можно с дефисами или без. Фамилию можно ввести не полностью.</p>
+
+  {% if query %}
+    {% if results %}
+      <div class="table-wrap">
+        <table class="people">
+          <thead><tr><th>№</th><th>Участник</th><th>Класс</th><th>Школа</th><th>Секция</th><th>Работа</th><th></th></tr></thead>
+          <tbody>
+            {% for s in results %}
+              <tr>
+                <td>{{ s.pk|stringformat:"04d" }}</td>
+                <td><b>{{ s.full_name }}</b><small class="nowrap">СНИЛС {{ s.snils|default:"—" }}</small>{% if s.coauthor %}<small>соавтор: {{ s.coauthor }}{% if s.coauthor_snils %}, <span class="nowrap">СНИЛС {{ s.coauthor_snils }}</span>{% endif %}</small>{% endif %}</td>
+                <td>{{ s.grade }}</td>
+                <td>{{ s.school }}</td>
+                <td><a href="{% url 'conference:office_section' s.section_id s.section_number %}">{{ s.section_label }}</a></td>
+                <td>{{ s.title }}</td>
+                <td>{% if perms.conference.change_submission %}<a class="btn btn--sm" href="{% url 'conference:office_submission' s.pk %}">Открыть</a>{% endif %}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% elif query|length < 2 and not query.isdigit %}
+      <div class="card empty">Введите хотя бы два символа.</div>
+    {% else %}
+      <div class="card empty">Ничего не найдено по запросу «{{ query }}». Проверьте СНИЛС или попробуйте фамилию.</div>
+    {% endif %}
+  {% endif %}
+</div>
+{% endblock %}

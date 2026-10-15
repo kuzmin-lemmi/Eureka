@@ -31,6 +31,8 @@
     </div>
   </div>
 
+  {% include "conference/office/_search_form.html" %}
+
   {% for message in messages %}<div class="alert alert--success" role="status">{{ message }}</div>{% endfor %}
 
   <div class="stages">

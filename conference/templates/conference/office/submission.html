@@ -1,0 +1,43 @@
+{% extends "conference/office/base.html" %}
+
+{% block title %}{{ submission.full_name }} — кабинет оргкомитета{% endblock %}
+
+{% block content %}
+<div class="container settings">
+  <a class="back" href="{{ section_url }}">← {{ submission.section_label }}</a>
+  <h1 class="office-h1">{{ submission.full_name }} <small class="muted">заявка {{ submission.number }}</small></h1>
+
+  {% for message in messages %}<div class="alert alert--{% if message.level_tag == 'warning' or message.level_tag == 'error' %}error{% else %}success{% endif %}" role="status">{{ message }}</div>{% endfor %}
+
+  <form method="post" class="card settings__block move">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="move">
+    <h2>Секция</h2>
+    <p>Сейчас: <b>{{ submission.section_label }}</b></p>
+    {% include "conference/_field.html" with field=move_form.slot %}
+    <button type="submit" class="btn btn--sm">Перенести</button>
+    <p class="help">Допуск ко 2 этапу и итог при переносе сохраняются. Если в секции нет мест, работа всё равно перенесётся — кабинет предупредит.</p>
+  </form>
+
+  {% if form.errors %}<div class="alert alert--error" role="alert">Проверьте поля, отмеченные красным.</div>{% endif %}
+  <form method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+    {% for title, fields in fieldsets %}
+      <fieldset class="card settings__block">
+        <h2>{{ title }}</h2>
+        {% for field, download_url in fields %}
+          {% if field.widget_type == "clearablefile" %}
+            {% include "conference/office/_file_field.html" with field=field download_url=download_url %}
+          {% else %}
+            {% include "conference/_field.html" with field=field %}
+          {% endif %}
+        {% endfor %}
+      </fieldset>
+    {% endfor %}
+    <div class="settings__save">
+      <button type="submit" class="btn btn--lg">Сохранить данные</button>
+      <a href="{{ section_url }}">Отмена</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

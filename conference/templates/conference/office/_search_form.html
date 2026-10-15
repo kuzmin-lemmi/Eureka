@@ -1,0 +1,5 @@
+<form class="office-search" method="get" action="{% url 'conference:office_search' %}" role="search">
+  <label class="visually-hidden" for="office-q">Найти заявку</label>
+  <input id="office-q" type="search" name="q" value="{{ query|default:'' }}" placeholder="СНИЛС, фамилия или номер заявки" autocomplete="off">
+  <button type="submit" class="btn btn--sm">Найти</button>
+</form>

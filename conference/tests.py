@@ -75,7 +75,8 @@ class SubmissionTests(TestCase):
         self.assertTrue(submission.consent_file.name.startswith("documents/"))
 
         thanks = self.client.get(reverse("conference:thanks"))
-        self.assertContains(thanks, submission.number)
+        self.assertContains(thanks, "Работа отправлена!")
+        self.assertNotContains(thanks, submission.number)  # номер — для оргкомитета, ученику не нужен
 
     def test_presentation_rejected(self):
         self.post(file=SimpleUploadedFile("slides.pptx", b"PK"))
@@ -1049,6 +1050,61 @@ class OfficeTests(TestCase):
         self.client.post(reverse("conference:office_site_edit", args=["faq", item.pk]),
                          {"question": item.question, "answer": item.answer, "order": "1"})  # снята галочка
         self.assertNotContains(self.client.get(reverse("conference:home")), "Где пройдёт конференция?")
+
+    def test_office_search_by_snils_surname_and_number(self):
+        self.client.force_login(self.organizer)
+        target = Submission.objects.get(last_name="Фамилия1")
+        digits = target.snils.replace("-", "").replace(" ", "")
+        url = reverse("conference:office_search")
+        self.assertContains(self.client.get(reverse("conference:office")), url)
+        for query in (target.snils, digits, "фамилия1", str(target.pk)):
+            response = self.client.get(url, {"q": query})
+            self.assertEqual(list(response.context["results"]), [target], query)
+        # СНИЛС соавтора находит его работу.
+        Submission.objects.filter(pk=target.pk).update(coauthor_last_name="Соавтор", coauthor_first_name="Ира",
+                                                        coauthor_grade=9, coauthor_snils="112-233-445 95")
+        self.assertEqual(list(self.client.get(url, {"q": "11223344595"}).context["results"]), [target])
+        self.assertContains(self.client.get(url, {"q": "Нетакого"}), "Ничего не найдено")
+
+    def test_office_move_and_edit_submission(self):
+        self.client.force_login(self.organizer)
+        submission = Submission.objects.get(last_name="Фамилия0")  # «Здоровое поколение 1», capacity 3
+        url = reverse("conference:office_submission", args=[submission.pk])
+        page = self.client.get(url)
+        self.assertContains(page, "Здоровое поколение 2 — занято 1 из 3")
+        self.assertContains(page, "Краеведение — занято 0 из 12")
+
+        response = self.client.post(url, {"action": "move", "slot": f"{self.other.pk}:1"})
+        self.assertRedirects(response, url)
+        submission.refresh_from_db()
+        self.assertEqual((submission.section, submission.section_number), (self.other, 1))
+
+        # Переполненная секция: переносим, но предупреждаем.
+        self.other.capacity = 1
+        self.other.save()
+        Submission.objects.filter(last_name="Фамилия2").update(section=self.other, section_number=1)
+        response = self.client.post(reverse("conference:office_submission", args=[Submission.objects.get(last_name="Фамилия1").pk]),
+                                    {"action": "move", "slot": f"{self.other.pk}:1"}, follow=True)
+        self.assertContains(response, "теперь 3 работ при 1 местах")
+
+        data = {name: value for name, value in page.context["form"].initial.items()
+                if value is not None and name not in ("file", "application_file", "consent_file")}
+        data.update(last_name="Иванова", snils="112-233-445 95", school="Лицей № 1")
+        response = self.client.post(url, {**data, "file": SimpleUploadedFile("новая.docx", b"new")})
+        self.assertRedirects(response, url)
+        submission.refresh_from_db()
+        self.assertEqual((submission.last_name, submission.school, submission.original_filename), ("Иванова", "Лицей № 1", "новая.docx"))
+
+        response = self.client.post(url, {**data, "snils": "112-233-445 96"})
+        self.assertContains(response, "опечатка")  # та же проверка СНИЛС, что в анкете
+
+    def test_office_submission_edit_requires_change_permission(self):
+        viewer = User.objects.create_user("viewer", password="Pass-1234!", is_staff=True)
+        viewer.user_permissions.add(Permission.objects.get(codename="view_submission"))
+        self.client.force_login(viewer)
+        submission = Submission.objects.first()
+        self.assertEqual(self.client.get(reverse("conference:office_submission", args=[submission.pk])).status_code, 403)
+        self.assertEqual(self.client.get(reverse("conference:office_search"), {"q": submission.last_name}).status_code, 200)
 
     def test_office_site_pages_require_permissions(self):
         viewer = User.objects.create_user("viewer", password="Pass-1234!", is_staff=True)

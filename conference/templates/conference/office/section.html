@@ -49,7 +49,7 @@
           {% for s in submissions %}
             <tr id="s{{ s.pk }}" class="people__row--{{ s.admission|default:'pending' }}">
               <td>{{ forloop.counter }}</td>
-              <td><b>{{ s.full_name }}</b>{% if s.coauthor %}<small>соавтор: {{ s.coauthor }}</small>{% endif %}<small>{{ s.number }}</small></td>
+              <td><b>{{ s.full_name }}</b>{% if s.coauthor %}<small>соавтор: {{ s.coauthor }}</small>{% endif %}<small>{{ s.number }}{% if perms.conference.change_submission %} · <a href="{% url 'conference:office_submission' s.pk %}">изменить / перенести</a>{% endif %}</small></td>
               <td>{{ s.grade }}</td>
               <td>{{ s.school }}</td>
               <td>{{ s.title }}<small>Руководитель: {{ s.supervisor }}</small></td>

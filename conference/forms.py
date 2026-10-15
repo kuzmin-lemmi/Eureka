@@ -310,7 +310,49 @@ class LookupForm(forms.Form):
         return clean_snils(self.cleaned_data["snils"])
 
 
-class SubmissionForm(forms.ModelForm):
+class SubmissionChecks:
+    """Проверки полей заявки — общие для анкеты участника и формы в кабинете."""
+
+    @staticmethod
+    def _check_phone(value):
+        phone = value.strip()
+        if phone and (not re.fullmatch(r"[\d\s()+\-]+", phone) or len(re.sub(r"\D", "", phone)) < 10):
+            raise forms.ValidationError("Укажите телефон полностью, например +7 900 000-00-00.")
+        return phone
+
+    def clean_snils(self):
+        return clean_snils(self.cleaned_data["snils"])
+
+    def clean_coauthor_snils(self):
+        return clean_snils(self.cleaned_data["coauthor_snils"])
+
+    def clean_supervisor_phone(self):
+        return self._check_phone(self.cleaned_data["supervisor_phone"])
+
+    def clean_supervisor2_phone(self):
+        return self._check_phone(self.cleaned_data["supervisor2_phone"])
+
+    def _check_file(self, name, extensions, what):
+        file = self.cleaned_data[name]
+        if not isinstance(file, UploadedFile):
+            return file  # при редактировании файл не меняли
+        if Path(file.name).suffix.lower() not in extensions:
+            raise forms.ValidationError(f"Недопустимый формат. Загрузите {what} в {formats(extensions)}.")
+        if file.size > settings.MAX_UPLOAD_MB * 1024 * 1024:
+            raise forms.ValidationError(f"Файл больше {settings.MAX_UPLOAD_MB} МБ.")
+        return file
+
+    def clean_file(self):
+        return self._check_file("file", ALLOWED_EXTENSIONS, "текст работы")
+
+    def clean_application_file(self):
+        return self._check_file("application_file", DOCUMENT_EXTENSIONS, "заявку")
+
+    def clean_consent_file(self):
+        return self._check_file("consent_file", DOCUMENT_EXTENSIONS, "согласие")
+
+
+class SubmissionForm(SubmissionChecks, forms.ModelForm):
     # Поле скрыто от людей через CSS; боты его заполняют, и такие заявки не сохраняются.
     website = forms.CharField(required=False, label="Не заполняйте это поле")
     consent = forms.BooleanField(required=True)
@@ -469,44 +511,6 @@ class SubmissionForm(forms.ModelForm):
     def is_spam(self):
         return bool(self.cleaned_data.get("website"))
 
-    @staticmethod
-    def _check_phone(value):
-        phone = value.strip()
-        if phone and (not re.fullmatch(r"[\d\s()+\-]+", phone) or len(re.sub(r"\D", "", phone)) < 10):
-            raise forms.ValidationError("Укажите телефон полностью, например +7 900 000-00-00.")
-        return phone
-
-    def clean_snils(self):
-        return clean_snils(self.cleaned_data["snils"])
-
-    def clean_coauthor_snils(self):
-        return clean_snils(self.cleaned_data["coauthor_snils"])
-
-    def clean_supervisor_phone(self):
-        return self._check_phone(self.cleaned_data["supervisor_phone"])
-
-    def clean_supervisor2_phone(self):
-        return self._check_phone(self.cleaned_data["supervisor2_phone"])
-
-    def _check_file(self, name, extensions, what):
-        file = self.cleaned_data[name]
-        if not isinstance(file, UploadedFile):
-            return file  # при редактировании файл не меняли
-        if Path(file.name).suffix.lower() not in extensions:
-            raise forms.ValidationError(f"Недопустимый формат. Загрузите {what} в {formats(extensions)}.")
-        if file.size > settings.MAX_UPLOAD_MB * 1024 * 1024:
-            raise forms.ValidationError(f"Файл больше {settings.MAX_UPLOAD_MB} МБ.")
-        return file
-
-    def clean_file(self):
-        return self._check_file("file", ALLOWED_EXTENSIONS, "текст работы")
-
-    def clean_application_file(self):
-        return self._check_file("application_file", DOCUMENT_EXTENSIONS, "заявку")
-
-    def clean_consent_file(self):
-        return self._check_file("consent_file", DOCUMENT_EXTENSIONS, "согласие")
-
     @property
     def has_sections(self):
         return bool(self.slots)
@@ -580,3 +584,96 @@ class SubmissionForm(forms.ModelForm):
     def has_coauthor(self):
         names = ("coauthor_last_name", "coauthor_first_name", "coauthor_grade", "coauthor_snils")
         return any(self[name].value() or self[name].errors for name in names)
+
+
+# Кабинет: правка данных заявки сотрудником (без выбора секции — перенос отдельной формой).
+OFFICE_SUBMISSION_FIELDSETS = [
+    ("Участник", ["last_name", "first_name", "grade", "snils", "email", "school", "district"]),
+    ("Работа", ["title", "file", "application_file", "consent_file"]),
+    ("Соавтор", ["coauthor_last_name", "coauthor_first_name", "coauthor_grade", "coauthor_snils"]),
+    ("Руководитель", ["supervisor_last_name", "supervisor_first_name", "supervisor_middle_name",
+                      "supervisor_position", "supervisor_phone"]),
+    ("Второй руководитель", ["supervisor2_last_name", "supervisor2_first_name", "supervisor2_middle_name",
+                             "supervisor2_position", "supervisor2_phone"]),
+    ("Оргкомитет", ["participant_message", "admin_comment"]),
+]
+SUBMISSION_FILE_FIELDS = {
+    "file": ("original_filename", "work"),
+    "application_file": ("application_original_filename", "application"),
+    "consent_file": ("consent_original_filename", "consent"),
+}
+
+
+class OfficeSubmissionForm(SubmissionChecks, forms.ModelForm):
+    class Meta:
+        model = Submission
+        fields = [name for _, names in OFFICE_SUBMISSION_FIELDSETS for name in names]
+        widgets = {
+            "participant_message": forms.Textarea(attrs={"rows": 3}),
+            "admin_comment": forms.Textarea(attrs={"rows": 3}),
+        }
+        labels = {"email": "Электронная почта участника", "school": "Образовательная организация"}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["snils"].required = True
+        # Загруженный файл можно заменить, но не удалить: работа без файла не нужна.
+        for name in SUBMISSION_FILE_FIELDS:
+            self.fields[name].required = bool(getattr(self.instance, name))
+        self.old_files = {name: getattr(self.instance, name).name for name in SUBMISSION_FILE_FIELDS}
+
+    def clean(self):
+        cleaned = super().clean()
+        coauthor_fields = ("coauthor_last_name", "coauthor_first_name", "coauthor_grade", "coauthor_snils")
+        if any(cleaned.get(name) for name in coauthor_fields):
+            for name in coauthor_fields:
+                if not cleaned.get(name) and name not in self.errors:
+                    self.add_error(name, "Заполните, если у работы есть соавтор.")
+        return cleaned
+
+    def save(self, commit=True):
+        submission = super().save(commit=False)
+        for name, (original, _) in SUBMISSION_FILE_FIELDS.items():
+            if isinstance(self.cleaned_data.get(name), UploadedFile):
+                setattr(submission, original, Path(self.cleaned_data[name].name).name[:255])
+        if commit:
+            submission.save()
+            for name, old in self.old_files.items():
+                if old and getattr(submission, name).name != old:
+                    getattr(submission, name).storage.delete(old)  # заменённый файл
+        return submission
+
+
+class MoveSubmissionForm(forms.Form):
+    """Перенос работы в другую секцию. Заполненная секция не запрещена — решает оргкомитет."""
+
+    slot = forms.ChoiceField(label="Перенести в секцию")
+
+    def __init__(self, *args, submission, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.submission = submission
+        choices = []
+        for section in Section.objects.all():
+            taken = section.occupied(exclude=submission.pk)
+            for number in range(1, section.groups + 1):
+                label = f"{section.group_label(number)} — занято {taken[number]} из {section.capacity}"
+                if not section.is_active:
+                    label += " (скрыта в анкете)"
+                choices.append((f"{section.pk}:{number}", label))
+        self.fields["slot"].choices = choices
+        self.fields["slot"].initial = f"{submission.section_id}:{submission.section_number}"
+
+    def clean_slot(self):
+        section_id, number = (int(part) for part in self.cleaned_data["slot"].split(":"))
+        section = Section.objects.get(pk=section_id)
+        snils = self.submission.snils
+        if (
+            section_id != self.submission.section_id
+            and snils
+            and Submission.objects.filter(snils=snils, section=section)
+            .exclude(admission=Submission.Admission.NOT_ADMITTED)
+            .exclude(pk=self.submission.pk)
+            .exists()
+        ):
+            raise forms.ValidationError(f"У этого участника уже есть работа в направлении «{section}».")
+        return section, number

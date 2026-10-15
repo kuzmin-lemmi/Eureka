@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import office, office_site, views
+from . import office, office_site, office_submissions, views
 
 app_name = "conference"
 
@@ -21,6 +21,8 @@ urlpatterns = [
     path("office/staff/", office.staff_list, name="office_staff"),
     path("office/staff/<int:pk>/password/", office.staff_password, name="office_staff_password"),
     path("office/section/<int:pk>/<int:number>/", office.section_detail, name="office_section"),
+    path("office/search/", office_submissions.search, name="office_search"),
+    path("office/submission/<int:pk>/", office_submissions.submission_edit, name="office_submission"),
     path("office/submission/<int:pk>/admission/", office.set_admission, name="office_admission"),
     path("office/submission/<int:pk>/award/", office.set_award, name="office_award"),
     path("office/settings/", office.conference_settings, name="office_settings"),

@@ -34,15 +34,12 @@
       <ul class="my-list">
         {% for s in submissions %}
           <li class="card my-item">
-            <div class="my-item__head">
-              <span class="my-item__number">Заявка {{ s.number }}</span>
-            </div>
             <h2 class="h3">{{ s.title }}</h2>
             <dl class="my-item__facts">
               <div><dt>Секция</dt><dd>{{ s.section_label }}</dd></div>
               <div><dt>Участник</dt><dd>{{ s.full_name }}, {{ s.grade }} класс</dd></div>
               {% if s.coauthor %}<div><dt>Соавтор</dt><dd>{{ s.coauthor }}</dd></div>{% endif %}
-              <div><dt>Подана</dt><dd>{{ s.created_at|date:"j E Y, H:i" }}{% if s.edited_by_participant_at %} · изменена {{ s.edited_by_participant_at|date:"j E, H:i" }}{% endif %}</dd></div>
+              <div><dt>Подана</dt><dd>{{ s.created_at|date:"j E Y, H:i" }}{% if s.edited_by_participant_at %} · изменена {{ s.edited_by_participant_at|date:"j E, H:i" }}{% endif %} <span class="my-item__number">· заявка {{ s.number }}</span></dd></div>
             </dl>
             {% if s.participant_message %}
               <div class="alert alert--info my-item__message"><b>Сообщение оргкомитета:</b> {{ s.participant_message|linebreaksbr }}</div>
