@@ -50,6 +50,7 @@
         <p class="stage__text">{{ stage.text }}</p>
         {% if stage.slug == "admitted" %}
           <p class="stage__text"><b>Допущено: {{ admission.admitted }}</b> · не допущено: {{ admission.not_admitted }} · не решено: {{ admission.pending }}</p>
+          <p class="stage__text">Письма о допуске: отправлено <b>{{ mail.sent }}</b> из {{ mail.total }}.</p>
         {% elif stage.slug == "winners" %}
           <p class="stage__text"><b>Отмечено работ: {{ awarded }}</b></p>
         {% elif stage.slug == "places" %}
@@ -57,6 +58,7 @@
         {% endif %}
         <div class="stage__btns">
           {% for link in stage.links %}<a class="btn btn--sm {{ link.css }}" href="{{ link.url }}">{{ link.icon }} {{ link.label }}</a>{% endfor %}
+          {% if stage.slug == "admitted" %}<a class="btn btn--sm btn--link" href="{% url 'conference:office_mailing' %}">✉ Рассылка</a>{% endif %}
         </div>
       </div>
     {% endfor %}

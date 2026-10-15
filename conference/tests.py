@@ -923,6 +923,131 @@ class OfficeTests(TestCase):
         self.assertContains(self.client.get(reverse("conference:submit")), "https://max.ru/join/test")
         self.assertContains(self.client.get(reverse("conference:my")), "https://max.ru/join/test")
 
+    def _close_intake(self):
+        conf = ConferenceSettings.load()
+        conf.submissions_open = False
+        conf.save()
+
+    @override_settings(MAIL_CONFIGURED=True, DEFAULT_FROM_EMAIL="eureka@example.ru")
+    def test_mailing_sends_only_to_admitted_once(self):
+        from django.core import mail
+        from conference.models import ActionLog
+
+        self.client.force_login(self.organizer)
+        send = reverse("conference:office_mailing_send")
+        Submission.objects.update(admission="")
+        Submission.objects.filter(last_name="Фамилия0").update(admission="admitted")
+        Submission.objects.filter(last_name="Фамилия1").update(
+            admission="admitted", coauthor_last_name="Соавторова", coauthor_first_name="Ира", coauthor_grade=9,
+        )
+        Submission.objects.filter(last_name="Фамилия2").update(admission="not_admitted")
+
+        # Пока приём открыт, рассылка закрыта.
+        response = self.client.post(send, HTTP_ACCEPT="application/json")
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertContains(self.client.get(reverse("conference:office_mailing")), "после закрытия приёма")
+
+        self._close_intake()
+        response = self.client.post(send, {"retry": "1"}, HTTP_ACCEPT="application/json")
+        data = response.json()
+        self.assertEqual((data["sent"], data["failed"], data["queue"]), (2, 0, 0))
+        self.assertEqual(len(mail.outbox), 2)
+        self.assertTrue(all(m.from_email == "eureka@example.ru" for m in mail.outbox))
+        bodies = " ".join(m.body for m in mail.outbox)
+        self.assertIn("Работа номер 0", bodies)
+        self.assertIn("Соавторова Ира", bodies)
+        self.assertNotIn("Фамилия2", bodies)  # не допущенному письмо не уходит
+        self.assertNotIn("{", bodies)  # все поля подставлены
+
+        # Повторный запуск никому не шлёт письмо второй раз.
+        response = self.client.post(send, {"retry": "1"}, HTTP_ACCEPT="application/json")
+        self.assertEqual(response.json()["sent"], 0)
+        self.assertEqual(len(mail.outbox), 2)
+        self.assertEqual(ActionLog.objects.filter(action="mail").count(), 1)
+
+    @override_settings(MAIL_CONFIGURED=True)
+    def test_mailing_failed_letter_is_retried_on_next_run(self):
+        import smtplib
+        from unittest import mock
+
+        from django.core import mail
+
+        self.client.force_login(self.organizer)
+        self._close_intake()
+        Submission.objects.update(admission="admitted")
+        send = reverse("conference:office_mailing_send")
+        from django.core.mail import EmailMessage
+
+        real_send = EmailMessage.send
+        calls = {"n": 0}
+
+        def flaky(message, *args, **kwargs):
+            calls["n"] += 1
+            if calls["n"] == 2:
+                raise smtplib.SMTPRecipientsRefused({"x": (550, b"no such user")})
+            return real_send(message, *args, **kwargs)
+
+        with mock.patch.object(EmailMessage, "send", flaky):
+            data = self.client.post(send, {"retry": "1"}, HTTP_ACCEPT="application/json").json()
+        self.assertEqual((data["sent"], data["failed"], data["queue"]), (2, 1, 0))
+        self.assertEqual(Submission.objects.exclude(admitted_mail_error="").count(), 1)
+
+        # Следующее нажатие (retry=1) пробует неудавшееся письмо ещё раз.
+        data = self.client.post(send, {"retry": "1"}, HTTP_ACCEPT="application/json").json()
+        self.assertEqual((data["sent"], data["failed"]), (1, 0))
+        self.assertEqual(len(mail.outbox), 3)
+        self.assertEqual(Submission.objects.exclude(admitted_mail_error="").count(), 0)
+
+    @override_settings(MAIL_CONFIGURED=True)
+    def test_mailing_text_validation_and_test_letter(self):
+        from django.core import mail
+
+        self.client.force_login(self.organizer)
+        save = reverse("conference:office_mailing_save")
+        self.client.post(save, {"subject": "Тема", "body": "Привет, {имя}!"}, follow=True)
+        self.assertNotEqual(ConferenceSettings.load().mail_admitted_body, "Привет, {имя}!")
+        response = self.client.post(save, {"subject": "Поздравляем", "body": "Работа «{title}» допущена. {site}"}, follow=True)
+        self.assertContains(response, "Текст письма сохранён")
+        self.assertEqual(ConferenceSettings.load().mail_admitted_subject, "Поздравляем")
+
+        self.client.post(reverse("conference:office_mailing_test"), {"to": "me@example.ru"})
+        self.assertEqual([m.to for m in mail.outbox], [["me@example.ru"]])
+        self.assertIn("Название вашей работы", mail.outbox[0].body)
+        self.client.post(reverse("conference:office_mailing_test"), {"to": "не-почта"})
+        self.assertEqual(len(mail.outbox), 1)
+
+    @override_settings(MAIL_CONFIGURED=False)
+    def test_mailing_blocked_when_mail_not_configured(self):
+        self.client.force_login(self.organizer)
+        self._close_intake()
+        response = self.client.post(reverse("conference:office_mailing_send"), HTTP_ACCEPT="application/json")
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("не настроена", response.json()["error"])
+
+    def test_sendmail_backend_pipes_message_and_reports_failure(self):
+        from unittest import mock
+
+        from django.core.mail import EmailMessage
+
+        from conference.mailbackend import SendmailBackend
+
+        message = EmailMessage("Тема", "Текст письма", "Конференция «Эврика» <noreply@example.ru>", ["a@example.ru"])
+        ok = mock.Mock(returncode=0, stderr=b"")
+        with mock.patch("conference.mailbackend.find_sendmail", return_value="/usr/sbin/sendmail"),                 mock.patch("conference.mailbackend.subprocess.run", return_value=ok) as run:
+            self.assertEqual(SendmailBackend().send_messages([message]), 1)
+        command = run.call_args.args[0]
+        self.assertEqual(command[0], "/usr/sbin/sendmail")
+        self.assertIn("noreply@example.ru", command)  # адрес отправителя без имени
+        self.assertEqual(command[-1], "a@example.ru")
+        self.assertIn(b"a@example.ru", run.call_args.kwargs["input"])
+
+        bad = mock.Mock(returncode=75, stderr=b"queue full")
+        with mock.patch("conference.mailbackend.find_sendmail", return_value="/usr/sbin/sendmail"),                 mock.patch("conference.mailbackend.subprocess.run", return_value=bad):
+            with self.assertRaisesMessage(RuntimeError, "queue full"):
+                SendmailBackend().send_messages([message])
+            self.assertEqual(SendmailBackend(fail_silently=True).send_messages([message]), 0)
+
     def test_settings_page_saves_fields_and_replaces_blank(self):
         self.client.force_login(self.organizer)
         url = reverse("conference:office_settings")

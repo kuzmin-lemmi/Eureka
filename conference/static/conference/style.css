@@ -675,3 +675,11 @@ fieldset.card > legend + * { clear: both; }
 .cta__contacts .cta__chat:hover { color: var(--ink); background: #fff; }
 .cta__site { font-size: .95rem; font-weight: 700; }
 @media (max-width: 640px) { .hero__help { text-align: center; } .cta__contacts .cta__chat { align-self: stretch; text-align: center; } }
+
+/* Кабинет: рассылка */
+.mail-subject, .mail-body { width: 100%; padding: 10px 12px; border: 2px solid var(--ink); border-radius: 10px; font: inherit; }
+.mail-preview { margin: 0; padding: 14px 16px; background: #fff; border: 2px dashed var(--ink); border-radius: 10px; white-space: pre-wrap; font: inherit; }
+.mail-test { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.mail-test input { padding: 8px 10px; border: 2px solid var(--ink); border-radius: 10px; font: inherit; min-width: 260px; }
+.mail-progress { margin: 14px 0; }
+.mail-progress .progress__bar { height: 14px; }

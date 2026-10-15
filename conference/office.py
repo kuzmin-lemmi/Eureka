@@ -18,7 +18,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from . import export_tables, exports
+from . import export_tables, exports, mailing
 from .forms import SETTINGS_BLANK_KINDS, SETTINGS_FIELDSETS, ConferenceSettingsForm
 from .audit import log_action
 from .models import AWARD_CHOICES, AWARD_ORDER, PLACES, ActionLog, ConferenceSettings, ReviewLink, Section, Submission
@@ -175,6 +175,7 @@ def dashboard(request):
         "can_switch_intake": request.user.has_perm("conference.change_conferencesettings"),
         "directions": directions,
         "stages": _stages(),
+        "mail": mailing.stats(),
         "overfull": overfull,
         "custom_fields": [{"key": key, "label": label, "checked": checked} for key, label, checked in export_tables.CUSTOM_FIELDS],
         "works": works,

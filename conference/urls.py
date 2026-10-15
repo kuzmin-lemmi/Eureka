@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import export_tables, office, office_exports, office_log, office_site, office_submissions, views
+from . import export_tables, office, office_exports, office_log, office_mailing, office_site, office_submissions, views
 
 app_name = "conference"
 
@@ -21,6 +21,10 @@ urlpatterns = [
     path("office/staff/", office.staff_list, name="office_staff"),
     path("office/staff/<int:pk>/password/", office.staff_password, name="office_staff_password"),
     path("office/section/<int:pk>/<int:number>/", office.section_detail, name="office_section"),
+    path("office/mailing/", office_mailing.mailing_page, name="office_mailing"),
+    path("office/mailing/save/", office_mailing.mailing_save, name="office_mailing_save"),
+    path("office/mailing/test/", office_mailing.mailing_test, name="office_mailing_test"),
+    path("office/mailing/send/", office_mailing.mailing_send, name="office_mailing_send"),
     path("office/log/", office_log.log_list, name="office_log"),
     path("office/search/", office_submissions.search, name="office_search"),
     path("office/submission/<int:pk>/", office_submissions.submission_edit, name="office_submission"),

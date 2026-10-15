@@ -1,0 +1,77 @@
+{% extends "conference/office/base.html" %}
+{% load static %}
+
+{% block title %}Рассылка — кабинет оргкомитета{% endblock %}
+
+{% block content %}
+<div class="container settings">
+  <a class="back" href="{% url 'conference:office' %}">← Все секции</a>
+  <h1 class="office-h1">Рассылка: допущены ко 2 этапу</h1>
+
+  {% for message in messages %}<div class="alert alert--{% if message.level_tag == 'error' %}error{% else %}success{% endif %}" role="status">{{ message }}</div>{% endfor %}
+
+  <div class="card settings__block">
+    <h2>Кому уйдут письма</h2>
+    <ul class="kpis">
+      <li class="kpi kpi--accent"><b>{{ stats.total }}</b> допущенных работ</li>
+      <li class="kpi"><b data-mail="sent">{{ stats.sent }}</b> уже отправлено</li>
+      <li class="kpi"><b data-mail="pending">{{ stats.pending }}</b> ждут отправки</li>
+      {% if stats.failed %}<li class="kpi"><b data-mail="failed">{{ stats.failed }}</b> не дошли</li>{% endif %}
+    </ul>
+    <p class="help">Письмо уходит на почту участника из анкеты — по одному письму на работу (соавтор в письме указан, своей почты у него в анкете нет). Адресов в очереди: {{ stats.addresses }}. Отправитель: <b>{{ from_address }}</b>. Допущенным, кому письмо уже ушло, второе не отправляется.</p>
+  </div>
+
+  <div class="card settings__block">
+    <h2>Текст письма</h2>
+    <form method="post" action="{% url 'conference:office_mailing_save' %}">
+      {% csrf_token %}
+      <p><label>Тема<br><input type="text" name="subject" value="{{ form_subject }}" maxlength="200" class="mail-subject"{% if not can_send %} disabled{% endif %}></label></p>
+      <p><label>Текст<br><textarea name="body" rows="14" class="mail-body"{% if not can_send %} disabled{% endif %}>{{ form_body }}</textarea></label></p>
+      <p class="help">Подставляются поля в фигурных скобках:
+        {% for key, text in placeholders.items %}<code>{{ "{" }}{{ key }}{{ "}" }}</code> — {{ text }}{% if not forloop.last %}; {% endif %}{% endfor %}.</p>
+      {% if can_send %}<button type="submit" class="btn btn--sm">Сохранить текст</button>{% endif %}
+    </form>
+  </div>
+
+  <div class="card settings__block">
+    <h2>Как выглядит письмо</h2>
+    <p class="help">{% if sample_is_real %}На примере первой допущенной работы.{% else %}Допущенных работ пока нет, поэтому подставлен пример.{% endif %} Сохраните текст, чтобы изменения появились здесь.</p>
+    <p><b>Тема:</b> {{ subject }}</p>
+    <pre class="mail-preview">{{ body }}</pre>
+  </div>
+
+  {% if can_send %}
+  <div class="card settings__block">
+    <h2>Пробное письмо</h2>
+    <form method="post" action="{% url 'conference:office_mailing_test' %}" class="mail-test">
+      {% csrf_token %}
+      <label>Отправить на адрес <input type="email" name="to" value="{{ default_test_email }}" required placeholder="ваша@почта.ru"></label>
+      <button type="submit" class="btn btn--sm"{% if block_reason and not stats.total and False %} disabled{% endif %}>Отправить пробное</button>
+    </form>
+    <p class="help">Придёт письмо с примером данных. Сначала отправьте его себе: так видно, доходят ли письма с сайта и не попадают ли они в спам.</p>
+  </div>
+
+  <div class="card settings__block" data-mailing data-url="{{ send_url }}">
+    <h2>Отправить допущенным</h2>
+    {% if block_reason %}
+      <div class="alert alert--error" role="alert">{{ block_reason }}</div>
+    {% elif not stats.pending %}
+      <p>Все письма отправлены{% if not stats.total %}: допущенных пока нет{% endif %}.</p>
+    {% else %}
+      <form method="post" action="{{ send_url }}" data-send-form>
+        {% csrf_token %}
+        <input type="hidden" name="retry" value="1">
+        <label class="check"><input type="checkbox" required data-confirm> Я проверил текст и пробное письмо, отправляем <b>{{ stats.pending }}</b> писем</label>
+        <p><button type="submit" class="btn" data-send-btn>Отправить письма допущенным</button></p>
+      </form>
+      <div class="mail-progress" data-progress hidden>
+        <div class="progress__bar"><span data-bar></span></div>
+        <p data-status></p>
+      </div>
+    {% endif %}
+    <p class="help">Отправка идёт небольшими пачками. Не закрывайте страницу, пока не появится «Готово»; если закрыли — вернитесь и нажмите кнопку ещё раз: отправится только то, что не ушло.</p>
+  </div>
+  {% endif %}
+</div>
+<script src="{% static 'conference/mailing.js' %}" defer></script>
+{% endblock %}

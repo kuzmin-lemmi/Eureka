@@ -19,6 +19,18 @@ def blank_upload_to(instance, filename):
     return f"blanks/{uuid.uuid4().hex}{Path(filename).suffix.lower()}"
 
 
+def _mail_subject():
+    from .mailing import DEFAULT_SUBJECT
+
+    return DEFAULT_SUBJECT
+
+
+def _mail_body():
+    from .mailing import DEFAULT_BODY
+
+    return DEFAULT_BODY
+
+
 class ConferenceSettings(models.Model):
     """Общие настройки конференции. Всегда одна запись (pk=1)."""
 
@@ -42,6 +54,8 @@ class ConferenceSettings(models.Model):
     organizer = models.CharField("организатор", max_length=300, blank=True)
     contact_email = models.EmailField("email для связи", blank=True)
     contact_phone = models.CharField("телефон для связи", max_length=50, blank=True)
+    mail_admitted_subject = models.CharField("тема письма о допуске", max_length=200, default=_mail_subject)
+    mail_admitted_body = models.TextField("текст письма о допуске", default=_mail_body)
     support_chat_url = models.URLField(
         "ссылка на чат поддержки", blank=True,
         help_text="Ссылка-приглашение в группу в Max, куда можно написать с вопросами. Пусто — ссылка не показывается.",
@@ -303,6 +317,8 @@ class Submission(models.Model):
         "итог (место или номинация)", max_length=20, choices=AWARD_CHOICES, blank=True,
         help_text="Ставят после конференции только допущенным ко 2 этапу. Попадает в список победителей и призёров.",
     )
+    admitted_mail_sent_at = models.DateTimeField("письмо о допуске отправлено", null=True, blank=True, editable=False)
+    admitted_mail_error = models.CharField("ошибка отправки письма", max_length=200, blank=True, editable=False)
     admin_comment = models.TextField("комментарий оргкомитета", blank=True, help_text="Виден только оргкомитету.")
     participant_message = models.TextField(
         "сообщение участнику",
@@ -615,6 +631,7 @@ class ActionLog(models.Model):
         MOVE = "move", "Перенос в другую секцию"
         EDIT = "edit", "Правка заявки"
         INTAKE = "intake", "Приём работ"
+        MAIL = "mail", "Рассылка"
 
     created_at = models.DateTimeField("когда", auto_now_add=True)
     user = models.ForeignKey("auth.User", on_delete=models.SET_NULL, null=True, blank=True, verbose_name="кто")
