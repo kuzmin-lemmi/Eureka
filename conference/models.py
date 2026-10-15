@@ -137,7 +137,7 @@ class Section(models.Model):
         "мест в секции",
         default=12,
         validators=[MinValueValidator(1)],
-        help_text="Участник и соавтор занимают по месту. Удалённая участником заявка место освобождает.",
+        help_text="Сколько работ принимает секция. Работа с соавтором — одно место. Удалённая заявка место освобождает.",
     )
     order = models.PositiveSmallIntegerField("порядок", default=0)
     is_active = models.BooleanField("показывать в анкете", default=True)
@@ -154,15 +154,14 @@ class Section(models.Model):
         return f"{self.name} {number}" if self.groups > 1 else self.name
 
     def occupied(self, exclude=None):
-        """Занятые места по номерам секций: {1: 12, 2: 3, …}. exclude — pk заявки, которую не считать
-        (при редактировании заявка не должна занимать место сама у себя)."""
+        """Занятые места (поданные работы) по номерам секций: {1: 12, 2: 3, …}. Соавтор места не занимает.
+        exclude — pk заявки, которую не считать (при редактировании заявка не занимает место сама у себя)."""
         taken = dict.fromkeys(range(1, self.groups + 1), 0)
         rows = self.submissions.all()
         if exclude:
             rows = rows.exclude(pk=exclude)
-        rows = rows.values_list("section_number", "coauthor_last_name")
-        for number, coauthor in rows:
-            taken[number] = taken.get(number, 0) + (2 if coauthor else 1)
+        for number in rows.values_list("section_number", flat=True):
+            taken[number] = taken.get(number, 0) + 1
         return taken
 
     def free_places(self, exclude=None):

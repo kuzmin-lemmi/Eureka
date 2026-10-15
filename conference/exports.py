@@ -144,7 +144,7 @@ def build_sections_workbook(groups=None, columns=COLUMNS):
         ws = wb.create_sheet(_sheet_title(section.name, number, section.groups, used))
         ws.append([label])
         ws["A1"].font = TITLE_FONT
-        ws.append([f"Работ: {len(submissions)}, участников: {people} из {section.capacity}"])
+        ws.append([f"Работ: {len(submissions)} из {section.capacity}, участников: {people}"])
         _fill_sheet(ws, submissions, columns, header_row=3)
     return _save(wb)
 
@@ -363,7 +363,7 @@ def build_sections_docx(groups=None):
         doc.add_paragraph(conf_title).runs[0].italic = True
         doc.add_heading(section.group_label(number), level=1)
         people = sum(s.people for s in submissions)
-        doc.add_paragraph(f"Работ: {len(submissions)}, участников: {people} из {section.capacity}")
+        doc.add_paragraph(f"Работ: {len(submissions)} из {section.capacity}, участников: {people}")
         if not submissions:
             doc.add_paragraph("Заявок пока нет.")
             continue

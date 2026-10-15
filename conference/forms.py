@@ -342,14 +342,8 @@ class SubmissionForm(forms.ModelForm):
         slot = cleaned.get("section_slot")
         if slot:
             free, section, number = self.slots[slot]
-            need = 2 if cleaned.get("coauthor_last_name") else 1
-            if need > free:
-                self.add_error(
-                    "section_slot",
-                    "Эта секция уже заполнена — выберите другую."
-                    if not free
-                    else f"В секции осталось {places(free)}, а с соавтором нужно два. Подайте работу без соавтора или выберите другую секцию.",
-                )
+            if not free:
+                self.add_error("section_slot", "Эта секция уже заполнена — выберите другую.")
             else:
                 self.instance.section, self.instance.section_number = section, number
                 snils = cleaned.get("snils")
@@ -379,9 +373,7 @@ class SubmissionForm(forms.ModelForm):
                 # Повторная проверка мест прямо перед записью: пока заполняли анкету,
                 # секцию могли занять другие.
                 section = Section.objects.select_for_update().get(pk=self.instance.section_id)
-                if section.free_places(self.instance.pk).get(self.instance.section_number, 0) < (
-                    2 if self.cleaned_data.get("coauthor_last_name") else 1
-                ):
+                if not section.free_places(self.instance.pk).get(self.instance.section_number, 0):
                     raise SectionFull
                 return self._save()
         return self._save(commit=False)

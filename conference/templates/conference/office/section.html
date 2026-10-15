@@ -9,8 +9,8 @@
   <div class="office-top">
     <h1 class="office-h1">{{ info.label }}</h1>
     <ul class="kpis">
-      <li class="kpi kpi--accent"><b>{{ info.taken }}</b> из {{ info.capacity }} мест занято</li>
-      <li class="kpi"><b>{{ submissions|length }}</b> работ</li>
+      <li class="kpi kpi--accent"><b>{{ info.taken }}</b> из {{ info.capacity }} работ</li>
+      <li class="kpi"><b>{{ people }}</b> участников</li>
       <li class="chip chip--{{ info.state }}">{{ info.state_label }}</li>
     </ul>
   </div>
@@ -57,7 +57,7 @@
                   <form method="post" action="{% url 'conference:office_admission' s.pk %}" class="admission" data-admission>{% csrf_token %}
                     <button type="submit" name="admission" value="admitted" class="admission__btn admission__btn--yes" aria-pressed="{% if s.admission == 'admitted' %}true{% else %}false{% endif %}">Допущен</button>
                     <button type="submit" name="admission" value="not_admitted" class="admission__btn admission__btn--no" aria-pressed="{% if s.admission == 'not_admitted' %}true{% else %}false{% endif %}">Не допущен</button>
-                    <button type="submit" name="admission" value="" class="admission__clear"{% if not s.admission %} hidden{% endif %}>Снять отметку</button>
+                    <button type="submit" name="admission" value="" class="admission__clear" title="Снять отметку" aria-label="Снять отметку"{% if not s.admission %} hidden{% endif %}>×</button>
                   </form>
                 {% elif s.admission %}
                   <span class="chip {% if s.admission == 'admitted' %}chip--free{% else %}chip--full{% endif %}">{{ s.get_admission_display }}</span>

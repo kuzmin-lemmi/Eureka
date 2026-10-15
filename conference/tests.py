@@ -159,17 +159,15 @@ class SubmissionTests(TestCase):
         self.assertContains(response, "Эта секция уже заполнена")
         self.assertEqual(Submission.objects.count(), 1)
 
-    def test_coauthor_takes_a_place(self):
+    def test_work_with_coauthor_takes_one_place(self):
         self.section.capacity = 2
         self.section.save()
         self.post(coauthor_last_name="Сидоров", coauthor_first_name="Пётр", coauthor_grade="8", coauthor_snils="123-456-789 64")
+        self.assertEqual(self.section.free_places(), {1: 1})
+        self.post(last_name="Петров", coauthor_last_name="Орлов", coauthor_first_name="Иван", coauthor_grade="8",
+                  coauthor_snils="123-456-789 64")
+        self.assertEqual(Submission.objects.count(), 2)
         self.assertEqual(self.section.free_places(), {1: 0})
-
-        self.section.capacity = 3
-        self.section.save()
-        response = self.post(coauthor_last_name="Орлов", coauthor_first_name="Иван", coauthor_grade="8", coauthor_snils="123-456-789 64")
-        self.assertContains(response, "осталось 1 место")
-        self.assertEqual(Submission.objects.count(), 1)
 
     def test_deleted_submission_frees_place(self):
         self.section.capacity = 1

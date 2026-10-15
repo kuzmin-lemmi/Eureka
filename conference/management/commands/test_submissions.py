@@ -172,16 +172,14 @@ class Command(BaseCommand):
                     target = min(pattern[number - 1] if number - 1 < len(pattern) else 0, section.capacity)
                     free = section.free_places().get(number, 0)
                     target = min(target, free)
-                    people = 0
-                    while people < target:
-                        with_coauthor = target - people >= 2 and rng.random() < 0.18
+                    for _ in range(target):
+                        with_coauthor = rng.random() < 0.18
                         serial += 1
                         s = self._make(rng, section, number, topics, serial, with_coauthor)
                         s.save()
                         # Даты подачи — за последние три недели, чтобы список выглядел живым.
                         created_at = now - timedelta(days=rng.randint(0, 20), minutes=rng.randint(0, 1400))
                         Submission.objects.filter(pk=s.pk).update(created_at=created_at)
-                        people += s.people
                         created += 1
         self.stdout.write(self.style.SUCCESS(f"Создано тестовых заявок: {created}."))
         self.stdout.write("Удалить их: manage.py test_submissions --delete")

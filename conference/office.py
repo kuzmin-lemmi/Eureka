@@ -157,7 +157,7 @@ def dashboard(request):
         "can_switch_intake": request.user.has_perm("conference.change_conferencesettings"),
         "directions": directions,
         "works": works,
-        "people": taken_total,
+        "people": sum(s.people for s in Submission.objects.only("coauthor_last_name")),
         "free": max(capacity - taken_total, 0),
         "capacity": capacity,
         "days_left": days_left,
@@ -187,6 +187,7 @@ def section_detail(request, pk, number):
     context = {
         "info": info,
         "submissions": submissions,
+        "people": sum(s.people for s in submissions),
         "admission": _admission_counts(s.admission for s in submissions),
         "can_decide": not ConferenceSettings.load().is_submission_open
         and request.user.has_perm("conference.change_submission"),
