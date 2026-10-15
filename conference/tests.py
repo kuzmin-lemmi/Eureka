@@ -906,6 +906,23 @@ class OfficeTests(TestCase):
         self.assertEqual(len(Document(BytesIO(self.client.get(reverse("conference:office_places_word")).getvalue())).tables[0].rows), 1 + 2)
         self.assertTrue(self.client.get(reverse("conference:office_places_pdf")).getvalue().startswith(b"%PDF"))
 
+    def test_support_links_shown_only_when_set(self):
+        home = reverse("conference:home")
+        page = self.client.get(home)
+        self.assertNotContains(page, "Чат поддержки")
+        self.assertNotContains(page, "Сайт гимназии")
+
+        conf = ConferenceSettings.load()
+        conf.support_chat_url, conf.school_site_url = "https://max.ru/join/test", "https://school.example.ru/"
+        conf.contact_email = "help@example.ru"
+        conf.save()
+        page = self.client.get(home)
+        self.assertContains(page, 'href="https://max.ru/join/test"', count=3)  # под кнопками, в блоке вопросов, в подвале
+        self.assertContains(page, "https://school.example.ru/")
+        self.assertContains(page, "mailto:help@example.ru")
+        self.assertContains(self.client.get(reverse("conference:submit")), "https://max.ru/join/test")
+        self.assertContains(self.client.get(reverse("conference:my")), "https://max.ru/join/test")
+
     def test_settings_page_saves_fields_and_replaces_blank(self):
         self.client.force_login(self.organizer)
         url = reverse("conference:office_settings")

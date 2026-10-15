@@ -29,7 +29,7 @@
         </div>
         <button type="submit" class="btn">Найти заявки</button>
       </form>
-      <p class="help">Подавали работу, но заявок нет? Проверьте, что почта та же, что в анкете. Если не помогло — напишите оргкомитету{% if conf.contact_email %}: <a href="mailto:{{ conf.contact_email }}">{{ conf.contact_email }}</a>{% endif %}.</p>
+      <p class="help">Подавали работу, но заявок нет? Проверьте, что почта та же, что в анкете. Если не помогло — напишите оргкомитету{% if conf.support_chat_url %} в <a href="{{ conf.support_chat_url }}" target="_blank" rel="noopener">чат поддержки</a>{% endif %}{% if conf.contact_email %}{% if conf.support_chat_url %} или на почту{% else %}:{% endif %} <a href="mailto:{{ conf.contact_email }}">{{ conf.contact_email }}</a>{% endif %}.</p>
     {% else %}
       <ul class="my-list">
         {% for s in submissions %}

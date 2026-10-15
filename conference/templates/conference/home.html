@@ -18,6 +18,13 @@
         {% if conf.is_submission_open %}<a class="btn btn--lg" href="{% url 'conference:submit' %}">Подать работу</a>{% endif %}
         <a class="btn btn--lg btn--ghost" href="#how">Как участвовать</a>
       </div>
+      {% if conf.support_chat_url or conf.contact_email %}
+        <p class="hero__help">Вопросы?
+          {% if conf.support_chat_url %}<a href="{{ conf.support_chat_url }}" target="_blank" rel="noopener">Чат поддержки в Max ↗</a>{% endif %}
+          {% if conf.support_chat_url and conf.contact_email %}или{% endif %}
+          {% if conf.contact_email %}<a href="mailto:{{ conf.contact_email }}">{{ conf.contact_email }}</a>{% endif %}
+        </p>
+      {% endif %}
     </div>
     <figure class="polaroid">
       <img src="{% static 'conference/emblem.png' %}" alt="Эмблема конференции «Эврика»">
@@ -169,17 +176,19 @@
   </div>
 </section>
 
-{% if conf.contact_email or conf.contact_phone %}
+{% if conf.contact_email or conf.contact_phone or conf.support_chat_url or conf.school_site_url %}
 <section class="section">
   <div class="container">
     <div class="cta">
       <div>
         <h2>Остались вопросы?</h2>
-        <p>Напишите или позвоните в оргкомитет — поможем с анкетой и документами.</p>
+        <p>Напишите в чат или на почту оргкомитета — поможем с анкетой и документами.</p>
       </div>
       <div class="cta__contacts">
+        {% if conf.support_chat_url %}<a class="btn btn--lg cta__chat" href="{{ conf.support_chat_url }}" target="_blank" rel="noopener">Написать в чат поддержки</a>{% endif %}
         {% if conf.contact_email %}<a href="mailto:{{ conf.contact_email }}">{{ conf.contact_email }}</a>{% endif %}
         {% if conf.contact_phone %}<a href="tel:{{ conf.contact_phone|cut:' ' }}">{{ conf.contact_phone }}</a>{% endif %}
+        {% if conf.school_site_url %}<a class="cta__site" href="{{ conf.school_site_url }}" target="_blank" rel="noopener">Сайт гимназии ↗</a>{% endif %}
       </div>
     </div>
   </div>

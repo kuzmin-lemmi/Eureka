@@ -120,7 +120,7 @@ def duplicate_message(section):
 # Настройки конференции в кабинете: (заголовок блока, поля). Порядок — как на странице.
 SETTINGS_FIELDSETS = [
     ("Конференция", ["title", "tagline", "edition", "year", "description", "event_dates", "venue", "organizer"]),
-    ("Контакты оргкомитета", ["contact_email", "contact_phone"]),
+    ("Контакты и ссылки", ["contact_email", "contact_phone", "support_chat_url", "school_site_url"]),
     ("Приём работ", ["submissions_open", "submissions_deadline"]),
     ("Бланки документов", ["application_pdf", "application_template", "consent_pdf", "consent_template", "requirements_template"]),
     ("Персональные данные", ["privacy_policy"]),

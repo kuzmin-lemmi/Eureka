@@ -668,3 +668,10 @@ fieldset.card > legend + * { clear: both; }
 .people__download:hover { background: var(--tint-yellow); }
 .log-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0 0 12px; }
 .log__when { white-space: nowrap; color: var(--muted); }
+
+/* Ссылки: чат поддержки, сайт гимназии */
+.hero__help { margin: 14px 0 0; font-size: .95rem; color: var(--muted); }
+.cta__contacts .cta__chat { align-self: flex-start; margin-bottom: 6px; background: var(--yellow); color: var(--ink); }
+.cta__contacts .cta__chat:hover { color: var(--ink); background: #fff; }
+.cta__site { font-size: .95rem; font-weight: 700; }
+@media (max-width: 640px) { .hero__help { text-align: center; } .cta__contacts .cta__chat { align-self: stretch; text-align: center; } }

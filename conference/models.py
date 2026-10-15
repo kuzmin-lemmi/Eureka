@@ -42,6 +42,13 @@ class ConferenceSettings(models.Model):
     organizer = models.CharField("организатор", max_length=300, blank=True)
     contact_email = models.EmailField("email для связи", blank=True)
     contact_phone = models.CharField("телефон для связи", max_length=50, blank=True)
+    support_chat_url = models.URLField(
+        "ссылка на чат поддержки", blank=True,
+        help_text="Ссылка-приглашение в группу в Max, куда можно написать с вопросами. Пусто — ссылка не показывается.",
+    )
+    school_site_url = models.URLField(
+        "сайт гимназии", blank=True, help_text="Например: https://… Пусто — ссылка не показывается.",
+    )
 
     submissions_open = models.BooleanField("приём работ открыт", default=True)
     submissions_deadline = models.DateTimeField(

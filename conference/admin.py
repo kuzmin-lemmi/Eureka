@@ -18,7 +18,7 @@ from .models import ActionLog, ConferenceSettings, Document, FaqItem, NewsPost, 
 class ConferenceSettingsAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {"fields": ("title", "tagline", ("edition", "year"), "event_dates", "venue", "organizer")}),
-        ("Контакты", {"fields": ("contact_email", "contact_phone")}),
+        ("Контакты и ссылки", {"fields": ("contact_email", "contact_phone", "support_chat_url", "school_site_url")}),
         ("Приём работ", {"fields": ("submissions_open", "submissions_deadline")}),
         ("Бланки документов", {"fields": (
                 "application_pdf",

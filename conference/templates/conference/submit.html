@@ -17,6 +17,7 @@
         <p class="lead">
           {% if conf.submissions_deadline %}Приём работ до <b>{{ conf.submissions_deadline|date:"j E Y, H:i" }}</b>. {% endif %}
           Займёт около 10 минут.
+          {% if conf.support_chat_url %}Что-то непонятно? <a href="{{ conf.support_chat_url }}" target="_blank" rel="noopener">Чат поддержки в Max ↗</a>{% endif %}
         </p>
         <p class="muted">Подготовьте заранее: текст работы, подписанную заявку и согласие на обработку данных. Поля со звёздочкой <span class="req">*</span> обязательны.</p>
       {% endif %}
