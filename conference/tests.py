@@ -1199,6 +1199,38 @@ class OfficeTests(TestCase):
         pdf = self.client.get(reverse("conference:office_admitted_pdf"))
         self.assertTrue(pdf.getvalue().startswith(b"%PDF"))
 
+    def test_custom_export_formats_fields_and_filters(self):
+        from docx import Document
+        from openpyxl import load_workbook
+
+        self.client.force_login(self.organizer)
+        base = {
+            "field": ["number", "name", "title"],
+            "group": [f"{self.section.pk}:1"],
+            "admission": ["pending", "admitted", "not_admitted"],
+        }
+        url = reverse("conference:office_custom")
+
+        response = self.client.get(url, {**base, "format": "excel", "title": "Мой список", "rows": "student", "sort": "alpha"})
+        rows = list(load_workbook(BytesIO(b"".join(response.streaming_content))).active.values)
+        self.assertEqual(rows[0][0], "Мой список")
+        self.assertEqual(rows[2], ("№ п/п", "ФИО", "Название работы"))
+        self.assertTrue(all(len(r) == 3 for r in rows[3:]))
+        self.assertNotIn("Фамилия2 Имя", [r[1] for r in rows[3:]])  # вторая секция не отмечена
+
+        word = self.client.get(url, {**base, "format": "word"})
+        self.assertGreater(len(Document(BytesIO(word.getvalue())).tables[0].rows), 1)
+        pdf = self.client.get(url, {**base, "format": "pdf"})
+        self.assertTrue(pdf.getvalue().startswith(b"%PDF"))
+
+        for broken in ({**base, "field": []}, {**base, "group": []}, {**base, "admission": []}, {**base, "format": "exe"}):
+            self.assertEqual(self.client.get(url, broken).status_code, 302)
+
+    def test_custom_export_requires_office_login(self):
+        response = self.client.get(reverse("conference:office_custom"), {"field": "name"})
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("login", response["Location"])
+
     def test_archive_contains_works_and_list(self):
         import zipfile
 

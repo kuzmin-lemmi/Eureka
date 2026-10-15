@@ -379,6 +379,72 @@ def _table_pdf(heading, headers, widths_cm, rows):
     return buffer.getvalue()
 
 
+# Настраиваемая выгрузка: оргкомитет сам выбирает поля, секции, допуск и формат.
+# (ключ, название столбца, ширина в Excel, значение из заявки, по умолчанию отмечено)
+CUSTOM_FIELDS = [
+    ("number", "№ п/п", 5, None, True),
+    ("app_number", "Номер заявки", 10, lambda s: s.number, False),
+    ("section", "Секция", 28, lambda s: s.section_label, True),
+    ("name", "ФИО", 28, lambda s: s.full_name, True),
+    ("grade", "Класс", 7, lambda s: s.grade, True),
+    ("coauthor", "Соавтор", 28, lambda s: s.coauthor, False),
+    ("school", "Образовательная организация", 45, lambda s: s.school, True),
+    ("district", "Муниципальный район", 24, lambda s: s.district, False),
+    ("title", "Название работы", 45, lambda s: s.title, True),
+    ("supervisor", "Руководитель", 26, lambda s: s.supervisor, True),
+    ("supervisor_position", "Должность руководителя", 24, lambda s: s.supervisor_position, False),
+    ("supervisor_phone", "Телефон руководителя", 18, lambda s: s.supervisor_phone, False),
+    ("supervisor2", "Второй руководитель", 26, lambda s: s.supervisor2, False),
+    ("email", "Почта участника", 26, lambda s: s.email, False),
+    ("created", "Дата подачи", 12, lambda s: f"{timezone.localtime(s.created_at):%d.%m.%Y}", False),
+    ("admission", "Допуск ко 2 этапу", 16, lambda s: s.get_admission_display(), False),
+    ("award", "Итог", 26, lambda s: s.get_award_display() if s.award else "", False),
+]
+CUSTOM_FIELD_KEYS = [f[0] for f in CUSTOM_FIELDS]
+CUSTOM_FORMATS = {"word": "Word", "excel": "Excel", "pdf": "PDF"}
+CUSTOM_PAGE_CM = 26.7  # ширина альбомной страницы A4 за вычетом полей
+
+
+def custom_rows(keys, groups, admissions, per_student):
+    """Строки выгрузки. admissions — допустимые значения допуска; per_student — строка на ученика, а не на работу."""
+    fields = [f for f in CUSTOM_FIELDS if f[0] in keys]
+    rows = []
+    for section, number in groups:
+        for s in group_submissions(section, number):
+            if s.admission not in admissions:
+                continue
+            people = [(s.full_name, s.grade)]
+            if per_student and s.coauthor_last_name:
+                people.append((f"{s.coauthor_last_name} {s.coauthor_first_name}", s.coauthor_grade))
+            for name, grade in people:
+                row = []
+                for key, _, _, get, _ in fields:
+                    if key == "number":
+                        row.append(len(rows) + 1)
+                    elif key == "name":
+                        row.append(name)
+                    elif key == "grade":
+                        row.append(grade)
+                    elif key == "coauthor" and per_student:
+                        row.append("")
+                    else:
+                        row.append(get(s))
+                rows.append(row)
+    return fields, rows
+
+
+def build_custom(fmt, keys, groups, admissions, per_student, title):
+    fields, rows = custom_rows(keys, groups, admissions, per_student)
+    headers = [f[1] for f in fields]
+    widths = [f[2] for f in fields]
+    cm_widths = [w / sum(widths) * CUSTOM_PAGE_CM for w in widths]
+    if fmt == "excel":
+        return _table_workbook("Выгрузка", headers, widths, rows, title=title or None)
+    if fmt == "word":
+        return _table_docx(title or "Выгрузка", headers, cm_widths, rows, note=f"Строк: {len(rows)}")
+    return _table_pdf(title or "Выгрузка", headers, cm_widths, rows)
+
+
 def build_sections_docx(groups=None):
     """Word: каждая секция с новой страницы — заголовок и таблица участников, готово к печати."""
     groups = all_groups() if groups is None else groups

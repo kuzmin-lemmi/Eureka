@@ -42,6 +42,7 @@ urlpatterns = [
     path("office/export/winners-word/", office.export_winners_word, name="office_winners_word"),
     path("office/export/winners-excel/", office.export_winners_excel, name="office_winners_excel"),
     path("office/export/winners-pdf/", office.export_winners_pdf, name="office_winners_pdf"),
+    path("office/export/custom/", office.export_custom, name="office_custom"),
     path("office/export/archive/", office.export_archive, name="office_archive"),
     path("office/section/<int:pk>/<int:number>/word/", office.export_word, name="office_section_word"),
     path("office/section/<int:pk>/<int:number>/excel/", office.export_excel, name="office_section_excel"),

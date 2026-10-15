@@ -632,3 +632,22 @@ fieldset.card > legend + * { clear: both; }
 .people tr[id] { scroll-margin-top: 140px; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .nowrap { white-space: nowrap; }
+
+/* Кабинет: настраиваемая выгрузка */
+.custom { padding: 0; margin-top: 24px; }
+.custom__summary { padding: 16px 20px; font-weight: 800; font-size: 1.1rem; cursor: pointer; }
+.custom__form { display: grid; gap: 16px; padding: 4px 20px 20px; }
+.custom__block { margin: 0; padding: 10px 14px 12px; border: 2px solid var(--ink); border-radius: 12px; min-width: 0; }
+.custom__block legend { padding: 0 6px; font-weight: 800; }
+.custom__tools { margin-left: 8px; font-weight: 400; font-size: .85rem; }
+.custom__tools button { padding: 0 2px; border: 0; background: none; color: inherit; text-decoration: underline; cursor: pointer; font: inherit; }
+.custom__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 4px 16px; }
+.custom__opt { display: inline-flex; align-items: center; gap: 6px; margin-right: 14px; }
+.custom__dir { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; padding: 3px 0; border-bottom: 1px dashed #c9c4b0; }
+.custom__dir:last-child { border-bottom: 0; }
+.custom__dirname { flex: 1 1 320px; font-weight: 700; }
+.custom__row { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+.custom__row .custom__opt { display: flex; margin-right: 0; }
+.custom__title { display: grid; gap: 4px; font-weight: 700; }
+.custom__title input { padding: 10px 12px; border: 2px solid var(--ink); border-radius: 10px; font: inherit; }
+.custom__form .btn { justify-self: start; }

@@ -158,6 +158,7 @@ def dashboard(request):
         "awarded": Submission.objects.exclude(award="").count(),
         "can_switch_intake": request.user.has_perm("conference.change_conferencesettings"),
         "directions": directions,
+        "custom_fields": [{"key": f[0], "label": f[1], "checked": f[4]} for f in exports.CUSTOM_FIELDS],
         "works": works,
         "people": sum(s.people for s in Submission.objects.only("coauthor_last_name")),
         "free": max(capacity - taken_total, 0),
@@ -370,6 +371,45 @@ def _archive_response(groups):
 @office_required
 def export_archive(request, pk=None, number=None):
     return _archive_response(_groups(pk, number))
+
+
+CUSTOM_CONTENT_TYPES = {"word": DOCX, "excel": XLSX, "pdf": "application/pdf"}
+CUSTOM_EXTENSIONS = {"word": "docx", "excel": "xlsx", "pdf": "pdf"}
+CUSTOM_ADMISSIONS = {
+    "admitted": Submission.Admission.ADMITTED,
+    "not_admitted": Submission.Admission.NOT_ADMITTED,
+    "pending": Submission.Admission.PENDING,
+}
+
+
+@office_required
+def export_custom(request):
+    """Настраиваемая выгрузка: поля, секции, допуск, строка на работу или на ученика, формат."""
+    params = request.GET
+    fmt = params.get("format", "excel")
+    keys = [k for k in params.getlist("field") if k in exports.CUSTOM_FIELD_KEYS]
+    admissions = [CUSTOM_ADMISSIONS[k] for k in params.getlist("admission") if k in CUSTOM_ADMISSIONS]
+    chosen = set(params.getlist("group"))
+    groups = [(s, n) for s, n in exports.all_groups() if f"{s.pk}:{n}" in chosen]
+    problem = None
+    if fmt not in CUSTOM_CONTENT_TYPES:
+        problem = "Выберите формат файла."
+    elif not keys:
+        problem = "Отметьте хотя бы одно поле."
+    elif not groups:
+        problem = "Отметьте хотя бы одну секцию."
+    elif not admissions:
+        problem = "Отметьте, какие работы включить: допущенные, не допущенные или не рассмотренные."
+    if problem:
+        messages.error(request, problem)
+        return redirect(f"{reverse('conference:office')}#custom-export")
+    if params.get("sort") == "alpha":
+        groups.sort(key=lambda g: g[0].group_label(g[1]).casefold())
+    data = exports.build_custom(
+        fmt, keys, groups, admissions, params.get("rows") == "student", params.get("title", "").strip()[:200]
+    )
+    filename = f"Эврика — выгрузка {_today()}.{CUSTOM_EXTENSIONS[fmt]}"
+    return _file(data, filename, CUSTOM_CONTENT_TYPES[fmt])
 
 
 # --- Ссылки для проверяющих ---

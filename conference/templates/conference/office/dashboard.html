@@ -113,6 +113,71 @@
     <div class="card empty">Направления ещё не созданы. Их добавляет администратор сайта.</div>
   {% endif %}
 
+  {% if directions %}
+    <details class="card custom" id="custom-export" {% if messages %}open{% endif %}>
+      <summary class="custom__summary">Своя выгрузка: выберите поля, секции и формат</summary>
+      <form method="get" action="{% url 'conference:office_custom' %}" class="custom__form">
+        <fieldset class="custom__block">
+          <legend>Поля <span class="custom__tools"><button type="button" data-check="field" data-to="1">все</button> <button type="button" data-check="field" data-to="0">ничего</button></span></legend>
+          <div class="custom__grid">
+            {% for f in custom_fields %}
+              <label class="custom__opt"><input type="checkbox" name="field" value="{{ f.key }}"{% if f.checked %} checked{% endif %}> {{ f.label }}</label>
+            {% endfor %}
+          </div>
+        </fieldset>
+
+        <fieldset class="custom__block">
+          <legend>Секции <span class="custom__tools"><button type="button" data-check="group" data-to="1">все</button> <button type="button" data-check="group" data-to="0">ничего</button></span></legend>
+          {% for direction in directions %}
+            <div class="custom__dir">
+              <span class="custom__dirname">{{ direction.section.name }}</span>
+              {% for g in direction.groups %}
+                <label class="custom__opt"><input type="checkbox" name="group" value="{{ g.section.pk }}:{{ g.number }}" checked> {% if direction.section.groups > 1 %}секция {{ g.number }}{% else %}вся{% endif %}</label>
+              {% endfor %}
+            </div>
+          {% endfor %}
+        </fieldset>
+
+        <div class="custom__row">
+          <fieldset class="custom__block">
+            <legend>Какие работы</legend>
+            <label class="custom__opt"><input type="checkbox" name="admission" value="admitted" checked> допущенные</label>
+            <label class="custom__opt"><input type="checkbox" name="admission" value="pending" checked> не рассмотренные</label>
+            <label class="custom__opt"><input type="checkbox" name="admission" value="not_admitted" checked> не допущенные</label>
+          </fieldset>
+          <fieldset class="custom__block">
+            <legend>Строки</legend>
+            <label class="custom__opt"><input type="radio" name="rows" value="student" checked> на каждого ученика</label>
+            <label class="custom__opt"><input type="radio" name="rows" value="work"> на каждую работу</label>
+          </fieldset>
+          <fieldset class="custom__block">
+            <legend>Порядок секций</legend>
+            <label class="custom__opt"><input type="radio" name="sort" value="alpha" checked> по алфавиту</label>
+            <label class="custom__opt"><input type="radio" name="sort" value="order"> как в кабинете</label>
+          </fieldset>
+          <fieldset class="custom__block">
+            <legend>Формат</legend>
+            <label class="custom__opt"><input type="radio" name="format" value="excel" checked> Excel</label>
+            <label class="custom__opt"><input type="radio" name="format" value="word"> Word</label>
+            <label class="custom__opt"><input type="radio" name="format" value="pdf"> PDF</label>
+          </fieldset>
+        </div>
+
+        <label class="custom__title">Заголовок документа (необязательно)
+          <input type="text" name="title" maxlength="200" placeholder="Например: Список участников для награждения">
+        </label>
+        <button type="submit" class="btn">Скачать</button>
+      </form>
+    </details>
+    <script>
+      document.querySelectorAll("[data-check]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          document.querySelectorAll('.custom input[name="' + b.dataset.check + '"]').forEach(function (i) { i.checked = b.dataset.to === "1"; });
+        });
+      });
+    </script>
+  {% endif %}
+
   {% if user.is_superuser %}
     <p class="office-admin-link"><a href="{% url 'admin:index' %}">Расширенные настройки сайта (для администратора)</a></p>
   {% endif %}
