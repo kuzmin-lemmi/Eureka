@@ -127,6 +127,7 @@ p { text-wrap: pretty; }
 .btn--sm { padding: 8px 16px; font-size: .98rem; border-width: 2px; box-shadow: 3px 3px 0 var(--ink); }
 .btn--sm:hover { box-shadow: 4px 4px 0 var(--ink); }
 .btn--ghost { background: #fff; }
+.btn--danger { background: var(--tint-coral); }
 .btn[disabled] { opacity: .65; cursor: progress; }
 
 .link-button { padding: 0; border: 0; background: none; color: var(--blue); font: inherit; font-weight: 800; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
@@ -456,11 +457,7 @@ fieldset.card > legend + * { clear: both; }
 .my-item__facts dt { color: var(--muted); font-weight: 700; }
 .my-item__facts dd { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
 .my-item__message { margin-bottom: 16px; }
-.badge { display: inline-block; padding: 3px 12px; border: 2px solid var(--ink); border-radius: 999px; font-weight: 800; font-size: .88rem; background: #fff; }
-.badge--new { background: var(--tint-blue); }
-.badge--accepted { background: var(--tint-green); }
-.badge--revision { background: var(--tint-yellow); }
-.badge--rejected { background: var(--tint-coral); }
+.my-item__actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .actions form { display: inline-flex; align-items: center; }
 @media (max-width: 480px) {
   .my-item__facts div { grid-template-columns: 1fr; gap: 0; }
@@ -575,3 +572,21 @@ fieldset.card > legend + * { clear: both; }
 .stage__btns { display: flex; flex-wrap: wrap; gap: 8px; }
 @media (max-width: 900px) { .stages { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 520px) { .stages { grid-template-columns: minmax(0, 1fr); } }
+
+/* Приём работ и допуск ко 2 этапу */
+.intake { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 4px 6px 4px 14px; border: 2px solid var(--ink); border-radius: 999px; font-weight: 700; }
+.intake--open { background: var(--tint-green); }
+.intake--closed { background: var(--tint-coral); }
+.intake form { display: contents; }
+.intake .btn { padding: 4px 14px; box-shadow: none; }
+.admission-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 10px; }
+.admission { display: flex; flex-wrap: wrap; gap: 6px; }
+.admission__btn { padding: 6px 12px; background: #fff; border: 2px solid var(--ink); border-radius: 10px; font: inherit; font-size: .9rem; font-weight: 800; color: var(--ink); cursor: pointer; white-space: nowrap; }
+.admission__btn:hover { background: var(--tint-yellow); }
+.admission__btn[aria-pressed="true"]::before { content: "✓ "; }
+.admission__btn--yes[aria-pressed="true"] { background: var(--green); }
+.admission__btn--no[aria-pressed="true"] { background: var(--coral); color: #fff; }
+.people__row--admitted td { background: #f0fbf4; }
+.people__row--not_admitted td { background: #fff4f2; }
+.people__row--not_admitted td:not(:last-child) { color: var(--muted); }
+.people tr[id] { scroll-margin-top: 140px; }

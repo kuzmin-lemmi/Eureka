@@ -147,10 +147,7 @@ class Command(BaseCommand):
         if delete:
             count = 0
             for s in tests:
-                for f in (s.file, s.application_file, s.consent_file):
-                    if f:
-                        f.delete(save=False)
-                s.delete()
+                s.delete()  # файлы удаляет сигнал post_delete
                 count += 1
             self.stdout.write(self.style.SUCCESS(f"Удалено тестовых заявок: {count}."))
             return
@@ -184,8 +181,7 @@ class Command(BaseCommand):
                         # Даты подачи — за последние три недели, чтобы список выглядел живым.
                         created_at = now - timedelta(days=rng.randint(0, 20), minutes=rng.randint(0, 1400))
                         Submission.objects.filter(pk=s.pk).update(created_at=created_at)
-                        if s.status != Submission.Status.REJECTED:  # отклонённые места не занимают
-                            people += s.people
+                        people += s.people
                         created += 1
         self.stdout.write(self.style.SUCCESS(f"Создано тестовых заявок: {created}."))
         self.stdout.write("Удалить их: manage.py test_submissions --delete")
@@ -203,11 +199,9 @@ class Command(BaseCommand):
         school, district = rng.choice(SCHOOLS)
         sup_last = rng.choice(SURNAMES) + "а"
         title = rng.choice(topics)
-        status = rng.choices(["new", "revision", "rejected", "accepted"], weights=[80, 8, 4, 8])[0]
         s = Submission(
             section=section,
             section_number=number,
-            status=status,
             last_name=last,
             first_name=first,
             grade=rng.randint(8, 11),
@@ -222,8 +216,6 @@ class Command(BaseCommand):
             supervisor_position=rng.choice(POSITIONS),
             supervisor_phone=f"+7 (9{rng.randint(10, 99)}) {rng.randint(100, 999)}-{rng.randint(10, 99)}-{rng.randint(10, 99)}",
         )
-        if status == "revision":
-            s.participant_message = "Добавьте список литературы и оформите титульный лист по требованиям."
         if with_coauthor:
             c_last, c_first = self._person(rng)
             s.coauthor_last_name, s.coauthor_first_name = c_last, c_first

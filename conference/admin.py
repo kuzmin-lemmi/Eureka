@@ -93,7 +93,7 @@ class SubmissionAdmin(admin.ModelAdmin):
             },
             {
                 "title": "Этап 2. Допущенные ко 2 этапу",
-                "text": "Участники принятых заявок (статус «Принята»), секции по алфавиту.",
+                "text": "Участники допущенных работ, секции по алфавиту. Допуск отмечают в кабинете оргкомитета после закрытия приёма.",
                 "files": [
                     ("Word", reverse("conference:office_admitted_word")),
                     ("Excel", reverse("conference:office_admitted_excel")),
@@ -113,7 +113,7 @@ class SubmissionAdmin(admin.ModelAdmin):
         return render(request, "admin/conference/submission/exports.html", context)
 
     def export_sections(self, request):
-        """Списки секций в Excel: сводка и по листу на секцию, без отклонённых заявок."""
+        """Списки секций в Excel: сводка и по листу на секцию."""
         self._check_view(request)
         filename = f"Эврика — списки секций {timezone.localdate():%d.%m.%Y}.xlsx"
         return FileResponse(BytesIO(exports.build_sections_workbook()), as_attachment=True, filename=filename)
@@ -136,12 +136,12 @@ class SubmissionAdmin(admin.ModelAdmin):
         "school",
         "section_display",
         "title",
-        "status",
+        "admission",
         "files_display",
     )
     list_display_links = ("number_display", "full_name_display")
-    list_filter = ("status", "section", "section_number", "grade", "created_at", ("edited_by_participant_at", admin.EmptyFieldListFilter))
-    list_editable = ("status",)
+    list_filter = ("admission", "section", "section_number", "grade", "created_at", ("edited_by_participant_at", admin.EmptyFieldListFilter))
+    list_editable = ("admission",)
     list_select_related = ("section",)
     search_fields = (
         "last_name",
@@ -165,7 +165,7 @@ class SubmissionAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "number_display",
-                    "status",
+                    "admission",
                     "participant_message",
                     "admin_comment",
                     ("created_at", "updated_at", "edited_by_participant_at"),

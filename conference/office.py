@@ -148,12 +148,13 @@ def dashboard(request):
         })
         capacity += section.capacity * section.groups
         taken_total += sum(taken.values())
-    works = Submission.objects.exclude(status=Submission.Status.REJECTED).count()
+    works = Submission.objects.count()
     days_left = None
     if conf.is_submission_open and conf.submissions_deadline:
         days_left = max(0, (timezone.localdate(conf.submissions_deadline) - timezone.localdate()).days)
     context = {
-        "admitted": Submission.objects.filter(status=Submission.Status.ACCEPTED).count(),
+        "admission": _admission_counts(Submission.objects.values_list("admission", flat=True)),
+        "can_switch_intake": request.user.has_perm("conference.change_conferencesettings"),
         "directions": directions,
         "works": works,
         "people": taken_total,
@@ -171,16 +172,66 @@ def _group_or_404(pk, number):
     return section
 
 
+def _admission_counts(values):
+    """Сколько работ допущено, не допущено и ещё не рассмотрено."""
+    values = list(values)
+    A = Submission.Admission
+    return {"admitted": values.count(A.ADMITTED), "not_admitted": values.count(A.NOT_ADMITTED), "pending": values.count(A.PENDING)}
+
+
 @office_required
 def section_detail(request, pk, number):
     section = _group_or_404(pk, number)
     info = _group_info(section, number, section.occupied())
+    submissions = exports.group_submissions(section, number)
     context = {
         "info": info,
-        "submissions": exports.group_submissions(section, number),
+        "submissions": submissions,
+        "admission": _admission_counts(s.admission for s in submissions),
+        "can_decide": not ConferenceSettings.load().is_submission_open
+        and request.user.has_perm("conference.change_submission"),
         "link": _active_link(section, number),
     }
     return render(request, "conference/office/section.html", context)
+
+
+@office_required
+@require_POST
+def set_admission(request, pk):
+    """Допущен / не допущен ко 2 этапу. Отмечают только после закрытия приёма: до этого работы ещё меняются."""
+    if not request.user.has_perm("conference.change_submission"):
+        raise PermissionDenied
+    submission = get_object_or_404(Submission.objects.select_related("section"), pk=pk)
+    url = reverse("conference:office_section", args=[submission.section_id, submission.section_number])
+    if ConferenceSettings.load().is_submission_open:
+        messages.error(request, "Допуск отмечают после закрытия приёма работ.")
+        return redirect(url)
+    value = request.POST.get("admission", "")
+    if value not in Submission.Admission.values:
+        raise Http404
+    # Повторное нажатие на выбранную кнопку снимает решение.
+    submission.admission = "" if submission.admission == value else value
+    submission.save(update_fields=["admission", "updated_at"])
+    return redirect(f"{url}#s{submission.pk}")
+
+
+@office_required
+@require_POST
+def switch_intake(request):
+    if not request.user.has_perm("conference.change_conferencesettings"):
+        raise PermissionDenied
+    conf = ConferenceSettings.load()
+    if request.POST.get("open") == "1":
+        conf.submissions_open = True
+        # Прошедший срок снова закрыл бы приём — убираем его.
+        if conf.submissions_deadline and conf.submissions_deadline < timezone.now():
+            conf.submissions_deadline = None
+        messages.success(request, "Приём работ открыт: на сайте снова можно подать работу.")
+    else:
+        conf.submissions_open = False
+        messages.success(request, "Приём работ закрыт. Теперь на страницах секций можно отмечать допуск ко 2 этапу.")
+    conf.save()
+    return redirect("conference:office")
 
 
 # --- Выгрузки ---

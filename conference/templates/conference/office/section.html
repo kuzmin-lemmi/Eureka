@@ -14,6 +14,18 @@
     </ul>
   </div>
 
+  {% for message in messages %}<div class="alert alert--{% if message.level_tag == 'error' %}error{% else %}success{% endif %}" role="status">{{ message }}</div>{% endfor %}
+
+  {% if submissions %}
+    <p class="admission-summary">
+      <b>Допуск ко 2 этапу:</b>
+      <span class="chip chip--free">допущено {{ admission.admitted }}</span>
+      <span class="chip chip--full">не допущено {{ admission.not_admitted }}</span>
+      <span class="chip">не решено {{ admission.pending }}</span>
+      {% if not can_decide %}<span class="muted">{% if conf.is_submission_open %}Отмечать допуск можно после закрытия приёма работ.{% else %}Отмечать допуск может только сотрудник с правом изменять заявки.{% endif %}</span>{% endif %}
+    </p>
+  {% endif %}
+
   <div class="toolbar">
     <span class="toolbar__label">Скачать секцию:</span>
     <a class="btn btn--sm btn--word" href="{% url 'conference:office_section_word' info.section.pk info.number %}">📄 Список — Word</a>
@@ -29,16 +41,28 @@
   {% if submissions %}
     <div class="table-wrap">
       <table class="people">
-        <thead><tr><th>№</th><th>Участник</th><th>Класс</th><th>Школа</th><th>Работа</th><th></th></tr></thead>
+        <thead><tr><th>№</th><th>Участник</th><th>Класс</th><th>Школа</th><th>Работа</th><th></th><th>2 этап</th></tr></thead>
         <tbody>
           {% for s in submissions %}
-            <tr>
+            <tr id="s{{ s.pk }}" class="people__row--{{ s.admission|default:'pending' }}">
               <td>{{ forloop.counter }}</td>
               <td><b>{{ s.full_name }}</b>{% if s.coauthor %}<small>соавтор: {{ s.coauthor }}</small>{% endif %}<small>{{ s.number }}</small></td>
               <td>{{ s.grade }}</td>
               <td>{{ s.school }}</td>
               <td>{{ s.title }}<small>Руководитель: {{ s.supervisor }}</small></td>
               <td><a class="btn btn--sm" href="{% url 'conference:download_submission' s.pk %}">Скачать работу</a></td>
+              <td>
+                {% if can_decide %}
+                  <form method="post" action="{% url 'conference:office_admission' s.pk %}" class="admission">{% csrf_token %}
+                    <button type="submit" name="admission" value="admitted" class="admission__btn admission__btn--yes" aria-pressed="{% if s.admission == 'admitted' %}true{% else %}false{% endif %}">Допущен</button>
+                    <button type="submit" name="admission" value="not_admitted" class="admission__btn admission__btn--no" aria-pressed="{% if s.admission == 'not_admitted' %}true{% else %}false{% endif %}">Не допущен</button>
+                  </form>
+                {% elif s.admission %}
+                  <span class="chip {% if s.admission == 'admitted' %}chip--free{% else %}chip--full{% endif %}">{{ s.get_admission_display }}</span>
+                {% else %}
+                  <span class="muted">—</span>
+                {% endif %}
+              </td>
             </tr>
           {% endfor %}
         </tbody>

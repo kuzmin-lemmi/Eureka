@@ -44,7 +44,7 @@ COLUMNS = [
     ("Телефон руководителя", 18, lambda s: s.supervisor_phone),
     ("Второй руководитель", 28, lambda s: s.supervisor2),
     ("Почта участника", 26, lambda s: s.email),
-    ("Статус", 13, lambda s: s.public_status),
+    ("Допуск", 13, lambda s: s.get_admission_display() if s.admission else ""),
     ("Подана", 17, _created),
 ]
 PARTICIPANT_COLUMNS = COLUMNS[:2] + [("Секция", 34, lambda s: s.section_label)] + COLUMNS[2:]
@@ -68,8 +68,7 @@ def all_groups():
 
 def group_submissions(section, number):
     return list(
-        Submission.objects.exclude(status=Submission.Status.REJECTED)
-        .filter(section=section, section_number=number)
+        Submission.objects.filter(section=section, section_number=number)
         .select_related("section")
         .order_by("last_name", "first_name", "pk")
     )
@@ -195,7 +194,7 @@ def _student_rows(groups, contact):
     rows = []
     for section, number in groups:
         for s in group_submissions(section, number):
-            if not contact and s.status != Submission.Status.ACCEPTED:
+            if not contact and s.admission != Submission.Admission.ADMITTED:
                 continue
             supervisor = s.supervisor + (f"\n{s.supervisor2}" if s.supervisor2 else "")
             people = [(s.full_name, s.grade)]
@@ -210,12 +209,12 @@ def _student_rows(groups, contact):
 
 
 def student_rows():
-    """Этап 1: все ученики, кроме отклонённых; секции — в порядке направлений."""
+    """Этап 1: все ученики; секции — в порядке направлений."""
     return _student_rows(all_groups(), contact=True)
 
 
 def admitted_rows():
-    """Этап 2: ученики принятых заявок; секции — по алфавиту."""
+    """Этап 2: ученики допущенных работ; секции — по алфавиту."""
     groups = sorted(all_groups(), key=lambda g: g[0].group_label(g[1]).casefold())
     return _student_rows(groups, contact=False)
 

@@ -3,8 +3,9 @@ import os
 import shutil
 import tempfile
 from datetime import timedelta
+from pathlib import Path
 
-from django.contrib.auth.models import Group, User
+from django.contrib.auth.models import Group, Permission, User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -64,7 +65,7 @@ class SubmissionTests(TestCase):
         response = self.post()
         self.assertRedirects(response, reverse("conference:thanks"))
         submission = Submission.objects.get()
-        self.assertEqual(submission.status, Submission.Status.NEW)
+        self.assertEqual(submission.admission, Submission.Admission.PENDING)
         self.assertEqual(submission.grade, 9)
         self.assertEqual(submission.original_filename, "работа.docx")
         self.assertNotIn("работа", submission.file.name)
@@ -170,13 +171,15 @@ class SubmissionTests(TestCase):
         self.assertContains(response, "осталось 1 место")
         self.assertEqual(Submission.objects.count(), 1)
 
-    def test_rejected_submission_frees_place(self):
+    def test_deleted_submission_frees_place(self):
         self.section.capacity = 1
         self.section.save()
         self.post()
-        Submission.objects.update(status=Submission.Status.REJECTED)
+        Submission.objects.get().delete()
         self.post(last_name="Петров")
-        self.assertEqual(Submission.objects.count(), 2)
+        self.assertEqual(Submission.objects.count(), 1)
+        self.post(last_name="Сидоров")  # место снова занято
+        self.assertEqual(Submission.objects.count(), 1)
 
     def test_grade_out_of_range_rejected(self):
         for grade in ("7", "12"):
@@ -507,11 +510,11 @@ class ParticipantAccessTests(TestCase):
         self.submit(section_slot=f"{self.other.pk}:1", title="Другая работа")
         self.assertEqual(Submission.objects.count(), 2)
 
-    def test_rejected_submission_allows_new_one(self):
+    def test_deleted_submission_allows_new_one(self):
         self.submit()
-        Submission.objects.update(status=Submission.Status.REJECTED)
+        self.client.post(reverse("conference:my_delete", args=[Submission.objects.get().pk]))
         self.submit()
-        self.assertEqual(Submission.objects.count(), 2)
+        self.assertEqual(Submission.objects.count(), 1)
 
     def test_coauthor_is_not_restricted(self):
         self.submit()
@@ -573,24 +576,56 @@ class ParticipantAccessTests(TestCase):
         self.assertEqual(submission.original_filename, "работа.docx")
         self.assertIsNotNone(submission.edited_by_participant_at)
 
-    def test_edit_returns_revision_to_new(self):
+    def test_my_page_has_no_status_but_shows_message(self):
         self.submit()
-        Submission.objects.update(status=Submission.Status.REVISION, participant_message="Добавьте список литературы")
-        submission = Submission.objects.get()
-        self.assertContains(self.client.get(reverse("conference:my")), "Добавьте список литературы")
-        data = self.data()
-        for name in ("file", "application_file", "consent_file"):
-            data.pop(name)
-        self.client.post(reverse("conference:my_edit", args=[submission.pk]), data)
-        submission.refresh_from_db()
-        self.assertEqual(submission.status, Submission.Status.NEW)
+        Submission.objects.update(participant_message="Добавьте список литературы")
+        response = self.client.get(reverse("conference:my"))
+        self.assertContains(response, "Добавьте список литературы")
+        self.assertContains(response, "Удалить")
+        for word in ("Принята", "Отклонена", "Допущен"):
+            self.assertNotContains(response, word)
 
-    def test_accepted_submission_not_editable(self):
+    def test_participant_deletes_submission_with_files(self):
         self.submit()
-        Submission.objects.update(status=Submission.Status.ACCEPTED)
-        submission = Submission.objects.get()
-        response = self.client.get(reverse("conference:my_edit", args=[submission.pk]))
+        self.submit(section_slot=f"{self.other.pk}:1", title="Другая работа")
+        submission = Submission.objects.get(section=self.section)
+        paths = [Path(f.path) for f in (submission.file, submission.application_file, submission.consent_file)]
+        self.assertTrue(all(p.exists() for p in paths))
+        url = reverse("conference:my_delete", args=[submission.pk])
+        self.assertContains(self.client.get(url), "Да, удалить заявку")
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(url)
         self.assertRedirects(response, reverse("conference:my"))
+        self.assertFalse(Submission.objects.filter(pk=submission.pk).exists())
+        self.assertFalse(any(p.exists() for p in paths))
+        self.assertContains(self.client.get(reverse("conference:my")), "Другая работа")  # вход сохранился
+
+    def test_deleting_last_submission_logs_out(self):
+        self.submit()
+        self.client.post(reverse("conference:my_delete", args=[Submission.objects.get().pk]))
+        self.assertContains(self.client.get(reverse("conference:my")), "Найти заявки")
+
+    def test_closed_intake_forbids_edit_and_delete(self):
+        self.submit()
+        conf = ConferenceSettings.load()
+        conf.submissions_open = False
+        conf.save()
+        submission = Submission.objects.get()
+        my = reverse("conference:my")
+        self.assertRedirects(self.client.get(reverse("conference:my_edit", args=[submission.pk])), my)
+        self.assertRedirects(self.client.post(reverse("conference:my_delete", args=[submission.pk])), my)
+        self.assertTrue(Submission.objects.exists())
+        response = self.client.get(my)
+        self.assertContains(response, "Приём работ закрыт")
+        self.assertNotContains(response, "Удалить")
+
+    def test_cannot_delete_someone_elses_submission(self):
+        self.submit()
+        foreign = Submission.objects.get()
+        self.client.post(reverse("conference:my_logout"))
+        self.submit(snils=make_snils(200000001), email="other@example.ru", section_slot=f"{self.other.pk}:1")
+        self.assertEqual(self.client.post(reverse("conference:my_delete", args=[foreign.pk])).status_code, 404)
+        self.assertTrue(Submission.objects.filter(pk=foreign.pk).exists())
 
     def test_cannot_edit_someone_elses_submission(self):
         self.submit()
@@ -612,9 +647,9 @@ class ParticipantAccessTests(TestCase):
 class SectionsExportTests(TestCase):
     def setUp(self):
         self.section = Section.objects.create(name="Искусство слова и лингвистика. Язык в современном мире", groups=2)
-        for i, (number, status) in enumerate(((1, "new"), (2, "new"), (1, "rejected"))):
+        for i, number in enumerate((1, 2)):
             Submission.objects.create(
-                section=self.section, section_number=number, status=status, snils=make_snils(300000000 + i),
+                section=self.section, section_number=number, snils=make_snils(300000000 + i),
                 last_name=f"Участник{i}", first_name="Имя", grade=9, email="p@example.ru",
                 school="Гимназия № 87", district="Ленинский", title=f"Работа {i}",
                 supervisor_last_name="Петрова", supervisor_first_name="Анна", supervisor_position="учитель",
@@ -628,14 +663,14 @@ class SectionsExportTests(TestCase):
         self.assertEqual(response.status_code, 200)
         return load_workbook(BytesIO(b"".join(response.streaming_content)))
 
-    def test_export_has_sheet_per_group_without_rejected(self):
+    def test_export_has_sheet_per_group(self):
         self.client.force_login(User.objects.create_superuser("admin", password="pass"))
         wb = self.download()
         self.assertEqual(len(wb.sheetnames), 3)
         self.assertTrue(all(len(name) <= 31 for name in wb.sheetnames))
         first = wb[wb.sheetnames[1]]
         names = [row[2] for row in first.iter_rows(min_row=4, values_only=True)]
-        self.assertEqual(names, ["Участник0 Имя"])  # отклонённый Участник2 не попал
+        self.assertEqual(names, ["Участник0 Имя"])
         self.assertNotIn("300-000-000", str(list(first.values)))  # СНИЛС не выгружается
         self.assertEqual(wb["Сводка"]["C2"].value, 1)
 
@@ -655,7 +690,7 @@ class SectionsExportTests(TestCase):
         from docx import Document as Docx
         from openpyxl import load_workbook
 
-        Submission.objects.filter(status="new").update(coauthor_last_name="Соавтор", coauthor_first_name="Ира", coauthor_grade=8)
+        Submission.objects.update(coauthor_last_name="Соавтор", coauthor_first_name="Ира", coauthor_grade=8)
         self.client.force_login(User.objects.create_superuser("admin", password="pass"))
         page = self.client.get(reverse("admin:conference_submission_exports"))
         for n in range(1, 5):
@@ -665,17 +700,13 @@ class SectionsExportTests(TestCase):
         ws = load_workbook(BytesIO(b"".join(response.streaming_content))).active
         rows = list(ws.values)
         self.assertEqual(rows[0][:4], ("№", "Секция", "ФИО", "Кл."))
-        self.assertEqual(len(rows), 1 + 4)  # две заявки по два ученика, отклонённая не в счёт
+        self.assertEqual(len(rows), 1 + 4)  # две заявки по два ученика
         self.assertEqual(rows[2][2], "Соавтор Ира")
         self.assertEqual(rows[2][3], 8)
 
         response = self.client.get(reverse("admin:conference_submission_students_word"))
         doc = Docx(BytesIO(b"".join(response.streaming_content)))
         self.assertEqual(len(doc.tables[0].rows), 1 + 4)
-
-    def test_my_page_shows_submitted_instead_of_new(self):
-        submission = Submission.objects.filter(status="new").first()
-        self.assertEqual(submission.public_status, "Подана")
 
 
 @override_settings(MEDIA_ROOT=MEDIA_ROOT, MAX_UPLOAD_MB=1)
@@ -687,11 +718,9 @@ class OfficeTests(TestCase):
         cache.clear()
         self.section = Section.objects.create(name="Здоровое поколение", groups=2, capacity=3)
         self.other = Section.objects.create(name="Краеведение")
-        for i, (section, number, status) in enumerate(
-            ((self.section, 1, "new"), (self.section, 1, "new"), (self.section, 2, "new"), (self.other, 1, "rejected"))
-        ):
+        for i, (section, number) in enumerate(((self.section, 1), (self.section, 1), (self.section, 2))):
             s = Submission(
-                section=section, section_number=number, status=status, snils=make_snils(400000000 + i),
+                section=section, section_number=number, snils=make_snils(400000000 + i),
                 last_name=f"Фамилия{i}", first_name="Имя", grade=9, email=f"p{i}@example.ru",
                 school="Гимназия № 87", district="Ленинский", title=f"Работа номер {i}",
                 supervisor_last_name="Петрова", supervisor_first_name="Анна", supervisor_position="учитель",
@@ -731,6 +760,61 @@ class OfficeTests(TestCase):
         response = self.client.post(reverse("conference:office_login"), {"username": "pupil", "password": "Pass-1234!"})
         self.assertContains(response, "нет доступа к кабинету")
 
+    def test_organizer_closes_and_opens_intake(self):
+        self.client.force_login(self.organizer)
+        self.assertContains(self.client.get(reverse("conference:office")), "Закрыть приём")
+        self.client.post(reverse("conference:office_intake"))
+        self.assertFalse(ConferenceSettings.load().is_submission_open)
+        self.assertContains(self.client.get(reverse("conference:office")), "Открыть приём")
+        self.assertTrue(self.client.get(reverse("conference:submit")).context["closed"])
+
+        conf = ConferenceSettings.load()
+        conf.submissions_deadline = timezone.now() - timedelta(days=1)
+        conf.save()
+        self.client.post(reverse("conference:office_intake"), {"open": "1"})
+        conf = ConferenceSettings.load()
+        self.assertTrue(conf.is_submission_open)
+        self.assertIsNone(conf.submissions_deadline)  # прошедший срок снят, иначе приём остался бы закрытым
+
+    def test_admission_only_after_intake_closed(self):
+        self.client.force_login(self.organizer)
+        section_url = reverse("conference:office_section", args=[self.section.pk, 1])
+        submission = Submission.objects.get(last_name="Фамилия0")
+        url = reverse("conference:office_admission", args=[submission.pk])
+        self.assertNotContains(self.client.get(section_url), "Не допущен</button>")
+        self.client.post(url, {"admission": "admitted"})
+        submission.refresh_from_db()
+        self.assertEqual(submission.admission, "")
+
+        conf = ConferenceSettings.load()
+        conf.submissions_open = False
+        conf.save()
+        self.assertContains(self.client.get(section_url), "Не допущен</button>")
+        response = self.client.post(url, {"admission": "admitted"})
+        self.assertRedirects(response, f"{section_url}#s{submission.pk}", fetch_redirect_response=False)
+        submission.refresh_from_db()
+        self.assertEqual(submission.admission, "admitted")
+        self.assertContains(self.client.get(section_url), "допущено 1")
+        self.client.post(url, {"admission": "not_admitted"})
+        submission.refresh_from_db()
+        self.assertEqual(submission.admission, "not_admitted")
+        self.client.post(url, {"admission": "not_admitted"})  # повторное нажатие снимает решение
+        submission.refresh_from_db()
+        self.assertEqual(submission.admission, "")
+        self.assertEqual(self.client.post(url, {"admission": "maybe"}).status_code, 404)
+
+    def test_admission_requires_change_permission(self):
+        viewer = User.objects.create_user("viewer", password="Pass-1234!", is_staff=True)
+        viewer.user_permissions.add(Permission.objects.get(codename="view_submission"))
+        self.client.force_login(viewer)
+        conf = ConferenceSettings.load()
+        conf.submissions_open = False
+        conf.save()
+        submission = Submission.objects.get(last_name="Фамилия0")
+        response = self.client.post(reverse("conference:office_admission", args=[submission.pk]), {"admission": "admitted"})
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(self.client.post(reverse("conference:office_intake"), {"open": "1"}).status_code, 403)
+
     def test_section_page_and_exports(self):
         from docx import Document
         from openpyxl import load_workbook
@@ -747,7 +831,7 @@ class OfficeTests(TestCase):
 
         wb = load_workbook(BytesIO(b"".join(self.client.get(reverse("conference:office_participants")).streaming_content)))
         names = [row[3] for row in wb.active.iter_rows(min_row=2, values_only=True)]
-        self.assertEqual(sorted(names), ["Фамилия0 Имя", "Фамилия1 Имя", "Фамилия2 Имя"])  # без отклонённой
+        self.assertEqual(sorted(names), ["Фамилия0 Имя", "Фамилия1 Имя", "Фамилия2 Имя"])
 
     def test_office_dashboard_stage_one_exports(self):
         from docx import Document
@@ -759,18 +843,19 @@ class OfficeTests(TestCase):
         self.assertContains(dashboard, reverse("conference:office_students_word"))
         response = self.client.get(reverse("conference:office_students_excel"))
         rows = list(load_workbook(BytesIO(b"".join(response.streaming_content))).active.values)
-        self.assertEqual(len(rows), 1 + 3)  # без отклонённой
+        self.assertEqual(len(rows), 1 + 3)
         response = self.client.get(reverse("conference:office_students_word"))
         self.assertEqual(len(Document(BytesIO(response.getvalue())).tables[0].rows), 1 + 3)
 
-    def test_admitted_exports_only_accepted_sorted_by_section(self):
+    def test_admitted_exports_only_admitted_sorted_by_section(self):
         from docx import Document
         from openpyxl import load_workbook
 
         other = Section.objects.create(name="Абвгд", order=99)
-        Submission.objects.filter(last_name="Фамилия0").update(status="accepted")
+        Submission.objects.filter(last_name="Фамилия0").update(admission="admitted")
+        Submission.objects.filter(last_name="Фамилия1").update(admission="not_admitted")
         Submission.objects.create(
-            section=other, status="accepted", snils=make_snils(400000001), last_name="Яблоков", first_name="Пётр",
+            section=other, admission="admitted", snils=make_snils(400000001), last_name="Яблоков", first_name="Пётр",
             grade=10, email="y@example.ru", school="Школа", district="Р", title="Работа Я",
             supervisor_last_name="Иванова", supervisor_first_name="Мария", supervisor_position="учитель",
             supervisor_phone="+79001234567", file="x.docx",

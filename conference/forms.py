@@ -355,7 +355,7 @@ class SubmissionForm(forms.ModelForm):
                 snils = cleaned.get("snils")
                 duplicate = (
                     Submission.objects.filter(snils=snils, section=section)
-                    .exclude(status=Submission.Status.REJECTED)
+                    .exclude(admission=Submission.Admission.NOT_ADMITTED)
                     .exclude(pk=self.instance.pk)
                 )
                 if snils and duplicate.exists():
@@ -397,9 +397,6 @@ class SubmissionForm(forms.ModelForm):
                 setattr(submission, original, Path(self.cleaned_data[name].name).name[:255])
         if self.editing:
             submission.edited_by_participant_at = timezone.now()
-            # Исправленная заявка снова уходит на проверку.
-            if submission.status == Submission.Status.REVISION:
-                submission.status = Submission.Status.NEW
         if commit:
             submission.save()
         return submission

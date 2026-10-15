@@ -12,6 +12,7 @@ urlpatterns = [
     path("my/", views.my, name="my"),
     path("my/logout/", views.my_logout, name="my_logout"),
     path("my/<int:pk>/edit/", views.my_edit, name="my_edit"),
+    path("my/<int:pk>/delete/", views.my_delete, name="my_delete"),
     # Кабинет оргкомитета
     path("office/", office.dashboard, name="office"),
     path("office/login/", office.OfficeLoginView.as_view(), name="office_login"),
@@ -20,6 +21,8 @@ urlpatterns = [
     path("office/staff/", office.staff_list, name="office_staff"),
     path("office/staff/<int:pk>/password/", office.staff_password, name="office_staff_password"),
     path("office/section/<int:pk>/<int:number>/", office.section_detail, name="office_section"),
+    path("office/submission/<int:pk>/admission/", office.set_admission, name="office_admission"),
+    path("office/intake/", office.switch_intake, name="office_intake"),
     path("office/export/word/", office.export_word, name="office_word"),
     path("office/export/excel/", office.export_excel, name="office_excel"),
     path("office/export/participants/", office.export_participants, name="office_participants"),

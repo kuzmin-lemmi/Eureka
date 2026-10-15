@@ -3,7 +3,9 @@ from datetime import timedelta
 from pathlib import Path
 
 from django.core.validators import FileExtensionValidator, MaxValueValidator, MinValueValidator
-from django.db import models
+from django.db import models, transaction
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 from django.utils import timezone
 
 # В конференции участвуют школьники 8–11 классов.
@@ -135,7 +137,7 @@ class Section(models.Model):
         "мест в секции",
         default=12,
         validators=[MinValueValidator(1)],
-        help_text="Участник и соавтор занимают по месту. Отклонённые заявки места не занимают.",
+        help_text="Участник и соавтор занимают по месту. Удалённая участником заявка место освобождает.",
     )
     order = models.PositiveSmallIntegerField("порядок", default=0)
     is_active = models.BooleanField("показывать в анкете", default=True)
@@ -155,7 +157,7 @@ class Section(models.Model):
         """Занятые места по номерам секций: {1: 12, 2: 3, …}. exclude — pk заявки, которую не считать
         (при редактировании заявка не должна занимать место сама у себя)."""
         taken = dict.fromkeys(range(1, self.groups + 1), 0)
-        rows = self.submissions.exclude(status=Submission.Status.REJECTED)
+        rows = self.submissions.all()
         if exclude:
             rows = rows.exclude(pk=exclude)
         rows = rows.values_list("section_number", "coauthor_last_name")
@@ -181,11 +183,12 @@ def document_upload_to(instance, filename):
 
 
 class Submission(models.Model):
-    class Status(models.TextChoices):
-        NEW = "new", "Новая"
-        ACCEPTED = "accepted", "Принята"
-        REVISION = "revision", "На доработке"
-        REJECTED = "rejected", "Отклонена"
+    # Пока приём открыт, у заявки нет статуса: участник может её изменить или удалить.
+    # После закрытия приёма оргкомитет решает, допущена ли работа ко 2 этапу.
+    class Admission(models.TextChoices):
+        PENDING = "", "Не решено"
+        ADMITTED = "admitted", "Допущен"
+        NOT_ADMITTED = "not_admitted", "Не допущен"
 
     # Участник
     email = models.EmailField("электронная почта участника")
@@ -240,7 +243,9 @@ class Submission(models.Model):
     supervisor2_phone = models.CharField("телефон второго руководителя", max_length=30, blank=True)
 
     # Оргкомитет
-    status = models.CharField("статус", max_length=10, choices=Status, default=Status.NEW)
+    admission = models.CharField(
+        "допуск ко 2 этапу", max_length=12, choices=Admission, default=Admission.PENDING, blank=True
+    )
     admin_comment = models.TextField("комментарий оргкомитета", blank=True, help_text="Виден только оргкомитету.")
     participant_message = models.TextField(
         "сообщение участнику",
@@ -251,30 +256,30 @@ class Submission(models.Model):
     updated_at = models.DateTimeField("изменена", auto_now=True)
     edited_by_participant_at = models.DateTimeField("изменена участником", null=True, blank=True)
 
-    EDITABLE_STATUSES = (Status.NEW, Status.REVISION)
-
     class Meta:
         verbose_name = "заявка"
         verbose_name_plural = "заявки"
         ordering = ["-created_at"]
         constraints = [
-            # Один человек (по СНИЛС основного автора) — одна действующая заявка в направлении.
+            # Один человек (по СНИЛС основного автора) — одна заявка в направлении.
+            # Недопущенные не считаются: так прошли миграцию старые отклонённые заявки.
             models.UniqueConstraint(
                 fields=["snils", "section"],
-                condition=~models.Q(status="rejected") & ~models.Q(snils=""),
+                condition=~models.Q(admission="not_admitted") & ~models.Q(snils=""),
                 name="one_active_submission_per_snils_and_section",
                 violation_error_message="Заявка этого участника в это направление уже есть.",
             )
         ]
 
     @property
-    def public_status(self):
-        """Статус для участника: оргкомитет может не принимать заявки вручную, поэтому «Новая» — это «Подана»."""
-        return "Подана" if self.status == self.Status.NEW else self.get_status_display()
-
-    @property
     def is_editable(self):
-        return self.status in self.EDITABLE_STATUSES and ConferenceSettings.load().is_submission_open
+        """Изменить или удалить заявку участник может, пока открыт приём работ."""
+        return ConferenceSettings.load().is_submission_open
+
+    def delete_files(self):
+        for f in (self.file, self.application_file, self.consent_file):
+            if f:
+                f.delete(save=False)
 
     def __str__(self):
         return f"{self.number} {self.full_name} — {self.title}"
@@ -430,3 +435,9 @@ class ReviewLink(models.Model):
         if self.section_id:
             return [(self.section, self.section_number or 1)]
         return [(s, n) for s in Section.objects.all() for n in range(1, s.groups + 1)]
+
+
+@receiver(post_delete, sender=Submission)
+def delete_submission_files(sender, instance, **kwargs):
+    """Файлы удалённой заявки (участником, в админке или командой) убираем с диска после записи в базу."""
+    transaction.on_commit(instance.delete_files)

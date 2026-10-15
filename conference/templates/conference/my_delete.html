@@ -1,0 +1,28 @@
+{% extends "conference/base.html" %}
+
+{% block title %}Удалить заявку {{ submission.number }} — {{ conf.title }}{% endblock %}
+
+{% block content %}
+<section class="page">
+  <div class="container container--narrow">
+    <div class="page-head">
+      <h1>Удалить заявку?</h1>
+      <p class="lead">Заявка {{ submission.number }} и все её файлы будут удалены. Отменить это нельзя.</p>
+    </div>
+    <div class="card my-item">
+      <h2 class="h3">{{ submission.title }}</h2>
+      <dl class="my-item__facts">
+        <div><dt>Секция</dt><dd>{{ submission.section_label }}</dd></div>
+        <div><dt>Участник</dt><dd>{{ submission.full_name }}, {{ submission.grade }} класс</dd></div>
+        {% if submission.coauthor %}<div><dt>Соавтор</dt><dd>{{ submission.coauthor }}</dd></div>{% endif %}
+      </dl>
+      <p class="help">Место в секции освободится. Пока идёт приём, работу можно подать заново.</p>
+      <form method="post" class="my-item__actions">
+        {% csrf_token %}
+        <button type="submit" class="btn btn--sm btn--danger">Да, удалить заявку</button>
+        <a class="btn btn--sm btn--ghost" href="{% url 'conference:my' %}">Не удалять</a>
+      </form>
+    </div>
+  </div>
+</section>
+{% endblock %}

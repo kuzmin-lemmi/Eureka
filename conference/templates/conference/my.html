@@ -8,7 +8,7 @@
     <div class="page-head">
       <h1>Мои заявки</h1>
       {% if form %}
-        <p class="lead">Посмотрите статус поданных работ и исправьте заявку, если нужно.</p>
+        <p class="lead">Здесь видно, какие работы вы подали. Пока идёт приём, заявку можно исправить или удалить.</p>
         <p class="muted">Введите СНИЛС участника и почту, которую указали в анкете в блоке «Участник».</p>
       {% endif %}
     </div>
@@ -35,8 +35,7 @@
         {% for s in submissions %}
           <li class="card my-item">
             <div class="my-item__head">
-              <span class="my-item__number">{{ s.number }}</span>
-              <span class="badge badge--{{ s.status }}">{{ s.public_status }}</span>
+              <span class="my-item__number">Заявка {{ s.number }}</span>
             </div>
             <h2 class="h3">{{ s.title }}</h2>
             <dl class="my-item__facts">
@@ -49,13 +48,12 @@
               <div class="alert alert--info my-item__message"><b>Сообщение оргкомитета:</b> {{ s.participant_message|linebreaksbr }}</div>
             {% endif %}
             {% if s.is_editable %}
-              <a class="btn btn--sm" href="{% url 'conference:my_edit' s.pk %}">Изменить заявку</a>
-            {% elif s.status == "accepted" %}
-              <p class="help">Заявка принята — изменить её уже нельзя. Если нашли ошибку, напишите оргкомитету.</p>
-            {% elif s.status == "rejected" %}
-              <p class="help">Заявка отклонена. Если приём работ ещё открыт, можно подать работу в это направление заново.</p>
+              <div class="my-item__actions">
+                <a class="btn btn--sm" href="{% url 'conference:my_edit' s.pk %}">Изменить заявку</a>
+                <a class="btn btn--sm btn--ghost" href="{% url 'conference:my_delete' s.pk %}">Удалить</a>
+              </div>
             {% else %}
-              <p class="help">Приём работ закрыт — изменить заявку уже нельзя.</p>
+              <p class="help">Приём работ закрыт — изменить или удалить заявку уже нельзя. Если нашли ошибку, напишите оргкомитету.</p>
             {% endif %}
           </li>
         {% endfor %}

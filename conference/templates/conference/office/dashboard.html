@@ -10,12 +10,25 @@
       <li class="kpi kpi--accent"><b>{{ works }}</b> работ подано</li>
       <li class="kpi"><b>{{ people }}</b> участников</li>
       <li class="kpi"><b>{{ free }}</b> свободных мест из {{ capacity }}</li>
-      <li class="kpi">
-        {% if days_left is not None %}<b>{{ days_left }}</b> дн. до конца приёма
-        {% elif conf.is_submission_open %}срок приёма не задан
-        {% else %}приём работ закрыт{% endif %}
-      </li>
     </ul>
+    <div class="intake intake--{% if conf.is_submission_open %}open{% else %}closed{% endif %}">
+      {% if conf.is_submission_open %}
+        <span><b>Приём работ открыт</b>{% if days_left is not None %} · осталось {{ days_left }} дн.{% endif %}</span>
+        {% if can_switch_intake %}
+          <form method="post" action="{% url 'conference:office_intake' %}" onsubmit="return confirm('Закрыть приём работ? Участники больше не смогут подавать, изменять и удалять заявки.')">{% csrf_token %}
+            <button type="submit" class="btn btn--sm btn--ghost">Закрыть приём</button>
+          </form>
+        {% endif %}
+      {% else %}
+        <span><b>Приём работ закрыт</b></span>
+        {% if can_switch_intake %}
+          <form method="post" action="{% url 'conference:office_intake' %}" onsubmit="return confirm('Снова открыть приём работ? Участники смогут подавать, изменять и удалять заявки.')">{% csrf_token %}
+            <input type="hidden" name="open" value="1">
+            <button type="submit" class="btn btn--sm btn--ghost">Открыть приём</button>
+          </form>
+        {% endif %}
+      {% endif %}
+    </div>
   </div>
 
   {% for message in messages %}<div class="alert alert--success" role="status">{{ message }}</div>{% endfor %}
@@ -31,7 +44,8 @@
     </div>
     <div class="stage">
       <h2 class="stage__title"><span class="stage__num">2</span> Допущенные ко 2 этапу</h2>
-      <p class="stage__text">Список участников принятых работ (статус «Принята»), секции по алфавиту. Сейчас работ: {{ admitted }}.</p>
+      <p class="stage__text">Участники допущенных работ, секции по алфавиту. Допуск отмечают на странице секции после закрытия приёма.</p>
+      <p class="stage__text"><b>Допущено: {{ admission.admitted }}</b> · не допущено: {{ admission.not_admitted }} · не решено: {{ admission.pending }}</p>
       <div class="stage__btns">
         <a class="btn btn--sm btn--word" href="{% url 'conference:office_admitted_word' %}">📄 Word</a>
         <a class="btn btn--sm btn--excel" href="{% url 'conference:office_admitted_excel' %}">📊 Excel</a>

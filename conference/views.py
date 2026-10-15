@@ -251,3 +251,23 @@ def my_edit(request, pk):
             messages.success(request, f"Изменения в заявке {form.instance.number} сохранены.")
             return redirect("conference:my")
     return render(request, "conference/submit.html", {"form": form, "editing": submission})
+
+
+@require_http_methods(["GET", "POST"])
+def my_delete(request, pk):
+    participant = _participant(request)
+    if not participant:
+        return redirect("conference:my")
+    submission = get_object_or_404(_my_submissions(participant), pk=pk)
+    if not submission.is_editable:
+        messages.info(request, f"Заявку {submission.number} удалить уже нельзя: приём работ закрыт.")
+        return redirect("conference:my")
+    if request.method == "POST":
+        number = submission.number
+        submission.delete()  # файлы удаляет сигнал post_delete
+        messages.success(request, f"Заявка {number} удалена.")
+        if not _my_submissions(participant).exists():
+            # Заявок больше нет — показывать нечего, участник снова увидит форму входа.
+            request.session.pop(MY_SESSION_KEY, None)
+        return redirect("conference:my")
+    return render(request, "conference/my_delete.html", {"submission": submission})
