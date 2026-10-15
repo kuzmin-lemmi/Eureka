@@ -841,7 +841,7 @@ class OfficeTests(TestCase):
 
         response = self.client.get(reverse("conference:office_winners_excel"))
         rows = list(load_workbook(BytesIO(response.getvalue())).active.values)
-        self.assertIn("Победители и призеры", rows[0][0])
+        self.assertEqual(rows[0][0], "Победители и призеры XII межрегиональной научно-практической конференции «Эврика»")
         self.assertEqual(rows[2], ("№", "ФИО", "Название работы", "Секция", "ОУ", "Статус"))
         data = rows[3:]
         # Секции по алфавиту, внутри — места, затем номинации; соавтор в той же строке.
@@ -917,7 +917,15 @@ class OfficeTests(TestCase):
         self.client.force_login(self.organizer)
         response = self.client.get(reverse("conference:office_admitted_excel"))
         rows = list(load_workbook(BytesIO(b"".join(response.streaming_content))).active.values)
-        self.assertIn("2027", rows[0][0])
+        self.assertIn("ко 2 этапу XII межрегиональной", rows[0][0])
+        self.assertIn("в 2027 году", rows[0][0])
+        conf = ConferenceSettings.load()
+        conf.edition, conf.year = "XIII", 2028
+        conf.save()
+        response = self.client.get(reverse("conference:office_admitted_excel"))
+        title = list(load_workbook(BytesIO(b"".join(response.streaming_content))).active.values)[0][0]
+        self.assertIn("ко 2 этапу XIII межрегиональной", title)
+        self.assertIn("в 2028 году", title)
         data = rows[3:]
         self.assertEqual([r[2] for r in data], ["Яблоков Пётр", "Фамилия0 Имя"])  # «Абвгд» раньше по алфавиту
         self.assertEqual(len(data[0]), 7)  # без даты и почты

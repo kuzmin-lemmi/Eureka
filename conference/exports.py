@@ -179,16 +179,11 @@ STUDENT_HEADERS = ["№", "Секция", "ФИО", "Кл.", "ОУ", "Назва
 STUDENT_WIDTHS = [5, 28, 28, 6, 45, 45, 26, 28]
 STUDENT_DOCX_WIDTHS = [1, 3.6, 3.6, 1, 5.5, 5.5, 3.6, 3.6]
 
-ADMITTED_TITLE = (
-    "Список участников, допущенных ко 2 этапу XII межрегиональной научно-практической "
-    "конференции школьников «Эврика» в 2027 году"
-)
 ADMITTED_HEADERS = STUDENT_HEADERS[:-1]
 ADMITTED_WIDTHS = STUDENT_WIDTHS[:-1]
 ADMITTED_DOCX_WIDTHS = [1, 3.6, 3.8, 1, 6.2, 6.2, 4]
 
 # Этап 3: по образцу списка оргкомитета — строка на работу, соавторы через запятую.
-WINNERS_TITLE = "Победители и призеры XII межрегиональной научно-практической конференции «Эврика»"
 WINNERS_HEADERS = ["№", "ФИО", "Название работы", "Секция", "ОУ", "Статус"]
 WINNERS_WIDTHS = [5, 28, 40, 28, 50, 26]
 WINNERS_DOCX_WIDTHS = [1, 4, 5.5, 4, 7.5, 4.5]
@@ -223,6 +218,15 @@ def admitted_rows():
     """Этап 2: ученики допущенных работ; секции — по алфавиту."""
     groups = sorted(all_groups(), key=lambda g: g[0].group_label(g[1]).casefold())
     return _student_rows(groups, contact=False)
+
+
+def admitted_title():
+    conf = ConferenceSettings.load()
+    return f"Список участников, допущенных ко 2 этапу {conf.full_name} школьников «Эврика» в {conf.year} году"
+
+
+def winners_title():
+    return f"Победители и призеры {ConferenceSettings.load().full_name} «Эврика»"
 
 
 def winners_rows():
@@ -309,27 +313,27 @@ def build_students_docx():
 
 
 def build_admitted_workbook():
-    return _table_workbook("Допущенные", ADMITTED_HEADERS, ADMITTED_WIDTHS, admitted_rows(), title=ADMITTED_TITLE)
+    return _table_workbook("Допущенные", ADMITTED_HEADERS, ADMITTED_WIDTHS, admitted_rows(), title=admitted_title())
 
 
 def build_admitted_docx():
-    return _table_docx(ADMITTED_TITLE, ADMITTED_HEADERS, ADMITTED_DOCX_WIDTHS, admitted_rows())
+    return _table_docx(admitted_title(), ADMITTED_HEADERS, ADMITTED_DOCX_WIDTHS, admitted_rows())
 
 
 def build_admitted_pdf():
-    return _table_pdf(ADMITTED_TITLE, ADMITTED_HEADERS, ADMITTED_DOCX_WIDTHS, admitted_rows())
+    return _table_pdf(admitted_title(), ADMITTED_HEADERS, ADMITTED_DOCX_WIDTHS, admitted_rows())
 
 
 def build_winners_workbook():
-    return _table_workbook("Победители и призёры", WINNERS_HEADERS, WINNERS_WIDTHS, winners_rows(), title=WINNERS_TITLE)
+    return _table_workbook("Победители и призёры", WINNERS_HEADERS, WINNERS_WIDTHS, winners_rows(), title=winners_title())
 
 
 def build_winners_docx():
-    return _table_docx(WINNERS_TITLE, WINNERS_HEADERS, WINNERS_DOCX_WIDTHS, winners_rows())
+    return _table_docx(winners_title(), WINNERS_HEADERS, WINNERS_DOCX_WIDTHS, winners_rows())
 
 
 def build_winners_pdf():
-    return _table_pdf(WINNERS_TITLE, WINNERS_HEADERS, WINNERS_DOCX_WIDTHS, winners_rows())
+    return _table_pdf(winners_title(), WINNERS_HEADERS, WINNERS_DOCX_WIDTHS, winners_rows())
 
 
 def _table_pdf(heading, headers, widths_cm, rows):

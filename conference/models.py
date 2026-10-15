@@ -27,6 +27,14 @@ class ConferenceSettings(models.Model):
         default="Межрегиональная научно-практическая конференция «Эврика»",
     )
     tagline = models.CharField("подзаголовок", max_length=300, blank=True)
+    edition = models.CharField(
+        "номер конференции", max_length=20, blank=True, default="XII",
+        help_text="Римскими цифрами, например XII. Попадает в заголовки списков допущенных и победителей.",
+    )
+    year = models.PositiveSmallIntegerField(
+        "год проведения", default=2027, validators=[MinValueValidator(2000), MaxValueValidator(2100)],
+        help_text="Попадает в заголовок списка допущенных ко 2 этапу.",
+    )
     description = models.TextField("описание", blank=True, help_text="Показывается на главной странице.")
     event_dates = models.CharField("даты проведения", max_length=100, blank=True, help_text="Например: 15–16 апреля 2027")
     venue = models.CharField("место проведения", max_length=300, blank=True)
@@ -91,6 +99,11 @@ class ConferenceSettings(models.Model):
     def save(self, *args, **kwargs):
         self.pk = 1
         super().save(*args, **kwargs)
+
+    @property
+    def full_name(self):
+        """«XII межрегиональной научно-практической конференции» — для заголовков официальных списков."""
+        return " ".join(part for part in (self.edition, "межрегиональной научно-практической конференции") if part)
 
     @classmethod
     def load(cls):

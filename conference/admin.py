@@ -17,7 +17,7 @@ from .models import ConferenceSettings, Document, NewsPost, ReviewLink, Section,
 @admin.register(ConferenceSettings)
 class ConferenceSettingsAdmin(admin.ModelAdmin):
     fieldsets = (
-        (None, {"fields": ("title", "tagline", "event_dates", "venue", "organizer")}),
+        (None, {"fields": ("title", "tagline", ("edition", "year"), "event_dates", "venue", "organizer")}),
         ("Контакты", {"fields": ("contact_email", "contact_phone")}),
         ("Приём работ", {"fields": ("submissions_open", "submissions_deadline")}),
         ("Бланки документов", {"fields": (
