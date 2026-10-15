@@ -388,13 +388,25 @@ class NewsAndDocumentsTests(TestCase):
         NewsPost.objects.create(title="Итоги", text="Первый абзац\n\nВторой абзац")
         self.assertContains(self.home(), "Второй абзац")
 
+    def test_home_shows_three_latest_news_and_list_has_all(self):
+        for i in range(12):
+            NewsPost.objects.create(title=f"Новость {i:02d}", text="…", published_at=timezone.now() - timedelta(days=i))
+        home = self.home()
+        self.assertEqual(home.content.decode().count('class="card news-card'), 3)
+        self.assertContains(home, "Новость 00")
+        self.assertNotContains(home, "Новость 03")
+        self.assertContains(home, "Все новости")
+        page = self.client.get(reverse("conference:news"))
+        self.assertEqual(page.content.decode().count('class="card news-card'), 10)
+        self.assertContains(page, "Страница 1 из 2")
+        self.assertContains(self.client.get(reverse("conference:news") + "?page=2"), "Новость 11")
+
     def test_empty_blocks_have_placeholder(self):
         response = self.home()
         self.assertContains(response, "Новостей пока нет")
         self.assertContains(response, "Документы пока не опубликованы")
 
     def test_old_urls_redirect_to_home_anchors(self):
-        self.assertRedirects(self.client.get(reverse("conference:news")), reverse("conference:home") + "#news")
         self.assertRedirects(
             self.client.get(reverse("conference:documents")), reverse("conference:home") + "#documents"
         )

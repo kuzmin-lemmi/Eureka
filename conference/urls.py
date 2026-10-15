@@ -50,7 +50,7 @@ urlpatterns = [
     # Ссылка для проверяющего — без входа
     path("check/<str:token>/", office.review, name="review"),
     path("check/<str:token>/download/", office.review_download, name="review_download"),
-    path("news/", views.news_redirect, name="news"),
+    path("news/", views.news_list, name="news"),
     path("news/<int:pk>/", views.news_detail, name="news_detail"),
     path("files/news-cover/<int:pk>/", views.news_cover, name="news_cover"),
     path("files/news-file/<int:pk>/", views.news_file, name="news_file"),

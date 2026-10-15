@@ -1,0 +1,26 @@
+{% extends "conference/base.html" %}
+
+{% block title %}Новости — {{ conf.title }}{% endblock %}
+
+{% block content %}
+<section class="page">
+  <div class="container container--narrow">
+    <a class="back" href="{% url 'conference:home' %}">← На главную</a>
+    <div class="page-head"><h1>Новости конференции</h1></div>
+    {% if page_obj %}
+      <div class="news">
+        {% for post in page_obj %}{% include "conference/_news_card.html" %}{% endfor %}
+      </div>
+      {% if page_obj.has_other_pages %}
+        <nav class="pager" aria-label="Страницы новостей">
+          {% if page_obj.has_previous %}<a class="btn btn--sm btn--ghost" href="?page={{ page_obj.previous_page_number }}">← Новее</a>{% endif %}
+          <span>Страница {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}</span>
+          {% if page_obj.has_next %}<a class="btn btn--sm btn--ghost" href="?page={{ page_obj.next_page_number }}">Старее →</a>{% endif %}
+        </nav>
+      {% endif %}
+    {% else %}
+      <div class="card empty">Новостей пока нет. Загляните позже.</div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

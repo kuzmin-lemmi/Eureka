@@ -407,6 +407,15 @@ class NewsPost(models.Model):
     def is_visible(self):
         return self.is_published and self.published_at <= timezone.now()
 
+    @property
+    def cover_url(self):
+        """Адрес картинки с версией: после замены браузер не покажет старую из кэша."""
+        from django.urls import reverse
+
+        if not self.cover:
+            return ""
+        return f"{reverse('conference:news_cover', args=[self.pk])}?v={Path(self.cover.name).stem[:8]}"
+
 
 class NewsAttachment(models.Model):
     """Документ к новости: его можно скачать со страницы новости."""

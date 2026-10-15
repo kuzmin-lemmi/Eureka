@@ -112,7 +112,7 @@ def site_edit(request, kind, pk=None):
     if isinstance(obj, Document):
         file_url = reverse("conference:download_document", args=[obj.pk])
     if isinstance(obj, NewsPost) and obj.cover:
-        file_url = preview_url = reverse("conference:news_cover", args=[obj.pk])
+        file_url = preview_url = obj.cover_url
     can_delete = obj is not None and request.user.has_perm(f"conference.delete_{config['model']._meta.model_name}")
     return render(request, "conference/office/site_form.html", {
         "kind": kind, "config": config, "form": form, "obj": obj, "file_url": file_url, "preview_url": preview_url,

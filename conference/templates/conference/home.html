@@ -142,18 +142,9 @@
     <h2><span class="hand">Новости</span> конференции</h2>
     {% if news %}
       <div class="news">
-        {% for post in news %}
-          <a class="card news-card" id="news-{{ post.pk }}" href="{% url 'conference:news_detail' post.pk %}">
-            {% if post.cover %}<img class="news-card__cover" src="{% url 'conference:news_cover' post.pk %}" alt="" loading="lazy">{% endif %}
-            <div class="news-card__body">
-              <small class="news-card__date">{{ post.published_at|date:"j E Y" }}</small>
-              <h3 class="news-card__title">{{ post.title }}</h3>
-              <p class="news-card__text">{{ post.text|truncatewords:40 }}</p>
-              <span class="news-card__more">Читать полностью →</span>
-            </div>
-          </a>
-        {% endfor %}
+        {% for post in news %}{% include "conference/_news_card.html" %}{% endfor %}
       </div>
+      {% if more_news %}<p class="news__all"><a class="btn btn--ghost" href="{% url 'conference:news' %}">Все новости →</a></p>{% endif %}
     {% else %}
       <div class="card empty">Новостей пока нет. Загляните позже.</div>
     {% endif %}

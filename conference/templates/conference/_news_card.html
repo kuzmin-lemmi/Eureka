@@ -1,0 +1,9 @@
+<a class="card news-card{% if not post.cover %} news-card--text{% endif %}" id="news-{{ post.pk }}" href="{% url 'conference:news_detail' post.pk %}">
+  {% if post.cover %}<img class="news-card__cover" src="{{ post.cover_url }}" alt="" loading="lazy">{% endif %}
+  <div class="news-card__body">
+    <small class="news-card__date">{{ post.published_at|date:"j E Y" }}</small>
+    <h3 class="news-card__title">{{ post.title }}</h3>
+    <p class="news-card__text">{{ post.text|truncatewords:30 }}</p>
+    <span class="news-card__more">Читать →</span>
+  </div>
+</a>

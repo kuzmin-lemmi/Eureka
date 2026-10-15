@@ -3,6 +3,7 @@ from pathlib import Path
 
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
+from django.core.paginator import Paginator
 from django.core.cache import cache
 from django.db import IntegrityError
 from django.http import FileResponse, Http404
@@ -16,6 +17,8 @@ from .models import ConferenceSettings, Document, NewsAttachment, NewsPost, Sect
 
 THANKS_SESSION_KEY = "conference_thanks"
 FRESH_NEWS_DAYS = 7
+HOME_NEWS = 3  # на главной — последние новости, остальные на /news/
+NEWS_PER_PAGE = 10
 REPEAT_SESSION_KEY = "conference_repeat"
 # «Мои заявки»: после входа по СНИЛС и почте доступ хранится в сессии ограниченное время.
 MY_SESSION_KEY = "conference_my"
@@ -62,10 +65,11 @@ def home(request):
     sections = list(Section.objects.filter(is_active=True))
     for section in sections:
         section.free_total = sum(section.free_places().values())
-    news = list(NewsPost.visible())
+    news = list(NewsPost.visible()[: HOME_NEWS + 1])
     context = {
         "sections": sections,
-        "news": news,
+        "news": news[:HOME_NEWS],
+        "more_news": len(news) > HOME_NEWS,
         # Свежая новость (до FRESH_NEWS_DAYS дней) дублируется плашкой под первым экраном.
         "fresh_news": news[0] if news and news[0].published_at >= timezone.now() - timedelta(days=FRESH_NEWS_DAYS) else None,
         "documents": Document.objects.filter(is_published=True),
@@ -175,8 +179,9 @@ def news_file(request, pk):
     return FileResponse(attachment.file.open("rb"), as_attachment=True, filename=filename)
 
 
-def news_redirect(request):
-    return redirect(reverse("conference:home") + "#news")
+def news_list(request):
+    page = Paginator(NewsPost.visible(), NEWS_PER_PAGE).get_page(request.GET.get("page"))
+    return render(request, "conference/news_list.html", {"page_obj": page if page.paginator.count else None})
 
 
 def documents_redirect(request):
