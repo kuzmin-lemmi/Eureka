@@ -23,6 +23,7 @@ urlpatterns = [
     path("office/section/<int:pk>/<int:number>/", office.section_detail, name="office_section"),
     path("office/submission/<int:pk>/admission/", office.set_admission, name="office_admission"),
     path("office/submission/<int:pk>/award/", office.set_award, name="office_award"),
+    path("office/settings/", office.conference_settings, name="office_settings"),
     path("office/intake/", office.switch_intake, name="office_intake"),
     path("office/export/word/", office.export_word, name="office_word"),
     path("office/export/excel/", office.export_excel, name="office_excel"),

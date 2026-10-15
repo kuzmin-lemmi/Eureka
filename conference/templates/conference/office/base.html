@@ -15,6 +15,7 @@
         <div class="office-bar__user">
           <span>{{ user.get_full_name|default:user.username }}</span>
           {% if user.is_superuser %}<a class="office-bar__link" href="{% url 'conference:office_staff' %}">Сотрудники</a>{% endif %}
+          {% if perms.conference.change_conferencesettings %}<a class="office-bar__link" href="{% url 'conference:office_settings' %}">Настройки</a>{% endif %}
           <a class="office-bar__link" href="{% url 'conference:office_password' %}">Сменить пароль</a>
           <form method="post" action="{% url 'conference:office_logout' %}">{% csrf_token %}<button type="submit" class="btn btn--sm btn--ghost">Выйти</button></form>
         </div>

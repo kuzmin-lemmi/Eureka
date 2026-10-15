@@ -21,6 +21,7 @@ from django.utils.http import content_disposition_header
 from django.views.decorators.http import require_POST
 
 from . import exports
+from .forms import SETTINGS_BLANK_KINDS, SETTINGS_FIELDSETS, ConferenceSettingsForm
 from .models import AWARD_CHOICES, AWARD_ORDER, ConferenceSettings, ReviewLink, Section, Submission
 
 LOGIN_LIMIT = 10
@@ -243,6 +244,22 @@ def set_award(request, pk):
     if request.headers.get("Accept") == "application/json":
         return JsonResponse({"award": value})
     return redirect(f"{url}#s{submission.pk}")
+
+
+@office_required
+def conference_settings(request):
+    """Все настройки конференции — то же, что в админке, но в кабинете."""
+    if not request.user.has_perm("conference.change_conferencesettings"):
+        raise PermissionDenied
+    form = ConferenceSettingsForm(request.POST or None, request.FILES or None, instance=ConferenceSettings.load())
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Настройки сохранены.")
+        return redirect("conference:office_settings")
+    fieldsets = [
+        (title, [(form[name], SETTINGS_BLANK_KINDS.get(name)) for name in names]) for title, names in SETTINGS_FIELDSETS
+    ]
+    return render(request, "conference/office/settings.html", {"form": form, "fieldsets": fieldsets})
 
 
 @office_required

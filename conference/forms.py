@@ -115,6 +115,48 @@ def duplicate_message(section):
     )
 
 
+# Настройки конференции в кабинете: (заголовок блока, поля). Порядок — как на странице.
+SETTINGS_FIELDSETS = [
+    ("Конференция", ["title", "tagline", "edition", "year", "description", "event_dates", "venue", "organizer"]),
+    ("Контакты оргкомитета", ["contact_email", "contact_phone"]),
+    ("Приём работ", ["submissions_open", "submissions_deadline"]),
+    ("Бланки документов", ["application_pdf", "application_template", "consent_pdf", "consent_template", "requirements_template"]),
+    ("Персональные данные", ["privacy_policy"]),
+]
+# Поле бланка → вид для ссылки «скачать текущий» (conference:blank).
+SETTINGS_BLANK_KINDS = {
+    "application_pdf": "application",
+    "application_template": "application-word",
+    "consent_pdf": "consent",
+    "consent_template": "consent-word",
+    "requirements_template": "requirements",
+}
+
+
+class ConferenceSettingsForm(forms.ModelForm):
+    class Meta:
+        model = ConferenceSettings
+        fields = [name for _, names in SETTINGS_FIELDSETS for name in names]
+        widgets = {
+            "submissions_deadline": forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
+            "description": forms.Textarea(attrs={"rows": 5}),
+            "privacy_policy": forms.Textarea(attrs={"rows": 12}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Имена бланков до правки: при проверке формы в instance уже попадают новые файлы.
+        self.old_files = {name: getattr(self.instance, name).name for name in SETTINGS_BLANK_KINDS}
+
+    def save(self, commit=True):
+        conf = super().save(commit)
+        # Заменённый или удалённый бланк убираем с диска, чтобы не копились старые файлы.
+        for name, path in self.old_files.items():
+            if path and getattr(conf, name).name != path:
+                getattr(conf, name).storage.delete(path)
+        return conf
+
+
 class LookupForm(forms.Form):
     snils = forms.CharField(label="СНИЛС участника", max_length=20)
     email = forms.EmailField(

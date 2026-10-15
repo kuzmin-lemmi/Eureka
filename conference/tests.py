@@ -857,6 +857,44 @@ class OfficeTests(TestCase):
         pdf = self.client.get(reverse("conference:office_winners_pdf"))
         self.assertTrue(pdf.getvalue().startswith(b"%PDF"))
 
+    def test_settings_page_saves_fields_and_replaces_blank(self):
+        self.client.force_login(self.organizer)
+        url = reverse("conference:office_settings")
+        self.assertContains(self.client.get(reverse("conference:office")), url)
+        page = self.client.get(url)
+        for text in ("Номер конференции", "Бланки документов", "Политика обработки персональных данных"):
+            self.assertContains(page, text)
+
+        data = {name: value for name, value in page.context["form"].initial.items() if value is not None and not hasattr(value, "name")}
+        data.update(title="Эврика-2028", edition="XIII", year="2028", submissions_deadline="2028-03-01T18:00")
+        data.pop("submissions_open", None)  # чекбокс снят — приём закрыт
+        self.client.post(url, {**data, "application_pdf": SimpleUploadedFile("заявка.pdf", b"%PDF-1 old")})
+        conf = ConferenceSettings.load()
+        self.assertEqual((conf.title, conf.edition, conf.year), ("Эврика-2028", "XIII", 2028))
+        self.assertFalse(conf.submissions_open)
+        self.assertEqual(timezone.localtime(conf.submissions_deadline).hour, 18)
+        old = Path(conf.application_pdf.path)
+        self.assertTrue(old.exists())
+
+        response = self.client.post(url, {**data, "application_pdf": SimpleUploadedFile("новая.pdf", b"%PDF-1 new")})
+        self.assertRedirects(response, url)
+        conf = ConferenceSettings.load()
+        self.assertFalse(old.exists())  # старый бланк удалён с диска
+        self.assertEqual(Path(conf.application_pdf.path).read_bytes(), b"%PDF-1 new")
+
+        self.client.post(url, {**data, "application_pdf-clear": "on"})
+        self.assertFalse(ConferenceSettings.load().application_pdf)
+
+        response = self.client.post(url, {**data, "contact_email": "не почта"})
+        self.assertContains(response, "Проверьте поля")
+
+    def test_settings_page_requires_permission(self):
+        viewer = User.objects.create_user("viewer", password="Pass-1234!", is_staff=True)
+        viewer.user_permissions.add(Permission.objects.get(codename="view_submission"))
+        self.client.force_login(viewer)
+        self.assertNotContains(self.client.get(reverse("conference:office")), reverse("conference:office_settings"))
+        self.assertEqual(self.client.get(reverse("conference:office_settings")).status_code, 403)
+
     def test_admission_requires_change_permission(self):
         viewer = User.objects.create_user("viewer", password="Pass-1234!", is_staff=True)
         viewer.user_permissions.add(Permission.objects.get(codename="view_submission"))

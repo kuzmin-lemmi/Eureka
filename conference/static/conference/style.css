@@ -590,6 +590,12 @@ fieldset.card > legend + * { clear: both; }
 .admission__clear { margin-left: 4px; padding: 0 4px; background: none; border: 0; font: inherit; font-size: 1.15rem; font-weight: 800; line-height: 1; color: var(--muted); cursor: pointer; }
 .admission__clear:hover { color: var(--coral); }
 .admission__clear[hidden] { display: inline-block; visibility: hidden; }
+.settings { max-width: 860px; }
+.settings__block { margin: 0 0 16px; }
+.settings__block h2 { margin: 0 0 12px; font-size: 1.2rem; }
+.settings__file { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin: 4px 0; }
+.settings__file input[type="file"] { max-width: 100%; }
+.settings__save { position: sticky; bottom: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 0; background: var(--paper); }
 .admission-summary__gap { margin-left: 12px; }
 .award { display: flex; gap: 6px; }
 .award__select { width: 190px; padding: 3px 6px; border: 2px solid var(--ink); border-radius: 8px; background: #fff; font: inherit; font-size: .8rem; font-weight: 700; color: var(--ink); }
