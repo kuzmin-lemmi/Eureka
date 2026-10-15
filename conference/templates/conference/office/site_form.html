@@ -14,15 +14,16 @@
     {% csrf_token %}
     {% for field in form %}
       {% if field.widget_type == "clearablefile" %}
-        {% include "conference/office/_file_field.html" with field=field download_url=file_url %}
-      {% elif field.name == "remove_photos" %}
+        {% include "conference/office/_file_field.html" with field=field download_url=file_url preview_url=preview_url %}
+      {% elif field.name == "remove_files" %}
         <div class="field">
           <span class="field__label">{{ field.label }}</span>
-          <div class="photo-pick">
+          <ul class="file-pick">
             {% for choice in field %}
-              <label>{{ choice.tag }}<img src="{% url 'conference:news_photo' choice.data.value %}" alt="Фото {{ forloop.counter }}"><span>удалить</span></label>
+              <li><a href="{% url 'conference:news_file' choice.data.value %}">{{ choice.choice_label }}</a>
+                <label class="check check--small">{{ choice.tag }} <span>удалить</span></label></li>
             {% endfor %}
-          </div>
+          </ul>
           <div class="field__notes"><p class="help">{{ field.help_text }}</p></div>
         </div>
       {% else %}

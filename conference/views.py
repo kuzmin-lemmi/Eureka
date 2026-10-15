@@ -12,7 +12,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from .forms import REPEAT_FIELDS, LookupForm, SectionFull, SubmissionForm, duplicate_message
-from .models import ConferenceSettings, Document, NewsPhoto, NewsPost, Section, Submission
+from .models import ConferenceSettings, Document, NewsAttachment, NewsPost, Section, Submission
 
 THANKS_SESSION_KEY = "conference_thanks"
 FRESH_NEWS_DAYS = 7
@@ -62,7 +62,7 @@ def home(request):
     sections = list(Section.objects.filter(is_active=True))
     for section in sections:
         section.free_total = sum(section.free_places().values())
-    news = list(NewsPost.visible().prefetch_related("photos"))
+    news = list(NewsPost.visible())
     context = {
         "sections": sections,
         "news": news,
@@ -144,17 +144,35 @@ def download_submission(request, pk, kind="work"):
     return FileResponse(file.open("rb"), as_attachment=True, filename=filename)
 
 
-def news_photo(request, pk):
-    """Фото опубликованной новости — всем; фото черновика — только оргкомитету."""
-    photo = get_object_or_404(NewsPhoto.objects.select_related("news"), pk=pk)
-    visible = NewsPost.visible().filter(pk=photo.news_id).exists()
-    if not visible and not request.user.has_perm("conference.view_newspost"):
+def _news_or_404(request, pk):
+    """Опубликованная новость — всем; черновик или запланированная — только оргкомитету."""
+    post = get_object_or_404(NewsPost, pk=pk)
+    if not post.is_visible and not request.user.has_perm("conference.view_newspost"):
         raise Http404
-    if not photo.image.storage.exists(photo.image.name):
-        raise Http404("Фото не найдено")
-    response = FileResponse(photo.image.open("rb"), content_type="image/jpeg")
-    response["Cache-Control"] = "public, max-age=86400" if visible else "private, no-store"
+    return post
+
+
+def news_detail(request, pk):
+    post = _news_or_404(request, pk)
+    return render(request, "conference/news.html", {"post": post, "attachments": post.attachments.all()})
+
+
+def news_cover(request, pk):
+    post = _news_or_404(request, pk)
+    if not post.cover or not post.cover.storage.exists(post.cover.name):
+        raise Http404("Картинка не найдена")
+    response = FileResponse(post.cover.open("rb"), content_type="image/jpeg")
+    response["Cache-Control"] = "public, max-age=86400" if post.is_visible else "private, no-store"
     return response
+
+
+def news_file(request, pk):
+    attachment = get_object_or_404(NewsAttachment.objects.select_related("news"), pk=pk)
+    _news_or_404(request, attachment.news_id)
+    if not attachment.file.storage.exists(attachment.file.name):
+        raise Http404("Файл не найден")
+    filename = f"{attachment.title}{Path(attachment.file.name).suffix}"
+    return FileResponse(attachment.file.open("rb"), as_attachment=True, filename=filename)
 
 
 def news_redirect(request):

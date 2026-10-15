@@ -422,21 +422,20 @@ fieldset.card > legend + * { clear: both; }
 }
 
 /* --- Новости и документы на главной --- */
-.news { margin-top: 8px; }
-.news summary { align-items: flex-start; }
-.news__summary { display: flex; flex-direction: column; gap: 2px; }
-.news__summary small { color: var(--blue); font-size: .85rem; font-weight: 800; }
-.news__body { padding: 0 20px 18px; }
-.news__body p { margin: 0 0 1em; color: var(--ink); }
-.news__body p:last-child { margin-bottom: 0; }
-.news__photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-top: 14px; }
-.news__photos a { display: block; aspect-ratio: 4 / 3; overflow: hidden; border: 2px solid var(--ink); border-radius: 10px; background: var(--grid); }
-.news__photos img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .15s; }
-.news__photos a:hover img { transform: scale(1.04); }
-.photo-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin: 6px 0; }
-.photo-pick label { display: grid; gap: 4px; font-size: .85rem; font-weight: 700; cursor: pointer; }
-.photo-pick img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border: 2px solid var(--ink); border-radius: 8px; }
-.photo-pick input:checked + img { opacity: .35; border-color: var(--coral); }
+.news { display: grid; gap: 18px; margin-top: 8px; }
+.news-card { display: block; margin: 0; padding: 0; overflow: hidden; color: var(--ink); text-decoration: none; transition: transform .08s, box-shadow .08s; }
+.news-card:hover { color: var(--ink); transform: translate(-1px, -1px); box-shadow: 5px 5px 0 var(--ink); }
+.news-card__cover { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-bottom: var(--border); }
+.news-card__body { padding: 18px 22px 20px; }
+.news-card__date { display: block; color: var(--blue); font-size: .85rem; font-weight: 800; }
+.news-card__title { margin: 4px 0 8px; font-size: 1.25rem; overflow-wrap: anywhere; }
+.news-card__text { margin: 0 0 10px; color: var(--ink); }
+.news-card__more { font-weight: 800; color: var(--blue); }
+.news-page { margin-top: 14px; }
+.news-page__title { margin: 4px 0 16px; overflow-wrap: anywhere; }
+.news-page__cover { display: block; width: 100%; max-height: 520px; object-fit: cover; margin: 0 0 20px; border: var(--border); border-radius: 12px; }
+.news-page .prose { padding: 0; margin: 0 0 20px; font-size: 1.05rem; }
+.news-page__docs { margin-top: 10px; }
 
 .docs { display: flex; flex-direction: column; gap: 14px; margin: 8px 0 0; padding: 0; list-style: none; }
 .docs li { display: flex; align-items: center; gap: 16px; padding: 16px 20px; background: #fff; border: var(--border); border-radius: 14px; box-shadow: 3px 3px 0 var(--ink); }
@@ -607,6 +606,9 @@ fieldset.card > legend + * { clear: both; }
 .settings__block h2 { margin: 0 0 12px; font-size: 1.2rem; }
 .settings__file { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin: 4px 0; }
 .settings__file input[type="file"] { max-width: 100%; }
+.settings__preview { display: block; max-width: 320px; width: 100%; margin: 4px 0; border: 2px solid var(--ink); border-radius: 8px; }
+.file-pick { margin: 6px 0; padding: 0; list-style: none; }
+.file-pick li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; padding: 4px 0; }
 .settings__save { position: sticky; bottom: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 0; background: var(--paper); }
 .admission-summary__gap { margin-left: 12px; }
 .award { display: flex; gap: 6px; }

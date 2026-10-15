@@ -9,7 +9,9 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.html import format_html, format_html_join
 
-from .models import GRADE_MAX, GRADE_MIN, ConferenceSettings, Document, NewsPhoto, NewsPost, Section, Submission
+from .models import (
+    DOCUMENT_EXTENSIONS as PUBLIC_DOCUMENT_EXTENSIONS, GRADE_MAX, GRADE_MIN, ConferenceSettings, Document, NewsAttachment, NewsPost, Section, Submission,
+)
 
 # Текст работы — только документы: без презентаций и видео.
 ALLOWED_EXTENSIONS = (".pdf", ".doc", ".docx", ".odt", ".rtf")
@@ -178,7 +180,6 @@ class SectionForm(forms.ModelForm):
 
 PHOTO_MAX_SIDE = 1600
 PHOTO_MAX_MB = 25
-PHOTOS_PER_NEWS = 30
 
 
 def prepare_photo(upload):
@@ -209,27 +210,37 @@ class MultipleFileInput(forms.ClearableFileInput):
     allow_multiple_selected = True
 
 
-class MultiplePhotoField(forms.FileField):
+class MultipleDocumentField(forms.FileField):
+    """Несколько документов за раз: та же проверка расширения и размера, что у работ."""
+
     widget = MultipleFileInput
 
     def clean(self, data, initial=None):
         files = data if isinstance(data, (list, tuple)) else [data] if data else []
-        return [prepare_photo(super(MultiplePhotoField, self).clean(f, initial)) for f in files]
+        cleaned = []
+        for upload in files:
+            upload = super().clean(upload, initial)
+            if Path(upload.name).suffix.lower().lstrip(".") not in PUBLIC_DOCUMENT_EXTENSIONS:
+                raise forms.ValidationError(f"«{upload.name}»: такой тип файла не подходит. Подойдут PDF, Word, Excel, картинки, ZIP.")
+            if upload.size > settings.MAX_UPLOAD_MB * 1024 * 1024:
+                raise forms.ValidationError(f"«{upload.name}» больше {settings.MAX_UPLOAD_MB} МБ.")
+            cleaned.append(upload)
+        return cleaned
 
 
 class NewsPostForm(forms.ModelForm):
-    remove_photos = forms.ModelMultipleChoiceField(
-        label="Фото новости", queryset=NewsPhoto.objects.none(), required=False,
-        widget=forms.CheckboxSelectMultiple, help_text="Отметьте фото, которые нужно удалить.",
+    remove_files = forms.ModelMultipleChoiceField(
+        label="Документы новости", queryset=NewsAttachment.objects.none(), required=False,
+        widget=forms.CheckboxSelectMultiple, help_text="Отметьте документы, которые нужно удалить.",
     )
-    photos = MultiplePhotoField(
-        label="Добавить фото", required=False,
-        help_text=f"Можно выбрать несколько сразу. JPG или PNG; большие фото уменьшатся автоматически. До {PHOTOS_PER_NEWS} фото в новости.",
+    files = MultipleDocumentField(
+        label="Добавить документы", required=False,
+        help_text="Можно выбрать несколько сразу. Их можно будет скачать со страницы новости.",
     )
 
     class Meta:
         model = NewsPost
-        fields = ["title", "text", "published_at", "is_published"]
+        fields = ["title", "text", "cover", "published_at", "is_published"]
         widgets = {
             "text": forms.Textarea(attrs={"rows": 10}),
             "published_at": forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
@@ -237,25 +248,24 @@ class NewsPostForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["photos"].widget.attrs["accept"] = "image/jpeg,image/png,image/webp"
-        if self.instance.pk and self.instance.photos.exists():
-            self.fields["remove_photos"].queryset = self.instance.photos.all()
+        self.old_cover = self.instance.cover.name if self.instance.pk else ""
+        if self.instance.pk and self.instance.attachments.exists():
+            self.fields["remove_files"].queryset = self.instance.attachments.all()
         else:
-            del self.fields["remove_photos"]
+            del self.fields["remove_files"]
 
-    def clean(self):
-        cleaned = super().clean()
-        kept = self.instance.photos.count() - len(cleaned.get("remove_photos") or []) if self.instance.pk else 0
-        if kept + len(cleaned.get("photos") or []) > PHOTOS_PER_NEWS:
-            self.add_error("photos", f"В новости может быть не больше {PHOTOS_PER_NEWS} фото.")
-        return cleaned
+    def clean_cover(self):
+        cover = self.cleaned_data.get("cover")
+        return prepare_photo(cover) if isinstance(cover, UploadedFile) else cover
 
     def save(self, commit=True):
         post = super().save(commit)
-        for photo in self.cleaned_data.get("remove_photos") or []:
-            photo.delete()  # файл удаляет сигнал post_delete
-        for content in self.cleaned_data.get("photos") or []:
-            NewsPhoto.objects.create(news=post, image=content)
+        if self.old_cover and post.cover.name != self.old_cover:
+            post.cover.storage.delete(self.old_cover)  # заменённая или удалённая картинка
+        for attachment in self.cleaned_data.get("remove_files") or []:
+            attachment.delete()  # файл удаляет сигнал post_delete
+        for upload in self.cleaned_data.get("files") or []:
+            NewsAttachment.objects.create(news=post, title=Path(upload.name).stem[:255], file=upload)
         return post
 
 

@@ -346,7 +346,7 @@ class PagesTests(TestCase):
 
         fresh = NewsPost.objects.create(title="Перенесли дедлайн", text="…")
         response = self.client.get(reverse("conference:home"))
-        self.assertContains(response, f'href="#news-{fresh.pk}"')
+        self.assertContains(response, f'class="news-flash" href="{reverse("conference:news_detail", args=[fresh.pk])}"')
         self.assertContains(response, f'id="news-{fresh.pk}"')
         self.assertContains(response, f'id="news-{old.pk}"')
 
@@ -936,7 +936,9 @@ class OfficeTests(TestCase):
         self.assertFalse(document.is_published)  # галочка не стояла
         old = Path(document.file.path)
         # Скрытый документ скачивает оргкомитет, но не посетитель.
-        self.assertEqual(self.client.get(reverse("conference:download_document", args=[document.pk])).status_code, 200)
+        response = self.client.get(reverse("conference:download_document", args=[document.pk]))
+        self.assertEqual(response.status_code, 200)
+        response.close()
 
         edit_url = reverse("conference:office_site_edit", args=["documents", document.pk])
         self.client.post(edit_url, {"title": "Положение", "description": "", "order": "1", "is_published": "on",
@@ -950,55 +952,70 @@ class OfficeTests(TestCase):
         self.assertFalse(Document.objects.exists())
         self.assertFalse(new_path.exists())
 
-    def test_news_photos_resized_without_exif_and_removable(self):
+    def test_news_cover_documents_and_page(self):
         from PIL import Image
 
-        def image_file(name, size, fmt, mode="RGB", gps=False):
-            buffer = BytesIO()
-            image = Image.new(mode, size, (200, 30, 30, 128) if mode == "RGBA" else (200, 30, 30))
-            kwargs = {}
-            if gps:
-                exif = Image.Exif()
-                exif[0x8825] = {2: (55.0, 45.0, 0.0)}  # GPSInfo: широта
-                kwargs["exif"] = exif
-            image.save(buffer, fmt, **kwargs)
-            return SimpleUploadedFile(name, buffer.getvalue())
+        buffer = BytesIO()
+        exif = Image.Exif()
+        exif[0x8825] = {2: (55.0, 45.0, 0.0)}  # GPSInfo: место съёмки
+        Image.new("RGB", (4000, 3000), (200, 30, 30)).save(buffer, "JPEG", exif=exif)
 
         self.client.force_login(self.organizer)
-        data = {"title": "Открытие конференции", "text": "Фоторепортаж.", "published_at": "2026-10-01T09:00", "is_published": "on"}
+        data = {"title": "Конференция началась", "text": "Первый абзац.\n\nВторой абзац.",
+                "published_at": "2026-10-01T09:00", "is_published": "on"}
         self.client.post(reverse("conference:office_site_add", args=["news"]), {
-            **data, "photos": [image_file("большое.jpg", (4000, 3000), "JPEG", gps=True), image_file("прозрачное.png", (300, 200), "PNG", "RGBA")],
+            **data,
+            "cover": SimpleUploadedFile("обложка.jpg", buffer.getvalue()),
+            "files": [SimpleUploadedFile("Программа.pdf", b"%PDF-1 program"), SimpleUploadedFile("Схема проезда.docx", b"docx")],
         })
         post = NewsPost.objects.get()
-        big, small = post.photos.all()
-        with Image.open(big.image.path) as image:
+        with Image.open(post.cover.path) as image:
             self.assertEqual(image.size, (1600, 1200))
-            self.assertEqual(image.format, "JPEG")
             self.assertFalse(image.getexif())  # без EXIF и GPS
-        with Image.open(small.image.path) as image:
-            self.assertEqual((image.size, image.mode), ((300, 200), "RGB"))
+        self.assertEqual([a.title for a in post.attachments.all()], ["Программа", "Схема проезда"])
 
+        detail_url = reverse("conference:news_detail", args=[post.pk])
         home = self.client.get(reverse("conference:home"))
-        self.assertContains(home, reverse("conference:news_photo", args=[big.pk]))
+        self.assertContains(home, detail_url)
+        self.assertContains(home, reverse("conference:news_cover", args=[post.pk]))
+        self.assertNotContains(home, "Программа")  # документы — только на странице новости
+        page = self.client.get(detail_url)
+        self.assertContains(page, "Второй абзац.")
+        program = post.attachments.get(title="Программа")
+        self.assertContains(page, reverse("conference:news_file", args=[program.pk]))
+
         self.client.logout()
-        response = self.client.get(reverse("conference:news_photo", args=[big.pk]))
+        response = self.client.get(reverse("conference:news_file", args=[program.pk]))
+        from urllib.parse import quote
+
+        self.assertIn(quote("Программа.pdf"), response["Content-Disposition"])
+        response.close()
+        response = self.client.get(reverse("conference:news_cover", args=[post.pk]))
         self.assertEqual(response["Content-Type"], "image/jpeg")
         response.close()  # иначе Windows не даст удалить открытый файл
         NewsPost.objects.update(is_published=False)
-        self.assertEqual(self.client.get(reverse("conference:news_photo", args=[big.pk])).status_code, 404)  # черновик
+        for url in (detail_url, reverse("conference:news_cover", args=[post.pk]), reverse("conference:news_file", args=[program.pk])):
+            self.assertEqual(self.client.get(url).status_code, 404)  # черновик скрыт
 
         self.client.force_login(self.organizer)
-        response = self.client.get(reverse("conference:news_photo", args=[big.pk]))
-        self.assertEqual(response.status_code, 200)
-        response.close()
+        self.assertContains(self.client.get(detail_url), "видит только оргкомитет")
         edit_url = reverse("conference:office_site_edit", args=["news", post.pk])
-        response = self.client.post(edit_url, {**data, "photos": [SimpleUploadedFile("текст.jpg", b"not an image")]})
+        response = self.client.post(edit_url, {**data, "cover": SimpleUploadedFile("текст.jpg", b"not an image")})
         self.assertContains(response, "не фото")
-        path = Path(big.image.path)
+        response = self.client.post(edit_url, {**data, "files": [SimpleUploadedFile("вирус.exe", b"MZ")]})
+        self.assertContains(response, "тип файла не подходит")
+
+        cover, program_path = Path(post.cover.path), Path(program.file.path)
         with self.captureOnCommitCallbacks(execute=True):
-            self.client.post(edit_url, {**data, "remove_photos": [big.pk]})
-        self.assertEqual(list(post.photos.all()), [small])
-        self.assertFalse(path.exists())
+            self.client.post(edit_url, {**data, "cover-clear": "on", "remove_files": [program.pk]})
+        post.refresh_from_db()
+        self.assertFalse(post.cover)
+        self.assertFalse(cover.exists())
+        self.assertFalse(program_path.exists())
+        other = Path(post.attachments.get().file.path)
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(reverse("conference:office_site_delete", args=["news", post.pk]))
+        self.assertFalse(other.exists())  # документы удаляются вместе с новостью
 
     def test_office_site_pages_require_permissions(self):
         viewer = User.objects.create_user("viewer", password="Pass-1234!", is_staff=True)

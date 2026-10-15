@@ -2,6 +2,7 @@
 <div class="field{% if field.errors %} field--error{% endif %}{% if field.field.required %} field--required{% endif %}">
   <label for="{{ field.id_for_label }}">{{ field.label }}</label>
   {% if field.value %}
+    {% if preview_url %}<img class="settings__preview" src="{{ preview_url }}" alt="Текущая картинка">{% endif %}
     <div class="settings__file">
       <span>Сейчас: {% if download_url %}<a href="{{ download_url }}">скачать загруженный файл</a>{% else %}файл загружен{% endif %}</span>
       {% if not field.field.required %}<label class="check check--small"><input type="checkbox" name="{{ field.html_name }}-clear" id="{{ field.html_name }}-clear_id"> <span>удалить</span></label>{% endif %}

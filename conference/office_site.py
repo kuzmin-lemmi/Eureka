@@ -56,7 +56,8 @@ SITE = {
         "columns": [
             ("Дата", lambda n: f"{timezone.localtime(n.published_at):%d.%m.%Y %H:%M}"),
             ("Заголовок", lambda n: n.title),
-            ("Фото", lambda n: n.photos.count() or "—"),
+            ("Картинка", lambda n: _yes_no(n.cover)),
+            ("Документы", lambda n: n.attachments.count() or "—"),
             ("Опубликована", lambda n: _yes_no(n.is_published)),
         ],
     },
@@ -107,12 +108,15 @@ def site_edit(request, kind, pk=None):
         saved = form.save()
         messages.success(request, f"«{saved}» сохранено.")
         return redirect("conference:office_site", kind=kind)
-    file_url = None
+    file_url = preview_url = None
     if isinstance(obj, Document):
         file_url = reverse("conference:download_document", args=[obj.pk])
+    if isinstance(obj, NewsPost) and obj.cover:
+        file_url = preview_url = reverse("conference:news_cover", args=[obj.pk])
     can_delete = obj is not None and request.user.has_perm(f"conference.delete_{config['model']._meta.model_name}")
     return render(request, "conference/office/site_form.html", {
-        "kind": kind, "config": config, "form": form, "obj": obj, "file_url": file_url, "can_delete": can_delete,
+        "kind": kind, "config": config, "form": form, "obj": obj, "file_url": file_url, "preview_url": preview_url,
+        "can_delete": can_delete,
     })
 
 

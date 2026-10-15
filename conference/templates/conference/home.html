@@ -28,7 +28,7 @@
 
 {% if fresh_news %}
 <div class="container">
-  <a class="news-flash" href="#news-{{ fresh_news.pk }}">
+  <a class="news-flash" href="{% url 'conference:news_detail' fresh_news.pk %}">
     <span class="news-flash__label">Новость</span>
     <span class="news-flash__text"><small>{{ fresh_news.published_at|date:"j E" }}</small>{{ fresh_news.title }}</span>
     <span class="news-flash__more" aria-hidden="true">Подробнее →</span>
@@ -141,21 +141,17 @@
   <div class="container container--narrow">
     <h2><span class="hand">Новости</span> конференции</h2>
     {% if news %}
-      <div class="faq news">
+      <div class="news">
         {% for post in news %}
-          <details class="card" id="news-{{ post.pk }}"{% if forloop.first %} open{% endif %}>
-            <summary><span class="news__summary"><small>{{ post.published_at|date:"j E Y" }}</small>{{ post.title }}</span></summary>
-            <div class="news__body">
-              {{ post.text|linebreaks }}
-              {% if post.photos.all %}
-                <div class="news__photos">
-                  {% for photo in post.photos.all %}
-                    <a href="{% url 'conference:news_photo' photo.pk %}" target="_blank" rel="noopener"><img src="{% url 'conference:news_photo' photo.pk %}" alt="Фото {{ forloop.counter }} к новости «{{ post.title }}»" loading="lazy"></a>
-                  {% endfor %}
-                </div>
-              {% endif %}
+          <a class="card news-card" id="news-{{ post.pk }}" href="{% url 'conference:news_detail' post.pk %}">
+            {% if post.cover %}<img class="news-card__cover" src="{% url 'conference:news_cover' post.pk %}" alt="" loading="lazy">{% endif %}
+            <div class="news-card__body">
+              <small class="news-card__date">{{ post.published_at|date:"j E Y" }}</small>
+              <h3 class="news-card__title">{{ post.title }}</h3>
+              <p class="news-card__text">{{ post.text|truncatewords:40 }}</p>
+              <span class="news-card__more">Читать полностью →</span>
             </div>
-          </details>
+          </a>
         {% endfor %}
       </div>
     {% else %}

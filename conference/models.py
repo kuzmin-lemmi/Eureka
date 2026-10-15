@@ -357,9 +357,35 @@ class Submission(models.Model):
         )
 
 
+def news_cover_upload_to(instance, filename):
+    return f"news/{timezone.now():%Y}/{uuid.uuid4().hex}.jpg"
+
+
+news_photo_upload_to = news_cover_upload_to  # нужна миграции 0018 (галерея фото, удалена в 0019)
+
+
+def news_file_upload_to(instance, filename):
+    return f"news_files/{timezone.now():%Y}/{uuid.uuid4().hex}{Path(filename).suffix.lower()}"
+
+
+def size_display(file):
+    """«120 КБ» / «2,4 МБ»; пусто, если файла нет на диске."""
+    try:
+        size = file.size
+    except OSError:
+        return ""
+    if size < 1024 * 1024:
+        return f"{max(1, round(size / 1024))} КБ"
+    return f"{size / 1024 / 1024:.1f}".replace(".", ",") + " МБ"
+
+
 class NewsPost(models.Model):
     title = models.CharField("заголовок", max_length=200)
-    text = models.TextField("текст", help_text="Абзацы разделяйте пустой строкой.")
+    text = models.TextField("текст", help_text="Абзацы разделяйте пустой строкой. На главной видно начало текста.")
+    cover = models.FileField(
+        "картинка", upload_to=news_cover_upload_to, blank=True,
+        help_text="Одна картинка: на главной — над текстом новости. Уменьшается до 1600 px, данные о месте съёмки удаляются.",
+    )
     published_at = models.DateTimeField(
         "дата публикации", default=timezone.now, help_text="Можно поставить дату в будущем: новость появится в этот момент."
     )
@@ -377,25 +403,34 @@ class NewsPost(models.Model):
     def visible(cls):
         return cls.objects.filter(is_published=True, published_at__lte=timezone.now())
 
+    @property
+    def is_visible(self):
+        return self.is_published and self.published_at <= timezone.now()
 
-def news_photo_upload_to(instance, filename):
-    return f"news/{timezone.now():%Y}/{uuid.uuid4().hex}.jpg"
 
+class NewsAttachment(models.Model):
+    """Документ к новости: его можно скачать со страницы новости."""
 
-class NewsPhoto(models.Model):
-    """Фото к новости. При загрузке уменьшается до 1600 px и сохраняется в JPEG без EXIF (там бывают GPS-координаты)."""
-
-    news = models.ForeignKey(NewsPost, on_delete=models.CASCADE, related_name="photos", verbose_name="новость")
-    image = models.FileField("фото", upload_to=news_photo_upload_to)
-    uploaded_at = models.DateTimeField("загружено", auto_now_add=True)
+    news = models.ForeignKey(NewsPost, on_delete=models.CASCADE, related_name="attachments", verbose_name="новость")
+    title = models.CharField("название", max_length=255)
+    file = models.FileField("файл", upload_to=news_file_upload_to)
+    uploaded_at = models.DateTimeField("загружен", auto_now_add=True)
 
     class Meta:
-        verbose_name = "фото"
-        verbose_name_plural = "фото"
+        verbose_name = "документ новости"
+        verbose_name_plural = "документы новости"
         ordering = ["pk"]
 
     def __str__(self):
-        return f"Фото к новости «{self.news}»"
+        return self.title
+
+    @property
+    def extension(self):
+        return Path(self.file.name).suffix.lstrip(".").upper()
+
+    @property
+    def size_display(self):
+        return size_display(self.file)
 
 
 DOCUMENT_EXTENSIONS = ["pdf", "doc", "docx", "odt", "rtf", "xls", "xlsx", "ods", "ppt", "pptx", "zip", "jpg", "jpeg", "png"]
@@ -429,13 +464,7 @@ class Document(models.Model):
 
     @property
     def size_display(self):
-        try:
-            size = self.file.size
-        except OSError:
-            return ""
-        if size < 1024 * 1024:
-            return f"{max(1, round(size / 1024))} КБ"
-        return f"{size / 1024 / 1024:.1f}".replace(".", ",") + " МБ"
+        return size_display(self.file)
 
 
 REVIEW_LINK_DAYS = 30
@@ -493,10 +522,16 @@ class ReviewLink(models.Model):
         return [(s, n) for s in Section.objects.all() for n in range(1, s.groups + 1)]
 
 
-@receiver(post_delete, sender=NewsPhoto)
-def delete_news_photo_file(sender, instance, **kwargs):
-    if instance.image:
-        transaction.on_commit(lambda: instance.image.delete(save=False))
+@receiver(post_delete, sender=NewsPost)
+def delete_news_cover(sender, instance, **kwargs):
+    if instance.cover:
+        transaction.on_commit(lambda: instance.cover.delete(save=False))
+
+
+@receiver(post_delete, sender=NewsAttachment)
+def delete_news_attachment_file(sender, instance, **kwargs):
+    if instance.file:
+        transaction.on_commit(lambda: instance.file.delete(save=False))
 
 
 @receiver(post_delete, sender=Document)
