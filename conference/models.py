@@ -442,6 +442,23 @@ class NewsAttachment(models.Model):
         return size_display(self.file)
 
 
+class FaqItem(models.Model):
+    """Частый вопрос на главной странице."""
+
+    question = models.CharField("вопрос", max_length=300)
+    answer = models.TextField("ответ", help_text="Абзацы разделяйте пустой строкой. Адреса сайтов и почты станут ссылками.")
+    order = models.PositiveSmallIntegerField("порядок", default=0, help_text="Меньше — выше на странице.")
+    is_published = models.BooleanField("показывать на сайте", default=True)
+
+    class Meta:
+        verbose_name = "частый вопрос"
+        verbose_name_plural = "частые вопросы"
+        ordering = ["order", "pk"]
+
+    def __str__(self):
+        return self.question
+
+
 DOCUMENT_EXTENSIONS = ["pdf", "doc", "docx", "odt", "rtf", "xls", "xlsx", "ods", "ppt", "pptx", "zip", "jpg", "jpeg", "png"]
 
 

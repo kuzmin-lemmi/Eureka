@@ -2,5 +2,6 @@
   {% if perms.conference.change_conferencesettings %}<a href="{% url 'conference:office_settings' %}"{% if active == "settings" %} aria-current="page"{% endif %}>Конференция</a>{% endif %}
   {% if perms.conference.view_section %}<a href="{% url 'conference:office_site' 'sections' %}"{% if active == "sections" %} aria-current="page"{% endif %}>Направления</a>{% endif %}
   {% if perms.conference.view_newspost %}<a href="{% url 'conference:office_site' 'news' %}"{% if active == "news" %} aria-current="page"{% endif %}>Новости</a>{% endif %}
+  {% if perms.conference.view_faqitem %}<a href="{% url 'conference:office_site' 'faq' %}"{% if active == "faq" %} aria-current="page"{% endif %}>Вопросы</a>{% endif %}
   {% if perms.conference.view_document %}<a href="{% url 'conference:office_site' 'documents' %}"{% if active == "documents" %} aria-current="page"{% endif %}>Документы</a>{% endif %}
 </nav>

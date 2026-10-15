@@ -10,7 +10,7 @@ from django.utils import timezone
 from django.utils.html import format_html, format_html_join
 
 from .models import (
-    DOCUMENT_EXTENSIONS as PUBLIC_DOCUMENT_EXTENSIONS, GRADE_MAX, GRADE_MIN, ConferenceSettings, Document, NewsAttachment, NewsPost, Section, Submission,
+    DOCUMENT_EXTENSIONS as PUBLIC_DOCUMENT_EXTENSIONS, GRADE_MAX, GRADE_MIN, ConferenceSettings, Document, FaqItem, NewsAttachment, NewsPost, Section, Submission,
 )
 
 # Текст работы — только документы: без презентаций и видео.
@@ -267,6 +267,13 @@ class NewsPostForm(forms.ModelForm):
         for upload in self.cleaned_data.get("files") or []:
             NewsAttachment.objects.create(news=post, title=Path(upload.name).stem[:255], file=upload)
         return post
+
+
+class FaqItemForm(forms.ModelForm):
+    class Meta:
+        model = FaqItem
+        fields = ["question", "answer", "order", "is_published"]
+        widgets = {"answer": forms.Textarea(attrs={"rows": 6})}
 
 
 class DocumentForm(forms.ModelForm):

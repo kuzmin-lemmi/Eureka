@@ -20,6 +20,10 @@ ORGANIZERS_PERMISSIONS = [
     "add_document",
     "change_document",
     "delete_document",
+    "view_faqitem",
+    "add_faqitem",
+    "change_faqitem",
+    "delete_faqitem",
 ]
 
 

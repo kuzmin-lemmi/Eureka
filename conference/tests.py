@@ -12,7 +12,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .apps import ORGANIZERS_GROUP
-from .models import ConferenceSettings, Document, NewsPost, ReviewLink, Section, Submission
+from .models import ConferenceSettings, Document, FaqItem, NewsPost, ReviewLink, Section, Submission
 
 MEDIA_ROOT = tempfile.mkdtemp()
 
@@ -1029,11 +1029,32 @@ class OfficeTests(TestCase):
             self.client.post(reverse("conference:office_site_delete", args=["news", post.pk]))
         self.assertFalse(other.exists())  # документы удаляются вместе с новостью
 
+    def test_office_faq(self):
+        self.assertEqual(FaqItem.objects.count(), 7)  # исправленные вопросы из миграции
+        home = self.client.get(reverse("conference:home"))
+        self.assertContains(home, "Можно ли исправить или удалить заявку?")
+        self.assertContains(home, "СНИЛС соавтора")
+
+        self.client.force_login(self.organizer)
+        self.assertContains(self.client.get(reverse("conference:office_site", args=["faq"])), "Как понять, что работа дошла?")
+        self.client.post(reverse("conference:office_site_add", args=["faq"]), {
+            "question": "Где пройдёт конференция?", "answer": "В гимназии № 87.\n\nПодробности: https://example.ru", "order": "1",
+            "is_published": "on",
+        })
+        item = FaqItem.objects.get(question="Где пройдёт конференция?")
+        home = self.client.get(reverse("conference:home")).content.decode()
+        self.assertLess(home.index("Где пройдёт конференция?"), home.index("Можно ли подать работу вдвоём?"))  # порядок 1 — первым
+        self.assertIn('<a href="https://example.ru"', home)
+
+        self.client.post(reverse("conference:office_site_edit", args=["faq", item.pk]),
+                         {"question": item.question, "answer": item.answer, "order": "1"})  # снята галочка
+        self.assertNotContains(self.client.get(reverse("conference:home")), "Где пройдёт конференция?")
+
     def test_office_site_pages_require_permissions(self):
         viewer = User.objects.create_user("viewer", password="Pass-1234!", is_staff=True)
         viewer.user_permissions.add(Permission.objects.get(codename="view_submission"))
         self.client.force_login(viewer)
-        for kind in ("sections", "news", "documents"):
+        for kind in ("sections", "news", "faq", "documents"):
             self.assertEqual(self.client.get(reverse("conference:office_site", args=[kind])).status_code, 403)
         self.assertEqual(self.client.get(reverse("conference:office_site", args=["users"])).status_code, 404)
 

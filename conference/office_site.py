@@ -8,8 +8,8 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from .forms import DocumentForm, NewsPostForm, SectionForm
-from .models import Document, NewsPost, Section
+from .forms import DocumentForm, FaqItemForm, NewsPostForm, SectionForm
+from .models import Document, FaqItem, NewsPost, Section
 from .office import office_required
 
 
@@ -59,6 +59,20 @@ SITE = {
             ("Картинка", lambda n: _yes_no(n.cover)),
             ("Документы", lambda n: n.attachments.count() or "—"),
             ("Опубликована", lambda n: _yes_no(n.is_published)),
+        ],
+    },
+    "faq": {
+        "model": FaqItem,
+        "form": FaqItemForm,
+        "title": "Вопросы",
+        "add": "Добавить вопрос",
+        "new": "Новый вопрос",
+        "empty": "Вопросов пока нет.",
+        "lead": "Блок «Частые вопросы» на главной. Порядок: меньше — выше.",
+        "columns": [
+            ("Порядок", lambda q: q.order),
+            ("Вопрос", lambda q: q.question),
+            ("На сайте", lambda q: _yes_no(q.is_published)),
         ],
     },
     "documents": {

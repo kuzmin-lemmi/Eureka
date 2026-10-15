@@ -13,7 +13,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from .forms import REPEAT_FIELDS, LookupForm, SectionFull, SubmissionForm, duplicate_message
-from .models import ConferenceSettings, Document, NewsAttachment, NewsPost, Section, Submission
+from .models import ConferenceSettings, Document, FaqItem, NewsAttachment, NewsPost, Section, Submission
 
 THANKS_SESSION_KEY = "conference_thanks"
 FRESH_NEWS_DAYS = 7
@@ -73,6 +73,7 @@ def home(request):
         # Свежая новость (до FRESH_NEWS_DAYS дней) дублируется плашкой под первым экраном.
         "fresh_news": news[0] if news and news[0].published_at >= timezone.now() - timedelta(days=FRESH_NEWS_DAYS) else None,
         "documents": Document.objects.filter(is_published=True),
+        "faq": FaqItem.objects.filter(is_published=True),
         "blanks": _blank_items(ConferenceSettings.load()),
     }
     return render(request, "conference/home.html", context)

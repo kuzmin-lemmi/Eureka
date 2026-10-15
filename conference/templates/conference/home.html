@@ -154,28 +154,18 @@
 <section class="section">
   <div class="container container--narrow">
     <h2><span class="hand">Частые</span> вопросы</h2>
-    <div class="faq">
-      <details class="card">
-        <summary>Можно ли подать работу вдвоём?</summary>
-        <p>Да. В анкете есть необязательный блок «Соавтор»: укажите его фамилию, имя и класс.</p>
-      </details>
-      <details class="card">
-        <summary>Где взять бланки заявки и согласия?</summary>
-        <p>{% if conf.application_links or conf.consent_links %}Ссылки на бланки есть в блоке «Что подготовить» и прямо в анкете рядом с полями загрузки.{% else %}Бланки появятся на этой странице и в анкете. По вопросам о документах напишите в оргкомитет.{% endif %}</p>
-      </details>
-      <details class="card">
-        <summary>Учитель подаёт несколько работ — заполнять всё заново?</summary>
-        <p>Нет. После отправки нажмите «Подать ещё одну работу»: школа и данные руководителя подставятся автоматически.</p>
-      </details>
-      <details class="card">
-        <summary>Можно ли прислать презентацию или видео?</summary>
-        <p>Нет, принимается только текст работы: PDF, DOC, DOCX, ODT или RTF размером до {{ max_upload_mb }} МБ.</p>
-      </details>
-      <details class="card">
-        <summary>Как понять, что работа дошла?</summary>
-        <p>После отправки анкеты сайт покажет номер заявки, например № 0001. Сохраните его — он понадобится при обращении в оргкомитет.</p>
-      </details>
-    </div>
+    {% if faq %}
+      <div class="faq">
+        {% for item in faq %}
+          <details class="card">
+            <summary>{{ item.question }}</summary>
+            <div class="faq__answer">{{ item.answer|urlize|linebreaks }}</div>
+          </details>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="card empty">Вопросов пока нет. Если что-то непонятно — напишите в оргкомитет.</div>
+    {% endif %}
   </div>
 </section>
 

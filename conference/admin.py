@@ -11,7 +11,7 @@ from django.utils.html import format_html
 
 from . import exports
 
-from .models import ConferenceSettings, Document, NewsPost, ReviewLink, Section, Submission
+from .models import ConferenceSettings, Document, FaqItem, NewsPost, ReviewLink, Section, Submission
 
 
 @admin.register(ConferenceSettings)
@@ -278,3 +278,9 @@ class ReviewLinkAdmin(admin.ModelAdmin):
     @admin.display(description="что открывает")
     def scope_label(self, obj):
         return obj.scope_label
+
+
+@admin.register(FaqItem)
+class FaqItemAdmin(admin.ModelAdmin):
+    list_display = ("question", "order", "is_published")
+    list_editable = ("order", "is_published")
