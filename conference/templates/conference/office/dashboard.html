@@ -52,16 +52,12 @@
           <p class="stage__text"><b>Допущено: {{ admission.admitted }}</b> · не допущено: {{ admission.not_admitted }} · не решено: {{ admission.pending }}</p>
         {% elif stage.slug == "winners" %}
           <p class="stage__text"><b>Отмечено работ: {{ awarded }}</b></p>
+        {% elif stage.slug == "places" %}
+          <p class="stage__text"><b>Работ с местом: {{ places }}</b>. В файле СНИЛС детей — не пересылайте его открыто.</p>
         {% endif %}
         <div class="stage__btns">
           {% for link in stage.links %}<a class="btn btn--sm {{ link.css }}" href="{{ link.url }}">{{ link.icon }} {{ link.label }}</a>{% endfor %}
         </div>
-      </div>
-    {% endfor %}
-    {% for n in "4" %}
-      <div class="stage stage--empty">
-        <h2 class="stage__title"><span class="stage__num">{{ n }}</span> Этап {{ n }}</h2>
-        <p class="stage__text">Выгрузки появятся позже.</p>
       </div>
     {% endfor %}
   </div>

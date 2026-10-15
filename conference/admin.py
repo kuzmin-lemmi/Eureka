@@ -87,7 +87,6 @@ class SubmissionAdmin(admin.ModelAdmin):
             }
             for p in export_tables.PRESETS.values()
         ]
-        stages.append({"title": "Этап 4", "text": "Состав выгрузок будет определён.", "files": []})
         context = {
             **self.admin_site.each_context(request),
             "title": "Выгрузки",

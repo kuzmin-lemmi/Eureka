@@ -18,7 +18,7 @@ from openpyxl.styles import Alignment
 from openpyxl.utils import get_column_letter
 
 from .exports import BOLD, FONT_DIR, HEADER_FILL, TITLE_FONT, _save, all_groups, group_submissions
-from .models import AWARD_ORDER, ConferenceSettings, Submission
+from .models import AWARD_ORDER, PLACES, ConferenceSettings, Submission
 
 PAGE_CM = 26.7  # ширина альбомной страницы A4 за вычетом полей
 FORMATS = {"word": "Word", "excel": "Excel", "pdf": "PDF"}
@@ -53,6 +53,7 @@ FIELDS = {
     "contact": ("Дата подачи, e-mail", 28, lambda s: f"{timezone.localtime(s.created_at):%d.%m.%Y}\n{s.email}"),
     "admission": ("Допуск ко 2 этапу", 16, lambda s: s.get_admission_display()),
     "award": ("Итог", 26, lambda s: s.get_award_display() if s.award else ""),
+    "snils": ("СНИЛС", 18, lambda s: s.snils),  # только для этапа 4; в «своей выгрузке» не предлагается
 }
 # Поля, которые можно отметить в форме «своей выгрузки», и что отмечено сразу.
 CUSTOM_FIELD_ORDER = [
@@ -72,6 +73,7 @@ class Spec:
     per_student: bool = False  # строка на ученика (соавтор отдельной строкой), иначе на работу
     sort: str = "order"  # order — как в кабинете, alpha — секции по алфавиту, award — по алфавиту и местам
     only_awarded: bool = False
+    awards: tuple | None = None  # только эти итоги (места/номинации); None — без отбора
     title: str = ""
     subtitle: str = ""
     count_label: str = ""  # «Учеников» — в Word под заголовком выводится «Учеников: N»
@@ -90,6 +92,7 @@ def select_submissions(spec):
         works += [
             s for s in group_submissions(section, number)
             if s.admission in spec.admissions and (s.award or not spec.only_awarded)
+            and (spec.awards is None or s.award in spec.awards)
         ]
     if spec.sort == "award":
         works.sort(key=lambda s: (s.section_label.casefold(), AWARD_ORDER.index(s.award), s.last_name, s.pk))
@@ -99,10 +102,10 @@ def select_submissions(spec):
 def build_rows(spec, works):
     rows = []
     for s in works:
-        people = [(s.full_name, s.grade)]
+        people = [(s.full_name, s.grade, s.snils)]
         if spec.per_student and s.coauthor_last_name:
-            people.append((f"{s.coauthor_last_name} {s.coauthor_first_name}", s.coauthor_grade))
-        for name, grade in people:
+            people.append((f"{s.coauthor_last_name} {s.coauthor_first_name}", s.coauthor_grade, s.coauthor_snils))
+        for name, grade, snils in people:
             row = []
             for key in spec.fields:
                 get = FIELDS[key][2]
@@ -112,6 +115,8 @@ def build_rows(spec, works):
                     row.append(name)
                 elif key == "grade":
                     row.append(grade)
+                elif key == "snils":
+                    row.append(snils)
                 elif key == "coauthor" and spec.per_student:
                     row.append("")  # соавтор и так отдельной строкой
                 else:
@@ -180,6 +185,16 @@ def winners_spec():
     )
 
 
+def places_spec():
+    # Этап 4: только места 1–3, каждый ученик отдельной строкой — со своим СНИЛС (для наградных документов).
+    return Spec(
+        fields=["number", "name", "title", "section", "school", "award", "snils"],
+        per_student=True, sort="award", awards=tuple(value for value, _ in PLACES),
+        title=winners_title(), sheet="Призёры", labels={"number": "№", "school": "ОУ", "award": "Статус"},
+        cm_widths=[1, 4, 5.5, 4, 6.5, 2.5, 3.2],
+    )
+
+
 @dataclass(frozen=True)
 class Preset:
     slug: str
@@ -207,6 +222,11 @@ PRESETS = {
             "winners", 3, "Победители и призёры",
             "Места 1–3 и номинации по итогам конференции. Ставят на странице секции в столбце «Итог».",
             "победители и призёры", winners_spec,
+        ),
+        Preset(
+            "places", 4, "Призёры 1–3 места со СНИЛС",
+            "Только дети, занявшие 1, 2 и 3 места (без номинаций): каждый отдельной строкой, с его СНИЛС.",
+            "призёры 1-3 места со СНИЛС", places_spec,
         ),
     )
 }

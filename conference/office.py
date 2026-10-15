@@ -21,7 +21,7 @@ from django.views.decorators.http import require_POST
 from . import export_tables, exports
 from .forms import SETTINGS_BLANK_KINDS, SETTINGS_FIELDSETS, ConferenceSettingsForm
 from .audit import log_action
-from .models import AWARD_CHOICES, AWARD_ORDER, ActionLog, ConferenceSettings, ReviewLink, Section, Submission
+from .models import AWARD_CHOICES, AWARD_ORDER, PLACES, ActionLog, ConferenceSettings, ReviewLink, Section, Submission
 
 LOGIN_LIMIT = 10
 LOGIN_WINDOW = 15 * 60
@@ -171,6 +171,7 @@ def dashboard(request):
     context = {
         "admission": _admission_counts(Submission.objects.values_list("admission", flat=True)),
         "awarded": Submission.objects.exclude(award="").count(),
+        "places": Submission.objects.filter(award__in=[v for v, _ in PLACES]).count(),
         "can_switch_intake": request.user.has_perm("conference.change_conferencesettings"),
         "directions": directions,
         "stages": _stages(),

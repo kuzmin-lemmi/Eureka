@@ -880,6 +880,32 @@ class OfficeTests(TestCase):
         pdf = self.client.get(reverse("conference:office_winners_pdf"))
         self.assertTrue(pdf.getvalue().startswith(b"%PDF"))
 
+    def test_places_export_has_children_with_snils_and_only_places(self):
+        from docx import Document
+        from openpyxl import load_workbook
+
+        Submission.objects.filter(last_name="Фамилия0").update(admission="admitted", award="social")  # номинация — не берём
+        Submission.objects.filter(last_name="Фамилия1").update(
+            admission="admitted", award="place2", coauthor_last_name="Соавторова", coauthor_first_name="Ира",
+            coauthor_grade=9, coauthor_snils="112-233-445 95",
+        )
+        Submission.objects.filter(last_name="Фамилия2").update(admission="admitted", award="place1")
+        self.client.force_login(self.organizer)
+        self.assertContains(self.client.get(reverse("conference:office")), "Работ с местом: 2")
+
+        response = self.client.get(reverse("conference:office_places_excel"))
+        rows = list(load_workbook(BytesIO(response.getvalue())).active.values)
+        self.assertEqual(rows[2], ("№", "ФИО", "Название работы", "Секция", "ОУ", "Статус", "СНИЛС"))
+        data = rows[3:]
+        self.assertEqual([(r[1], r[5]) for r in data], [
+            ("Фамилия1 Имя", "2 место"), ("Соавторова Ира", "2 место"), ("Фамилия2 Имя", "1 место"),
+        ])
+        self.assertEqual(data[1][6], "112-233-445 95")  # СНИЛС соавтора, а не основного автора
+        self.assertTrue(all(r[6] for r in data))
+
+        self.assertEqual(len(Document(BytesIO(self.client.get(reverse("conference:office_places_word")).getvalue())).tables[0].rows), 1 + 3)
+        self.assertTrue(self.client.get(reverse("conference:office_places_pdf")).getvalue().startswith(b"%PDF"))
+
     def test_settings_page_saves_fields_and_replaces_blank(self):
         self.client.force_login(self.organizer)
         url = reverse("conference:office_settings")
