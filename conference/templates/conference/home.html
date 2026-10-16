@@ -137,7 +137,11 @@
     <h2><span class="hand">Секции</span> конференции</h2>
     <ol class="rows">
       {% for section in sections %}
-        <li><b class="rows__num">{{ forloop.counter }}</b><div>{{ section.name }}{% if section.description %}<small>{{ section.description }}</small>{% endif %}<small class="rows__meta">{% if section.groups > 1 %}Секций: {{ section.groups }} · {% endif %}{% if section.free_total %}свободно мест: {{ section.free_total }}{% else %}мест нет{% endif %}</small></div></li>
+        <li>{% if conf.is_submission_open and section.free_total %}<a class="rows__link" href="{% url 'conference:submit' %}?section={{ section.pk }}">{% endif %}
+          <b class="rows__num">{{ forloop.counter }}</b>
+          <div>{{ section.name }}{% if section.description %}<small>{{ section.description }}</small>{% endif %}<small class="rows__meta">{% if section.groups > 1 %}Секций: {{ section.groups }} · {% endif %}{% if section.free_total %}свободно мест: {{ section.free_total }}{% else %}мест нет{% endif %}</small>
+            {% if conf.is_submission_open and section.free_total %}<span class="rows__go">Подать работу в эту секцию →</span>{% endif %}</div>
+        {% if conf.is_submission_open and section.free_total %}</a>{% endif %}</li>
       {% endfor %}
     </ol>
   </div>

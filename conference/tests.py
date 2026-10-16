@@ -372,6 +372,35 @@ class PagesTests(TestCase):
 
 
 @override_settings(MEDIA_ROOT=MEDIA_ROOT)
+class SectionCardTests(TestCase):
+    """Карточка направления на главной ведёт в анкету с уже выбранной секцией."""
+
+    def setUp(self):
+        self.section = Section.objects.create(name="Краеведение", groups=2, capacity=1)
+
+    def make_submission(self, **fields):
+        return Submission.objects.create(
+            section=self.section, last_name="Иванов", first_name="Иван", grade=9, email="i@example.ru",
+            snils=make_snils(500000000 + Submission.objects.count()), school="Школа", district="Район", title="Работа",
+            supervisor_last_name="Петрова", supervisor_first_name="Анна", supervisor_position="учитель",
+            supervisor_phone="+79001234567", file="x.docx", **fields,
+        )
+
+    def test_section_card_opens_form_with_section_selected(self):
+        home = reverse("conference:home")
+        url = f"{reverse('conference:submit')}?section={self.section.pk}"
+        self.assertContains(self.client.get(home), url)
+        self.assertEqual(self.client.get(url).context["form"]["section_slot"].value(), f"{self.section.pk}:1")
+        # Первая секция направления заполнена — выбирается следующая по очереди.
+        self.make_submission()
+        self.assertEqual(self.client.get(url).context["form"]["section_slot"].value(), f"{self.section.pk}:2")
+        # Мест нет совсем — карточка не ссылка, секция не выбрана.
+        self.make_submission(section_number=2)
+        self.assertNotContains(self.client.get(home), url)
+        self.assertFalse(self.client.get(url).context["form"]["section_slot"].value())
+
+
+@override_settings(MEDIA_ROOT=MEDIA_ROOT)
 class NewsAndDocumentsTests(TestCase):
     def home(self):
         return self.client.get(reverse("conference:home"))

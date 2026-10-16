@@ -6,3 +6,7 @@ data/
 staticfiles/
 .idea/
 .vscode/
+
+# Картинки для владельца (аватарки, скриншоты) — не часть сайта
+design/max-avatar/
+design/preview/

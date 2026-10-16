@@ -193,6 +193,10 @@ p { text-wrap: pretty; }
 
 .rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 18px; margin: 8px 0 0; padding: 0; list-style: none; }
 .rows li { display: flex; gap: 14px; align-items: flex-start; padding: 14px 18px; background: #fff; border: var(--border); border-radius: 14px; box-shadow: 3px 3px 0 var(--ink); font-weight: 800; }
+.rows li:has(> .rows__link) { padding: 0; }
+.rows__link { display: flex; flex: 1; gap: 14px; align-items: flex-start; padding: 14px 18px; border-radius: 12px; color: var(--ink); text-decoration: none; }
+.rows__link:hover { background: var(--tint-yellow); color: var(--ink); }
+.rows__go { display: block; margin-top: 4px; color: var(--blue); font-size: .9rem; font-weight: 800; }
 .rows li:nth-child(4n+1) .rows__num { background: var(--tint-yellow); }
 .rows li:nth-child(4n+2) .rows__num { background: var(--tint-blue); }
 .rows li:nth-child(4n+3) .rows__num { background: var(--tint-coral); }

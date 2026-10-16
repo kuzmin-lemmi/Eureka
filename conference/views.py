@@ -87,6 +87,12 @@ def submit(request):
     # «Подать ещё одну работу»: школа и руководитель подставляются из прошлой заявки.
     initial = request.session.get(REPEAT_SESSION_KEY, {}) if "more" in request.GET else {}
     form = SubmissionForm(request.POST or None, request.FILES or None, initial=initial)
+    # Переход из карточки секции на главной: секция уже выбрана, если в ней есть места.
+    if request.method == "GET" and request.GET.get("section", "").isdigit():
+        section_id = int(request.GET["section"])
+        for value, (free, section, _number) in form.slots.items():
+            if section.pk == section_id and free:
+                form.initial["section_slot"] = value
     if request.method == "POST" and form.is_valid():
         if form.is_spam:
             return redirect("conference:thanks")
